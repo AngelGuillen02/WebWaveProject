@@ -1,0 +1,6 @@
+@SistemaVisionTech_HostAddress = http://localhost:5008
+
+GET {{SistemaVisionTech_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
