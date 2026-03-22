@@ -6,7 +6,7 @@ namespace SistemaVisionTech.Infrastructure.Maps
 {
     public class UsuariosMap : IEntityTypeConfiguration<Usuarios>
     {
-        public void Configure (EntityTypeBuilder<Usuarios> builder)
+        public void Configure(EntityTypeBuilder<Usuarios> builder)
         {
             builder.ToTable("Usuarios", "dbo");
 

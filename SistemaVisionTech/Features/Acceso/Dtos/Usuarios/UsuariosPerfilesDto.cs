@@ -1,6 +1,6 @@
-﻿namespace SistemaVisionTech.Features.Acceso.Dtos
+namespace SistemaVisionTech.Features.Acceso.Dtos
 {
-    public class UsuariosPerfiles
+    public class UsuariosPerfilesDto
     {
         public int IdUsuariosPerfiles { get; set; }
         public int UsuarioId { get; set; }

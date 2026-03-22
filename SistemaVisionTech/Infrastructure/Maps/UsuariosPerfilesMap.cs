@@ -6,7 +6,7 @@ namespace SistemaVisionTech.Infrastructure.Maps
 {
     public class UsuariosPerfilesMap : IEntityTypeConfiguration<UsuariosPerfiles>
     {
-        public void Configure(EntityTypeBuilder <UsuariosPerfiles> builder1)
+        public void Configure(EntityTypeBuilder<UsuariosPerfiles> builder1)
         {
             builder1.ToTable("UsuariosPerfiles", "dbo");
             builder1.HasKey(x => x.IdUsuariosPerfiles);
