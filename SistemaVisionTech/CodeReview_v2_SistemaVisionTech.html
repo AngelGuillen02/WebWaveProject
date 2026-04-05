@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Code Review v2 — SistemaVisionTech API</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap');
+  :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#222638;--border:#2e3250;--accent:#6c63ff;--accent2:#00d4aa;--accent3:#ff6b6b;--warn:#ffb347;--text:#e2e8f0;--muted:#8892a4;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;line-height:1.6;padding:2rem;}
+  a{color:var(--accent);}
+  h1{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,#6c63ff,#00d4aa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  h2{font-size:1.3rem;font-weight:700;margin-bottom:1rem;color:#c7d2fe;}
+  h3{font-size:1rem;font-weight:600;margin-bottom:.5rem;}
+  .meta{color:var(--muted);font-size:.85rem;margin-top:.3rem;}
+  .header{border-bottom:1px solid var(--border);padding-bottom:1.5rem;margin-bottom:2rem;}
+  .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .6rem;border-radius:999px;font-size:.75rem;font-weight:600;}
+  .badge-alto{background:#ef444420;color:#ef4444;border:1px solid #ef444440;}
+  .badge-medio{background:#f59e0b20;color:#f59e0b;border:1px solid #f59e0b40;}
+  .badge-bajo{background:#3b82f620;color:#3b82f6;border:1px solid #3b82f640;}
+  .badge-ok{background:#22c55e20;color:#22c55e;border:1px solid #22c55e40;}
+  .badge-new{background:#6c63ff20;color:#a78bfa;border:1px solid #6c63ff40;}
+
+  /* Dashboard */
+  .dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2.5rem;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem;text-align:center;transition:transform .2s;}
+  .stat:hover{transform:translateY(-2px);}
+  .stat-num{font-size:2.4rem;font-weight:800;}
+  .stat-label{font-size:.8rem;color:var(--muted);margin-top:.2rem;}
+  .num-green{color:var(--green);}
+  .num-red{color:var(--red);}
+  .num-yellow{color:var(--yellow);}
+  .num-blue{color:var(--blue);}
+  .num-purple{color:#a78bfa;}
+
+  /* Score */
+  .score-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;margin-bottom:2rem;display:flex;align-items:center;gap:2rem;}
+  .score-circle{width:100px;height:100px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:conic-gradient(#00d4aa 0% 68%,#2e3250 68% 100%);font-size:1.8rem;font-weight:800;color:#fff;flex-shrink:0;}
+  .score-circle span{font-size:.7rem;color:var(--muted);font-weight:400;}
+  .score-labels{flex:1;}
+  .score-row{display:flex;justify-content:space-between;align-items:center;margin:.3rem 0;}
+  .score-bar-inner{height:8px;border-radius:4px;background:var(--border);flex:1;margin:0 .8rem;}
+  .score-fill{height:100%;border-radius:4px;}
+
+  /* Sections */
+  .section{margin-bottom:2.5rem;}
+  .section-title{display:flex;align-items:center;gap:.6rem;font-size:1.1rem;font-weight:700;padding:.6rem 1rem;border-radius:10px;margin-bottom:1rem;}
+  .sec-green{background:#22c55e15;border-left:4px solid #22c55e;color:#22c55e;}
+  .sec-yellow{background:#f59e0b15;border-left:4px solid #f59e0b;color:#f59e0b;}
+  .sec-blue{background:#3b82f615;border-left:4px solid #3b82f6;color:#3b82f6;}
+
+  /* Cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem;transition:border-color .2s,transform .2s;}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem;}
+  .card-title{font-weight:600;font-size:.95rem;}
+  .card-body{font-size:.85rem;color:var(--muted);line-height:1.6;}
+
+  /* Before/after */
+  .diff{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:.8rem;}
+  .diff-box{border-radius:8px;padding:.8rem;font-family:'Fira Code',monospace;font-size:.78rem;line-height:1.5;}
+  .diff-before{background:#ef444410;border:1px solid #ef444430;color:#fca5a5;}
+  .diff-after{background:#22c55e10;border:1px solid #22c55e30;color:#86efac;}
+  .diff-label{font-size:.7rem;font-weight:700;margin-bottom:.4rem;font-family:'Inter',sans-serif;}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;font-size:.85rem;}
+  th{background:var(--surface2);padding:.7rem 1rem;text-align:left;color:var(--muted);font-weight:600;font-size:.8rem;}
+  td{padding:.7rem 1rem;border-bottom:1px solid var(--border);}
+  tr:hover td{background:var(--surface2);}
+
+  /* Tabs */
+  .tab-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:2rem;}
+  .tab-section table{margin:0;}
+  .tab-section th:first-child,.tab-section td:first-child{border-left:none;}
+
+  code{font-family:'Fira Code',monospace;background:var(--surface2);padding:.1rem .4rem;border-radius:4px;font-size:.82rem;color:#c7d2fe;}
+
+  .icon{font-size:1.1rem;}
+  .highlight{color:var(--accent2);font-weight:600;}
+  hr{border:none;border-top:1px solid var(--border);margin:2rem 0;}
+  .note{background:#6c63ff15;border:1px solid #6c63ff30;border-radius:10px;padding:1rem;font-size:.85rem;color:#c4b5fd;margin-top:1rem;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>🔍 Code Review v2 — SistemaVisionTech API</h1>
+  <p class="meta">Fecha: 29 de Marzo de 2026 &nbsp;|&nbsp; .NET 10 / EF Core / SQL Server &nbsp;|&nbsp; Revisión Post-Refactorización</p>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard">
+  <div class="stat"><div class="stat-num num-green">9</div><div class="stat-label">✅ Mejoras Confirmadas</div></div>
+  <div class="stat"><div class="stat-num num-yellow">8</div><div class="stat-label">⚠️ Pendientes</div></div>
+  <div class="stat"><div class="stat-num num-blue">6</div><div class="stat-label">🚀 Nuevas Oportunidades</div></div>
+  <div class="stat"><div class="stat-num num-red">3</div><div class="stat-label">🔴 Críticos Pendientes</div></div>
+  <div class="stat"><div class="stat-num num-purple">4</div><div class="stat-label">📁 Módulos Feature</div></div>
+  <div class="stat"><div class="stat-num num-green">~1600</div><div class="stat-label">Líneas de Servicios</div></div>
+</div>
+
+<!-- SCORE -->
+<div class="score-bar">
+  <div class="score-circle">68%<span>calidad</span></div>
+  <div class="score-labels" style="width:100%">
+    <div class="score-row">
+      <span style="font-size:.85rem;width:160px">Arquitectura</span>
+      <div class="score-bar-inner"><div class="score-fill" style="width:70%;background:linear-gradient(90deg,#6c63ff,#00d4aa)"></div></div>
+      <span style="font-size:.85rem;color:var(--accent2)">70%</span>
+    </div>
+    <div class="score-row">
+      <span style="font-size:.85rem;width:160px">Clean Code</span>
+      <div class="score-bar-inner"><div class="score-fill" style="width:65%;background:linear-gradient(90deg,#6c63ff,#00d4aa)"></div></div>
+      <span style="font-size:.85rem;color:var(--accent2)">65%</span>
+    </div>
+    <div class="score-row">
+      <span style="font-size:.85rem;width:160px">Manejo de Errores</span>
+      <div class="score-bar-inner"><div class="score-fill" style="width:80%;background:linear-gradient(90deg,#22c55e,#00d4aa)"></div></div>
+      <span style="font-size:.85rem;color:var(--green)">80%</span>
+    </div>
+    <div class="score-row">
+      <span style="font-size:.85rem;width:160px">Seguridad</span>
+      <div class="score-bar-inner"><div class="score-fill" style="width:20%;background:linear-gradient(90deg,#ef4444,#f59e0b)"></div></div>
+      <span style="font-size:.85rem;color:var(--red)">20%</span>
+    </div>
+    <div class="score-row">
+      <span style="font-size:.85rem;width:160px">EF Core / Performance</span>
+      <div class="score-bar-inner"><div class="score-fill" style="width:62%;background:linear-gradient(90deg,#f59e0b,#ffb347)"></div></div>
+      <span style="font-size:.85rem;color:var(--yellow)">62%</span>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 1: CORRECT -->
+<div class="section">
+  <div class="section-title sec-green"><span class="icon">✅</span> Mejoras Implementadas Correctamente</div>
+  <div class="cards">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Result&lt;T&gt; Pattern — Implementado</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body">
+        <code>Common/Result.cs</code> implementa correctamente las variantes genérica y no-genérica. Todos los servicios devuelven <code>Result&lt;T&gt;</code> sin lanzar excepciones como flujo de control. Los HTTP codes (200/201/400/404/409) se mapean consistentemente a través de helpers.<br><br>
+        <div class="diff">
+          <div class="diff-box diff-before"><div class="diff-label">❌ ANTES</div>throw new Exception("No encontrado");<br>// Controllers atrapaban Exception</div>
+          <div class="diff-box diff-after"><div class="diff-label">✅ DESPUÉS</div>return Result&lt;T&gt;.Fail("No encontrado");<br>// Controllers llaman HandleResult()</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Thin Controllers</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body">Los 4 controladores son delgados y no contienen lógica de negocio. Solo orquestan llamadas al servicio y delegan el mapeo HTTP al helper <code>HandleResult</code>. Promedio &lt;100 líneas por controlador (excluyendo AccesoController que tiene 273 por la cantidad de entidades).</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">AsNoTracking() en Queries de Lectura</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body">Todos los métodos <code>Obtener*Async()</code> usan <code>.AsNoTracking()</code> correctamente, evitando overhead de seguimiento de entidades para operaciones de solo lectura. Excelente práctica de EF Core.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">ApplyConfigurationsFromAssembly</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body">El <code>WebWaveDbContext</code> usa <code>modelBuilder.ApplyConfigurationsFromAssembly(...)</code> en lugar de configurar cada entidad manualmente. Los 21 mapas de Fluent API están organizados en <code>Infrastructure/Maps/</code> siguiendo el patrón <code>IEntityTypeConfiguration&lt;T&gt;</code>.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">BCrypt para contraseñas</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body"><code>AccesosService</code> usa <code>BCryptNet.HashPassword()</code> (paquete BCrypt.Net-Next 4.1.0) para hashear contraseñas. Las contraseñas nunca se almacenan en texto plano. Alias importado limpiamente como <code>BCryptNet = BCrypt.Net.BCrypt</code>.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Entidades con Nullable fijo</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body">Las entidades como <code>Usuarios</code> ya inicializan referencias: <code>= string.Empty</code> para strings y <code>= []</code> para colecciones. Esto elimina los warnings CS8618 que existían antes y es coherente con <code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> en el .csproj.
+        <div class="diff">
+          <div class="diff-box diff-before"><div class="diff-label">❌ ANTES</div>public string Nombre { get; set; }<br>// CS8618 warning</div>
+          <div class="diff-box diff-after"><div class="diff-label">✅ DESPUÉS</div>public string Nombre { get; set; } = string.Empty;<br>public ICollection&lt;X&gt; Items { get; set; } = [];</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Validación de duplicados uniforme</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body">Los servicios validan duplicados antes de insertar/actualizar con <code>.AnyAsync()</code>. La comparación es case-insensitive con <code>StringComparison.CurrentCultureIgnoreCase</code> y los updates excluyen el ID del propio registro para no generar falsos positivos.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">TipoMovimientoEnum en InventarioService</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body"><code>InventarioService</code> usa correctamente el enum <code>TipoMovimientoEnum</code> para controlar la lógica de switch, valida con <code>Enum.IsDefined()</code> y guarda en BD via <code>.ToString()</code>. Evita magic strings en el servicio de inventario directo.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Validación de stock batch antes de escritura</div>
+        <span class="badge badge-ok">Correcto</span>
+      </div>
+      <div class="card-body">En <code>CrearVentaAsync</code>, el servicio valida el stock de <strong>todos</strong> los productos antes de crear ningún registro. Los inventarios se cargan en una sola query (<code>WHERE ProductoId IN (...)</code>), evitando N+1 queries durante la validación previa.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 2: PENDING -->
+<div class="section">
+  <div class="section-title sec-yellow"><span class="icon">⚠️</span> Problemas Pendientes</div>
+  <div class="tab-section">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Hallazgo</th><th>Archivo(s)</th><th>Criticidad</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>P-01</strong></td>
+          <td>
+            <strong>Sin JWT / Sin Autenticación</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">Todos los endpoints son públicos. No hay middleware de autenticación en <code>Program.cs</code> (<code>app.UseAuthentication()</code> no existe). Cualquier cliente puede crear ventas, eliminar usuarios o anular compras.</span>
+          </td>
+          <td><code>Program.cs</code></td>
+          <td><span class="badge badge-alto">🔴 Alto</span></td>
+        </tr>
+        <tr>
+          <td><strong>P-02</strong></td>
+          <td>
+            <strong>Sin transacciones en operaciones compuestas</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">En <code>CrearVentaAsync</code> y <code>RecibirCompraAsync</code> se modifica inventario + se inserta historial + se crea/actualiza la entidad principal sin <code>IDbContextTransaction</code>. Si <code>SaveChangesAsync()</code> falla a mitad, el estado queda inconsistente.</span>
+          </td>
+          <td><code>VentasService.cs</code>, <code>ComprasService.cs</code></td>
+          <td><span class="badge badge-alto">🔴 Alto</span></td>
+        </tr>
+        <tr>
+          <td><strong>P-03</strong></td>
+          <td>
+            <strong>Magic strings "SALIDA"/"ENTRADA" en VentasService y ComprasService</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">A pesar de existir <code>TipoMovimientoEnum</code> con valores ENTRADA/SALIDA/AJUSTE, los servicios de Ventas y Compras insertan el historial de movimientos como cadenas literales: <code>TipoMovimiento = "SALIDA"</code>. Si el enum cambia, habrá inconsistencia silenciosa en BD.</span>
+          </td>
+          <td><code>VentasService.cs</code> L165,233<br><code>ComprasService.cs</code> L176,237</td>
+          <td><span class="badge badge-alto">🔴 Alto</span></td>
+        </tr>
+        <tr>
+          <td><strong>P-04</strong></td>
+          <td>
+            <strong>AccesosService — God Class (~660 líneas, 5 responsabilidades)</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">Un solo servicio gestiona Usuarios, Perfiles, Permisos, Empresas y Sucursales. Viola SRP e ISP. La interfaz <code>IAccesosService</code> tiene 21 métodos.</span>
+          </td>
+          <td><code>AccesosService.cs</code>, <code>IAccesosService.cs</code></td>
+          <td><span class="badge badge-medio">🟡 Medio</span></td>
+        </tr>
+        <tr>
+          <td><strong>P-05</strong></td>
+          <td>
+            <strong>HandleResult&lt;T&gt; duplicado en los 4 controladores</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">El método <code>private IActionResult HandleResult&lt;T&gt;(Result&lt;T&gt; result)</code> se copia 1:1 en <code>AccesoController</code>, <code>ComprasController</code>, <code>InventarioController</code> y <code>VentasController</code>. Viola DRY. Si cambia la lógica, se debe editar en 4 lugares.</span>
+          </td>
+          <td>Todos los Controllers</td>
+          <td><span class="badge badge-medio">🟡 Medio</span></td>
+        </tr>
+        <tr>
+          <td><strong>P-06</strong></td>
+          <td>
+            <strong>SaveChangesAsync dentro de loop en RecibirCompraAsync</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">En <code>RecibirCompraAsync</code> (línea ~166), cuando el inventario del producto no existe se hace <code>_context.Inventario.Add(inv); await _context.SaveChangesAsync();</code> <strong>dentro del foreach</strong>. Esto emite un INSERT por cada producto nuevo en transacciones separadas, en lugar de un solo batch.</span>
+          </td>
+          <td><code>ComprasService.cs</code> L152-179</td>
+          <td><span class="badge badge-medio">🟡 Medio</span></td>
+        </tr>
+        <tr>
+          <td><strong>P-07</strong></td>
+          <td>
+            <strong>Extra round-trip a BD después de SaveChanges en RegistrarPago</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">En ambos <code>RegistrarPagoAsync</code> (Ventas y Compras), después de guardar el pago se hace una segunda query para obtener el nombre del método de pago (<code>FirstAsync()</code>). Este dato ya estaba disponible en la query de validación previa.</span>
+          </td>
+          <td><code>VentasService.cs</code> L293-296<br><code>ComprasService.cs</code> L295-298</td>
+          <td><span class="badge badge-bajo">🔵 Bajo</span></td>
+        </tr>
+        <tr>
+          <td><strong>P-08</strong></td>
+          <td>
+            <strong>DateTime.Now en lugar de DateTime.UtcNow / Entidades con new DateTime()</strong><br>
+            <span style="font-size:.82rem;color:var(--muted)">Todos los servicios usan <code>DateTime.Now</code> (hora local del servidor). En entornos cloud o multi-zona horaria esto genera inconsistencias. La entidad <code>Compras.cs</code> inicializa <code>FechaCompra = new DateTime()</code> que es <code>DateTime.MinValue</code> (año 0001), no la fecha actual.</span>
+          </td>
+          <td>Todos los servicios, <code>Compras.cs</code></td>
+          <td><span class="badge badge-bajo">🔵 Bajo</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SECTION 3: NEW OPPORTUNITIES -->
+<div class="section">
+  <div class="section-title sec-blue"><span class="icon">🚀</span> Nuevas Oportunidades de Mejora</div>
+  <div class="cards">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">AutoMapper instalado pero no usado</div>
+        <span class="badge badge-nuevo">🚀 Nuevo</span>
+      </div>
+      <div class="card-body">
+        <code>AutoMapper 16.1.1</code> está declarado en el <code>.csproj</code> pero no se usa en ningún archivo. El mapeo se hace manualmente en cada servicio (métodos <code>MapearCompraResponse</code>, <code>MapearVentaResponse</code> y múltiples constructores inline). Es una dependencia deadweight que consume memoria sin beneficio.
+        <br><br><span style="color:var(--warn)">Decisión requerida:</span> o se elimina el paquete, o se implementan los <code>Profile</code> de AutoMapper y se reemplaza el mapeo manual.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Namespace de Compras mal escrito</div>
+        <span class="badge badge-nuevo">🚀 Nuevo</span>
+      </div>
+      <div class="card-body">
+        La carpeta de interfaces de Compras se llama <code>Interfeces</code> (typo) en lugar de <code>Interfaces</code>. El namespace es <code>Features.Compras.Interfeces</code> y esto se propaga a <code>Program.cs</code> (<code>using ...Interfeces</code>) y <code>ComprasController.cs</code>. Es un error de nomenclatura técnico que afecta la legibilidad y contrasta con los demás módulos.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">CrearVentaDto no valida PrecioUnitario</div>
+        <span class="badge badge-nuevo">🚀 Nuevo</span>
+      </div>
+      <div class="card-body">
+        <code>ComprasService.CrearCompraAsync</code> valida que <code>PrecioUnitario &gt; 0</code> en cada detalle. Sin embargo, en <code>VentasService.CrearVentaAsync</code> el precio se toma directamente de la entidad <code>Producto.Precio</code> tal como está en BD. Si un producto tiene precio 0 en BD se generará una venta por $0 sin ninguna advertencia al usuario.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Inconsistencia: .Any() vs .Count != 0</div>
+        <span class="badge badge-nuevo">🚀 Nuevo</span>
+      </div>
+      <div class="card-body">
+        En <code>VentasService</code> se usan <code>productosNoEncontrados.Any()</code> (L96) y <code>!dto.Detalles.Any()</code> (L63). En <code>ComprasService</code> y <code>AccesosService</code> se prefiere <code>.Count != 0</code>. Ambos son correctos pero la inconsistencia sugiere falta de una convención de equipo documentada. Recomendación: <code>.Count != 0</code> es más eficiente para colecciones materializadas.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">WebWaveDbContext.cs vacío en raíz</div>
+        <span class="badge badge-nuevo">🚀 Nuevo</span>
+      </div>
+      <div class="card-body">
+        Existe un archivo <code>WebWaveDbContext.cs</code> vacío (0 bytes) en la raíz del proyecto, mientras el real está en <code>Infrastructure/WebWaveDbContext.cs</code>. Un archivo vacío con el mismo nombre puede causar confusión en el equipo y en las herramientas de navegación. Debe eliminarse.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Nombre de directorio Service vs Services (Inventario)</div>
+        <span class="badge badge-nuevo">🚀 Nuevo</span>
+      </div>
+      <div class="card-body">
+        El servicio de Inventario vive en <code>Features/Inventario/<strong>Service</strong>/InventarioService.cs</code> (singular), mientras todos los demás módulos usan <code><strong>Services</strong>/</code> (plural). Esto afecta la consistencia de la estructura y el namespace resultante: <code>Features.Inventario.<strong>Service</strong></code>.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- COMPARISON TABLE -->
+<hr>
+<div class="section">
+  <div class="section-title" style="background:#6c63ff15;border-left:4px solid #6c63ff;color:#a78bfa;">
+    <span class="icon">📊</span> Comparativa ANTES vs DESPUÉS por Categoría
+  </div>
+  <div class="tab-section">
+    <table>
+      <thead>
+        <tr><th>Categoría</th><th>Estado ANTES (review v1)</th><th>Estado DESPUÉS (actual)</th><th>Δ</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Manejo de errores</td>
+          <td style="color:var(--red)">Excepciones como control de flujo</td>
+          <td style="color:var(--green)">Result&lt;T&gt; consistente en todos los servicios</td>
+          <td><span class="badge badge-ok">✅ Resuelto</span></td>
+        </tr>
+        <tr>
+          <td>Nullable warnings</td>
+          <td style="color:var(--red)">Decenas de CS8618 en entidades</td>
+          <td style="color:var(--green)">Entidades inicializan = string.Empty / = []</td>
+          <td><span class="badge badge-ok">✅ Resuelto</span></td>
+        </tr>
+        <tr>
+          <td>HTTP codes</td>
+          <td style="color:var(--red)">Inconsistentes (200 en lugar de 201, 500 para not found)</td>
+          <td style="color:var(--green)">HandleResult() mapea 200/201/400/404/409 uniformemente</td>
+          <td><span class="badge badge-ok">✅ Mejorado</span></td>
+        </tr>
+        <tr>
+          <td>Thin Controllers</td>
+          <td style="color:var(--yellow)">Lógica de negocio en controladores</td>
+          <td style="color:var(--green)">Controllers solo llaman al servicio y mapean respuesta</td>
+          <td><span class="badge badge-ok">✅ Resuelto</span></td>
+        </tr>
+        <tr>
+          <td>EF Core - N+1 en lecturas</td>
+          <td style="color:var(--red)">Queries dentro de loops</td>
+          <td style="color:var(--green)">Batch loading con WHERE IN, AsNoTracking() global</td>
+          <td><span class="badge badge-ok">✅ Resuelto</span></td>
+        </tr>
+        <tr>
+          <td>Seguridad JWT</td>
+          <td style="color:var(--red)">No implementado</td>
+          <td style="color:var(--red)">No implementado</td>
+          <td><span class="badge badge-alto">🔴 Sin cambio</span></td>
+        </tr>
+        <tr>
+          <td>Transacciones BD</td>
+          <td style="color:var(--red)">No implementadas</td>
+          <td style="color:var(--red)">No implementadas</td>
+          <td><span class="badge badge-alto">🔴 Sin cambio</span></td>
+        </tr>
+        <tr>
+          <td>Magic strings TipoMovimiento</td>
+          <td style="color:var(--red)">Strings literales en todos los servicios</td>
+          <td style="color:var(--yellow)">Parcial: InventarioService usa enum; Ventas/Compras aún usan strings</td>
+          <td><span class="badge badge-medio">⚠️ Parcial</span></td>
+        </tr>
+        <tr>
+          <td>God Class AccesosService</td>
+          <td style="color:var(--red)">660 líneas, 5 responsabilidades</td>
+          <td style="color:var(--red)">660 líneas, 5 responsabilidades</td>
+          <td><span class="badge badge-medio">⚠️ Sin cambio</span></td>
+        </tr>
+        <tr>
+          <td>AutoMapper</td>
+          <td style="color:var(--red)">No referenciado</td>
+          <td style="color:var(--yellow)">Instalado en .csproj pero sin ningún Profile ni uso real</td>
+          <td><span class="badge badge-nuevo">🚀 Regresión</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CRITICAL DETAILS -->
+<hr>
+<div class="section">
+  <h2>🔬 Análisis Detallado de Hallazgos Clave</h2>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+      <div class="card-title"><span class="badge badge-alto">🔴 P-03</span> &nbsp;Magic Strings — Inconsistencia en TipoMovimiento</div>
+    </div>
+    <div class="card-body">
+      El enum <code>TipoMovimientoEnum</code> existe y es usado correctamente en <code>InventarioService</code>. Sin embargo, <code>VentasService</code> (L165, L233) y <code>ComprasService</code> (L176, L237) crean registros de <code>HistorialMovimientoInventario</code> con cadenas literales:
+      <div class="diff">
+        <div class="diff-box diff-before"><div class="diff-label">❌ VentasService.cs L165</div>TipoMovimiento = "SALIDA",<br>// ComprasService.cs L176<br>TipoMovimiento = "ENTRADA",</div>
+        <div class="diff-box diff-after"><div class="diff-label">✅ Debería ser</div>TipoMovimiento = TipoMovimientoEnum.SALIDA.ToString(),<br>// Usando el enum centralizado</div>
+      </div>
+      Esto crea riesgo: si el enum se renombra, la BD tendrá valores mixtos ("Salida" vs "SALIDA") sin error de compilación.
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+      <div class="card-title"><span class="badge badge-alto">🔴 P-02</span> &nbsp;Sin Transacciones — Race Condition en Ventas y Compras</div>
+    </div>
+    <div class="card-body">
+      En <code>CrearVentaAsync</code>: se valida stock → se crea la venta → se descuenta inventario en tres operaciones lógicas separadas. Si el proceso cae entre la validación de stock y el descuento, el inventario quedará inconsistente. Mismo caso en <code>RecibirCompraAsync</code> donde se actualiza stock + historial + estado de compra.
+      <div class="diff">
+        <div class="diff-box diff-before"><div class="diff-label">❌ Sin transacción</div>_context.Ventas.Add(venta);<br>// actualiza stocks...<br>await _context.SaveChangesAsync();</div>
+        <div class="diff-box diff-after"><div class="diff-label">✅ Con transacción</div>using var tx = await _context.Database<br>  .BeginTransactionAsync();<br>// operaciones...<br>await _context.SaveChangesAsync();<br>await tx.CommitAsync();</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-header">
+      <div class="card-title"><span class="badge badge-medio">🟡 P-05</span> &nbsp;HandleResult duplicado — Solución: ControllerBase genérico</div>
+    </div>
+    <div class="card-body">
+      Los 4 controladores tienen exactamente el mismo bloque de ~10 líneas copiado. La solución correcta es un <code>ApiControllerBase : ControllerBase</code> que todos los controllers hereden:
+      <div class="diff">
+        <div class="diff-box diff-before"><div class="diff-label">❌ Duplicado en 4 archivos</div>private IActionResult HandleResult&lt;T&gt;(<br>  Result&lt;T&gt; result) {<br>  if (result.Success) return Ok(result.Data);<br>  // ... duplicado 4 veces<br>}</div>
+        <div class="diff-box diff-after"><div class="diff-label">✅ Base controller compartido</div>public abstract class ApiControllerBase<br>  : ControllerBase {<br>  protected IActionResult HandleResult&lt;T&gt;(<br>    Result&lt;T&gt; result) { ... }<br>}</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- SOLID SUMMARY -->
+<hr>
+<div class="section">
+  <h2>🏛️ Estado SOLID Post-Refactorización</h2>
+  <div class="tab-section">
+    <table>
+      <thead><tr><th>Principio</th><th>Estado</th><th>Evidencia</th></tr></thead>
+      <tbody>
+        <tr><td><strong>S — SRP</strong></td><td><span class="badge badge-alto">⚠️ Viola</span></td><td><code>AccesosService</code> gestiona Usuarios+Perfiles+Permisos+Empresas+Sucursales en 660 líneas</td></tr>
+        <tr><td><strong>O — OCP</strong></td><td><span class="badge badge-medio">⚠️ Parcial</span></td><td>Magic strings en Ventas/Compras; TipoMovimiento switch en InventarioService es extensible</td></tr>
+        <tr><td><strong>L — LSP</strong></td><td><span class="badge badge-ok">✅ OK</span></td><td>No hay jerarquías de herencia problemáticas; servicios implementan interfaces directamente</td></tr>
+        <tr><td><strong>I — ISP</strong></td><td><span class="badge badge-alto">⚠️ Viola</span></td><td><code>IAccesosService</code> tiene 21 métodos; clientes que solo consultan usuarios dependen de métodos para eliminar empresas</td></tr>
+        <tr><td><strong>D — DIP</strong></td><td><span class="badge badge-medio">⚠️ Tolerable</span></td><td>Servicios dependen directamente de <code>WebWaveDbContext</code>; aceptable sin Unit Tests pero limita testabilidad</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<hr>
+<div class="note">
+  <strong>📌 Nota del Revisor:</strong> El proyecto ha alcanzado un nivel de madurez funcional sólido. El patrón Result&lt;T&gt;, los Thin Controllers y el uso correcto de EF Core (AsNoTracking, batch queries) son puntos fuertes destacables. Las prioridades inmediatas son: <span class="highlight">(1) Transacciones de BD en Ventas/Compras</span>, <span class="highlight">(2) JWT Authentication</span> y <span class="highlight">(3) Usar TipoMovimientoEnum consistentemente</span>. El resto son mejoras de calidad que pueden planearse iterativamente.
+</div>
+<br>
+<p style="color:var(--muted);font-size:.8rem;text-align:center;">SistemaVisionTech API · Code Review v2 · 29-Mar-2026 · Generado automáticamente por análisis estático de código</p>
+
+</body>
+</html>

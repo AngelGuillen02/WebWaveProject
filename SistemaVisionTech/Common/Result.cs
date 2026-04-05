@@ -31,7 +31,7 @@
 
         private Result() { }
 
-        public static Result Ok() =>new() { Success = true };
+        public static Result Ok() => new() { Success = true };
 
         public static Result Fail(string error, bool isValidation = false) =>
             new()

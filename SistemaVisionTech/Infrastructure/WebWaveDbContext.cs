@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Infrastructure.Entities;
-using SistemaVisionTech.Infrastructure.Maps;
 
 namespace SistemaVisionTech.Infrastructure
 {
@@ -39,7 +38,7 @@ namespace SistemaVisionTech.Infrastructure
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-    
+
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(WebWaveDbContext).Assembly);
         }
     }

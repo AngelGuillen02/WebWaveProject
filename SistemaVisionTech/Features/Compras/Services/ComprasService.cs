@@ -5,6 +5,7 @@ using SistemaVisionTech.Features.Compras.Dtos.Compras;
 using SistemaVisionTech.Features.Compras.Dtos.Pagos;
 using SistemaVisionTech.Features.Compras.Enums;
 using SistemaVisionTech.Features.Compras.Interfeces;
+using SistemaVisionTech.Features.Inventario.Enums;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
 using Entities = SistemaVisionTech.Infrastructure.Entities;
@@ -113,16 +114,26 @@ namespace SistemaVisionTech.Features.Compras.Services
             var compra = new Entities.Compras
             {
                 ProveedorId = dto.ProveedorId,
-                FechaCompra = DateTime.Now,
+                FechaCompra = DateTime.UtcNow,
                 Total = detallesEntidad.Sum(d => d.Total),
                 EstadoCompraId = (int)EstadoCompraEnum.Pendiente,
                 Detalles = detallesEntidad
             };
 
-            _context.Compras.Add(compra);
-            await _context.SaveChangesAsync();
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                _context.Compras.Add(compra);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
-            return await ObtenerCompraPorIdAsync(compra.CompraId);
+                return await ObtenerCompraPorIdAsync(compra.CompraId);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return Result<CompraDto>.Fail($"Error al crear la compra: {ex.Message}");
+            }
         }
 
         // ─── RECIBIR COMPRA ──────────────────────────────────────────────
@@ -149,39 +160,58 @@ namespace SistemaVisionTech.Features.Compras.Services
                 .Where(i => productosIds.Contains(i.ProductoId))
                 .ToListAsync();
 
-            foreach (var detalle in compra.Detalles)
-            {
-                var inv = inventarios
-                    .FirstOrDefault(i => i.ProductoId == detalle.ProductoId);
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-                if (inv is null)
+            try
+            {
+                foreach (var detalle in compra.Detalles)
                 {
-                    inv = new Entities.Inventario
+                    var inv = inventarios
+                        .FirstOrDefault(i => i.ProductoId == detalle.ProductoId);
+
+                    bool isNew = false;
+                    if (inv is null)
                     {
-                        ProductoId = detalle.ProductoId,
-                        Cantidad = 0,
-                        FechaIngreso = DateTime.Now
+                        inv = new Entities.Inventario
+                        {
+                            ProductoId = detalle.ProductoId,
+                            Cantidad = 0,
+                            FechaIngreso = DateTime.UtcNow
+                        };
+                        _context.Inventario.Add(inv);
+                        isNew = true;
+                    }
+
+                    inv.Cantidad += detalle.Cantidad;
+
+                    var historial = new HistorialMovimientoInventario
+                    {
+                        Cantidad = detalle.Cantidad,
+                        TipoMovimiento = TipoMovimientoEnum.ENTRADA.ToString(),
+                        FechaMovimiento = DateTime.UtcNow
                     };
-                    _context.Inventario.Add(inv);
-                    await _context.SaveChangesAsync();
+
+                    // Si es nuevo, usamos navegación. Si ya existe, usamos su ID.
+                    if (isNew)
+                        historial.Inventario = inv;
+                    else
+                        historial.InventarioId = inv.InventarioId;
+
+                    _context.HistorialMovimientoInventario.Add(historial);
                 }
 
-                inv.Cantidad += detalle.Cantidad;
+                compra.EstadoCompraId = (int)EstadoCompraEnum.Recibida;
 
-                _context.HistorialMovimientoInventario.Add(
-                    new HistorialMovimientoInventario
-                    {
-                        InventarioId = inv.InventarioId,
-                        Cantidad = detalle.Cantidad,
-                        TipoMovimiento = "ENTRADA",
-                        FechaMovimiento = DateTime.Now
-                    });
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return await ObtenerCompraPorIdAsync(compraId);
             }
-
-            compra.EstadoCompraId = (int)EstadoCompraEnum.Recibida;
-            await _context.SaveChangesAsync();
-
-            return await ObtenerCompraPorIdAsync(compraId);
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return Result<CompraDto>.Fail($"Error al recibir la compra: {ex.Message}");
+            }
         }
 
         // ─── ANULAR COMPRA ───────────────────────────────────────────────
@@ -211,34 +241,53 @@ namespace SistemaVisionTech.Features.Compras.Services
                     .Where(i => productosIds.Contains(i.ProductoId))
                     .ToListAsync();
 
-                foreach (var detalle in compra.Detalles)
-                {
-                    var inv = inventarios
-                        .FirstOrDefault(i => i.ProductoId == detalle.ProductoId);
+                using var transaction = await _context.Database.BeginTransactionAsync();
 
-                    if (inv is null || inv.Cantidad < detalle.Cantidad)
+                try
+                {
+                    foreach (var detalle in compra.Detalles)
                     {
-                        var disponible = inv?.Cantidad ?? 0;
-                        return Result<CompraDto>.Fail(
-                            $"No se puede anular la compra. " +
-                            $"El producto Id {detalle.ProductoId} solo tiene " +
-                            $"{disponible} unidades en inventario y se intentan " +
-                            $"retirar {detalle.Cantidad}.");
+                        var inv = inventarios
+                            .FirstOrDefault(i => i.ProductoId == detalle.ProductoId);
+
+                        if (inv is null || inv.Cantidad < detalle.Cantidad)
+                        {
+                            var disponible = inv?.Cantidad ?? 0;
+                            // En caso de validación fallida, hacer rollback e informar
+                            await transaction.RollbackAsync();
+                            return Result<CompraDto>.Fail(
+                                $"No se puede anular la compra. " +
+                                $"El producto Id {detalle.ProductoId} solo tiene " +
+                                $"{disponible} unidades en inventario y se intentan " +
+                                $"retirar {detalle.Cantidad}.");
+                        }
+
+                        inv.Cantidad -= detalle.Cantidad;
+
+                        _context.HistorialMovimientoInventario.Add(
+                            new HistorialMovimientoInventario
+                            {
+                                InventarioId = inv.InventarioId,
+                                Cantidad = detalle.Cantidad,
+                                TipoMovimiento = TipoMovimientoEnum.SALIDA.ToString(),
+                                FechaMovimiento = DateTime.UtcNow
+                            });
                     }
 
-                    inv.Cantidad -= detalle.Cantidad;
+                    compra.EstadoCompraId = (int)EstadoCompraEnum.Anulada;
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
 
-                    _context.HistorialMovimientoInventario.Add(
-                        new HistorialMovimientoInventario
-                        {
-                            InventarioId = inv.InventarioId,
-                            Cantidad = detalle.Cantidad,
-                            TipoMovimiento = "SALIDA",
-                            FechaMovimiento = DateTime.Now
-                        });
+                    return await ObtenerCompraPorIdAsync(compraId);
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return Result<CompraDto>.Fail($"Error al anular la compra: {ex.Message}");
                 }
             }
 
+            // Si no estaba recibida, solo cambiamos estado sin afectar inventario
             compra.EstadoCompraId = (int)EstadoCompraEnum.Anulada;
             await _context.SaveChangesAsync();
 
@@ -274,10 +323,10 @@ namespace SistemaVisionTech.Features.Compras.Services
                     $"Pendiente: {pendientePago:C}, " +
                     $"Monto enviado: {dto.Monto:C}.");
 
-            var metodoPagoExiste = await _context.MetodosPago
-                .AnyAsync(m => m.MetodoPagoId == dto.MetodoPagoId);
+            var metodoPago = await _context.MetodosPago
+                .FirstOrDefaultAsync(m => m.MetodoPagoId == dto.MetodoPagoId);
 
-            if (!metodoPagoExiste)
+            if (metodoPago is null)
                 return Result<PagoCompraDto>.Fail(
                     $"El método de pago con Id {dto.MetodoPagoId} no existe.");
 
@@ -286,22 +335,19 @@ namespace SistemaVisionTech.Features.Compras.Services
                 CompraId = dto.CompraId,
                 MetodoPagoId = dto.MetodoPagoId,
                 Monto = dto.Monto,
-                FechaPago = DateTime.Now
+                FechaPago = DateTime.UtcNow
             };
 
             _context.PagosCompra.Add(pago);
             await _context.SaveChangesAsync();
 
-            var nombreMetodo = await _context.MetodosPago
-                .Where(m => m.MetodoPagoId == dto.MetodoPagoId)
-                .Select(m => m.Nombre)
-                .FirstAsync();
+
 
             return Result<PagoCompraDto>.Ok(new PagoCompraDto
             {
                 PagoCompraId = pago.PagoCompraId,
                 CompraId = pago.CompraId,
-                MetodoPago = nombreMetodo,
+                MetodoPago = metodoPago.Nombre,
                 Monto = pago.Monto,
                 FechaPago = pago.FechaPago
             });

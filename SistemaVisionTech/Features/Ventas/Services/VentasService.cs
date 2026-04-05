@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
+using SistemaVisionTech.Features.Inventario.Enums;
 using SistemaVisionTech.Features.Ventas.Dtos;
 using SistemaVisionTech.Features.Ventas.Enums;
 using SistemaVisionTech.Features.Ventas.Interfaces;
@@ -143,33 +144,44 @@ namespace SistemaVisionTech.Features.Ventas.Services
             var venta = new Entities.Ventas
             {
                 ClienteId = dto.ClienteId,
-                FechaVenta = DateTime.Now,
+                FechaVenta = DateTime.UtcNow,
                 Total = totalVenta,
                 EstadoVentaId = (int)EstadoVentaEnum.Pendiente,
                 Detalles = detallesEntidad
             };
 
-            _context.Ventas.Add(venta);
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            // Descontar stock e insertar movimientos de inventario
-            foreach (var detalle in dto.Detalles)
+            try
             {
-                var inv = inventarios.First(i => i.ProductoId == detalle.ProductoId);
-                inv.Cantidad -= detalle.Cantidad;
+                _context.Ventas.Add(venta);
 
-                _context.HistorialMovimientoInventario.Add(
-                    new HistorialMovimientoInventario
-                    {
-                        InventarioId = inv.InventarioId,
-                        Cantidad = detalle.Cantidad,
-                        TipoMovimiento = "SALIDA",
-                        FechaMovimiento = DateTime.Now
-                    });
+                // Descontar stock e insertar movimientos de inventario
+                foreach (var detalle in dto.Detalles)
+                {
+                    var inv = inventarios.First(i => i.ProductoId == detalle.ProductoId);
+                    inv.Cantidad -= detalle.Cantidad;
+
+                    _context.HistorialMovimientoInventario.Add(
+                        new HistorialMovimientoInventario
+                        {
+                            InventarioId = inv.InventarioId,
+                            Cantidad = detalle.Cantidad,
+                            TipoMovimiento = TipoMovimientoEnum.SALIDA.ToString(),
+                            FechaMovimiento = DateTime.UtcNow
+                        });
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return await ObtenerVentaPorIdAsync(venta.VentaId);
             }
-
-            await _context.SaveChangesAsync();
-
-            return await ObtenerVentaPorIdAsync(venta.VentaId);
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return Result<VentasDto>.Fail($"Error al crear la venta: {ex.Message}");
+            }
         }
 
         // ─── CONFIRMAR VENTA ─────────────────────────────────────────────
@@ -218,27 +230,39 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 .Where(i => productosIds.Contains(i.ProductoId))
                 .ToListAsync();
 
-            foreach (var detalle in venta.Detalles)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                var inv = inventarios
-                    .First(i => i.ProductoId == detalle.ProductoId);
+                foreach (var detalle in venta.Detalles)
+                {
+                    var inv = inventarios
+                        .First(i => i.ProductoId == detalle.ProductoId);
 
-                inv.Cantidad += detalle.Cantidad;
+                    inv.Cantidad += detalle.Cantidad;
 
-                _context.HistorialMovimientoInventario.Add(
-                    new HistorialMovimientoInventario
-                    {
-                        InventarioId = inv.InventarioId,
-                        Cantidad = detalle.Cantidad,
-                        TipoMovimiento = "ENTRADA",
-                        FechaMovimiento = DateTime.Now
-                    });
+                    _context.HistorialMovimientoInventario.Add(
+                        new HistorialMovimientoInventario
+                        {
+                            InventarioId = inv.InventarioId,
+                            Cantidad = detalle.Cantidad,
+                            TipoMovimiento = TipoMovimientoEnum.ENTRADA.ToString(),
+                            FechaMovimiento = DateTime.UtcNow
+                        });
+                }
+
+                venta.EstadoVentaId = (int)EstadoVentaEnum.Anulada;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return await ObtenerVentaPorIdAsync(ventaId);
             }
-
-            venta.EstadoVentaId = (int)EstadoVentaEnum.Anulada;
-            await _context.SaveChangesAsync();
-
-            return await ObtenerVentaPorIdAsync(ventaId);
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return Result<VentasDto>.Fail($"Error al anular la venta: {ex.Message}");
+            }
         }
 
         // ─── REGISTRAR PAGO ──────────────────────────────────────────────
@@ -271,10 +295,10 @@ namespace SistemaVisionTech.Features.Ventas.Services
                     $"Pendiente: {pendientePago:C}, Monto enviado: {dto.Monto:C}.");
 
             // Validar método de pago
-            var metodoPagoExiste = await _context.MetodosPago
-                .AnyAsync(m => m.MetodoPagoId == dto.MetodoPagoId);
+            var metodoPago = await _context.MetodosPago
+                .FirstOrDefaultAsync(m => m.MetodoPagoId == dto.MetodoPagoId);
 
-            if (!metodoPagoExiste)
+            if (metodoPago is null)
                 return Result<PagoVentaDto>.Fail(
                     $"El método de pago con Id {dto.MetodoPagoId} no existe.");
 
@@ -283,23 +307,19 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 VentaId = dto.VentaId,
                 MetodoPagoId = dto.MetodoPagoId,
                 Monto = dto.Monto,
-                FechaPago = DateTime.Now
+                FechaPago = DateTime.UtcNow
             };
 
             _context.PagosVenta.Add(pago);
             await _context.SaveChangesAsync();
 
-            // Cargar método de pago para respuesta
-            var nombreMetodo = await _context.MetodosPago
-                .Where(m => m.MetodoPagoId == dto.MetodoPagoId)
-                .Select(m => m.Nombre)
-                .FirstAsync();
+
 
             return Result<PagoVentaDto>.Ok(new PagoVentaDto
             {
                 PagoVentaId = pago.PagoVentaId,
                 VentaId = pago.VentaId,
-                MetodoPago = nombreMetodo,
+                MetodoPago = metodoPago.Nombre,
                 Monto = pago.Monto,
                 FechaPago = pago.FechaPago
             });

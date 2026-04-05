@@ -1,13 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Ventas.Dtos;
 using SistemaVisionTech.Features.Ventas.Interfaces;
 
 namespace SistemaVisionTech.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class VentasController : ControllerBase
+    public class VentasController : BaseApiController
     {
         private readonly IVentasService _ventasService;
 
@@ -16,18 +17,6 @@ namespace SistemaVisionTech.Controllers
             _ventasService = ventasService;
         }
 
-        // ── Helper para manejar Result<T> ────────────────────────────────
-
-        private IActionResult HandleResult<T>(Result<T> result)
-        {
-            if (result.Success)
-                return Ok(result.Data);
-
-            if (result.IsValidationError)
-                return BadRequest(new { mensaje = result.Error });
-
-            return Conflict(new { mensaje = result.Error });
-        }
 
         [HttpGet]
         public async Task<IActionResult> ObtenerVentas()

@@ -1,10 +1,10 @@
-﻿namespace SistemaVisionTech.Infrastructure.Entities
+namespace SistemaVisionTech.Infrastructure.Entities
 {
     public class Compras
     {
         public int CompraId { get; set; }
         public int ProveedorId { get; set; }
-        public DateTime FechaCompra { get; set; } = new DateTime();
+        public DateTime FechaCompra { get; set; } = DateTime.UtcNow;
         public decimal Total { get; set; }
         public int EstadoCompraId { get; set; }
         public Proveedores Proveedor { get; set; } = new Proveedores();

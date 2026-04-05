@@ -85,71 +85,88 @@ namespace SistemaVisionTech.Features.Inventario.Service
             var inventario = await _context.Inventario
                 .FirstOrDefaultAsync(i => i.ProductoId == dto.ProductoId);
 
-            if (inventario is null &&
-                dto.TipoMovimiento == TipoMovimientoEnum.ENTRADA)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                inventario = new Entities.Inventario
+                bool isNew = false;
+                if (inventario is null &&
+                    dto.TipoMovimiento == TipoMovimientoEnum.ENTRADA)
                 {
-                    ProductoId = dto.ProductoId,
-                    Cantidad = 0,
-                    FechaIngreso = DateTime.Now
+                    inventario = new Entities.Inventario
+                    {
+                        ProductoId = dto.ProductoId,
+                        Cantidad = 0,
+                        FechaIngreso = DateTime.UtcNow
+                    };
+                    _context.Inventario.Add(inventario);
+                    isNew = true;
+                }
+
+                if (inventario is null)
+                    return Result<MovimientoDto>.Fail(
+                        "No existe registro de inventario para este producto. " +
+                        "Registre una entrada primero.");
+
+                if (dto.TipoMovimiento == TipoMovimientoEnum.SALIDA &&
+                    inventario.Cantidad < dto.Cantidad)
+                {
+                    return Result<MovimientoDto>.Fail(
+                        $"Stock insuficiente. " +
+                        $"Disponible: {inventario.Cantidad}, " +
+                        $"Solicitado: {dto.Cantidad}.");
+                }
+
+                switch (dto.TipoMovimiento)
+                {
+                    case TipoMovimientoEnum.ENTRADA:
+                        inventario.Cantidad += dto.Cantidad;
+                        break;
+                    case TipoMovimientoEnum.SALIDA:
+                        inventario.Cantidad -= dto.Cantidad;
+                        break;
+                }
+
+                var tipoStr = dto.TipoMovimiento.ToString();
+
+                var movimiento = new HistorialMovimientoInventario
+                {
+                    Cantidad = dto.Cantidad,
+                    TipoMovimiento = tipoStr,
+                    FechaMovimiento = DateTime.UtcNow
                 };
-                _context.Inventario.Add(inventario);
+
+                if (isNew)
+                    movimiento.Inventario = inventario;
+                else
+                    movimiento.InventarioId = inventario.InventarioId;
+
+                _context.HistorialMovimientoInventario.Add(movimiento);
+
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                var nombreProducto = await _context.Productos
+                    .Where(p => p.ProductoId == dto.ProductoId)
+                    .Select(p => p.Nombre)
+                    .FirstAsync();
+
+                return Result<MovimientoDto>.Ok(new MovimientoDto
+                {
+                    MovimientoId = movimiento.MovimientoId,
+                    InventarioId = inventario.InventarioId,
+                    ProductoId = dto.ProductoId,
+                    Producto = nombreProducto,
+                    Cantidad = movimiento.Cantidad,
+                    TipoMovimiento = movimiento.TipoMovimiento,
+                    FechaMovimiento = movimiento.FechaMovimiento
+                });
             }
-
-            if (inventario is null)
-                return Result<MovimientoDto>.Fail(
-                    "No existe registro de inventario para este producto. " +
-                    "Registre una entrada primero.");
-
-            if (dto.TipoMovimiento == TipoMovimientoEnum.SALIDA &&
-                inventario.Cantidad < dto.Cantidad)
+            catch (Exception ex)
             {
-                return Result<MovimientoDto>.Fail(
-                    $"Stock insuficiente. " +
-                    $"Disponible: {inventario.Cantidad}, " +
-                    $"Solicitado: {dto.Cantidad}.");
+                await transaction.RollbackAsync();
+                return Result<MovimientoDto>.Fail($"Error al registrar el movimiento: {ex.Message}");
             }
-
-            switch (dto.TipoMovimiento)
-            {
-                case TipoMovimientoEnum.ENTRADA:
-                    inventario.Cantidad += dto.Cantidad;
-                    break;
-                case TipoMovimientoEnum.SALIDA:
-                    inventario.Cantidad -= dto.Cantidad;
-                    break;
-            }
-    
-            var tipoStr = dto.TipoMovimiento.ToString();
-
-            var movimiento = new HistorialMovimientoInventario
-            {
-                InventarioId = inventario.InventarioId,
-                Cantidad = dto.Cantidad,
-                TipoMovimiento = tipoStr,
-                FechaMovimiento = DateTime.Now
-            };
-
-            _context.HistorialMovimientoInventario.Add(movimiento);
-            await _context.SaveChangesAsync();
-
-            var nombreProducto = await _context.Productos
-                .Where(p => p.ProductoId == dto.ProductoId)
-                .Select(p => p.Nombre)
-                .FirstAsync();
-
-            return Result<MovimientoDto>.Ok(new MovimientoDto
-            {
-                MovimientoId = movimiento.MovimientoId,
-                InventarioId = inventario.InventarioId,
-                ProductoId = dto.ProductoId,
-                Producto = nombreProducto,
-                Cantidad = movimiento.Cantidad,
-                TipoMovimiento = movimiento.TipoMovimiento,
-                FechaMovimiento = movimiento.FechaMovimiento
-            });
         }
 
         public async Task<Result<IEnumerable<MovimientoDto>>> ObtenerMovimientosAsync(int? productoId = null)
@@ -203,50 +220,67 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 .Include(i => i.Producto)
                 .FirstOrDefaultAsync(i => i.ProductoId == dto.ProductoId);
 
-            if (inventario is null)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                inventario = new Entities.Inventario
+                bool isNew = false;
+                if (inventario is null)
                 {
-                    ProductoId = dto.ProductoId,
-                    Cantidad = dto.CantidadNueva,
-                    FechaIngreso = DateTime.Now
+                    inventario = new Entities.Inventario
+                    {
+                        ProductoId = dto.ProductoId,
+                        Cantidad = dto.CantidadNueva,
+                        FechaIngreso = DateTime.UtcNow
+                    };
+                    _context.Inventario.Add(inventario);
+                    isNew = true;
+                }
+
+                var diferencia = dto.CantidadNueva - inventario.Cantidad;
+
+                inventario.Cantidad = dto.CantidadNueva;
+
+                var movimiento = new HistorialMovimientoInventario
+                {
+                    Cantidad = Math.Abs(diferencia),
+                    TipoMovimiento = TipoMovimientoEnum.AJUSTE.ToString(),
+                    FechaMovimiento = DateTime.UtcNow
                 };
-                _context.Inventario.Add(inventario);
+
+                if (isNew)
+                    movimiento.Inventario = inventario;
+                else
+                    movimiento.InventarioId = inventario.InventarioId;
+
+                _context.HistorialMovimientoInventario.Add(movimiento);
+
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Recargar Producto si no se cargó (caso de inventario nuevo)
+                if (inventario.Producto is null)
+                {
+                    await _context.Entry(inventario)
+                        .Reference(i => i.Producto)
+                        .LoadAsync();
+                }
+
+                return Result<InventarioDto>.Ok(new InventarioDto
+                {
+                    InventarioId = inventario.InventarioId,
+                    ProductoId = inventario.ProductoId,
+                    Producto = inventario.Producto?.Nombre ?? string.Empty,
+                    Precio = inventario.Producto?.Precio ?? 0,
+                    Cantidad = inventario.Cantidad,
+                    FechaIngreso = inventario.FechaIngreso
+                });
             }
-
-            var diferencia = dto.CantidadNueva - inventario.Cantidad;
-
-            inventario.Cantidad = dto.CantidadNueva;
-
-            var movimiento = new HistorialMovimientoInventario
+            catch (Exception ex)
             {
-                InventarioId = inventario.InventarioId,
-                Cantidad = Math.Abs(diferencia),
-                TipoMovimiento = TipoMovimientoEnum.AJUSTE.ToString(), 
-                FechaMovimiento = DateTime.Now
-            };
-
-            _context.HistorialMovimientoInventario.Add(movimiento);
-            await _context.SaveChangesAsync();
-
-            // Recargar Producto si no se cargó (caso de inventario nuevo)
-            if (inventario.Producto is null)
-            {
-                await _context.Entry(inventario)
-                    .Reference(i => i.Producto)
-                    .LoadAsync();
+                await transaction.RollbackAsync();
+                return Result<InventarioDto>.Fail($"Error al ajustar inventario: {ex.Message}");
             }
-
-            return Result<InventarioDto>.Ok(new InventarioDto
-            {
-                InventarioId = inventario.InventarioId,
-                ProductoId = inventario.ProductoId,
-                Producto = inventario.Producto?.Nombre ?? string.Empty,
-                Precio = inventario.Producto?.Precio ?? 0,
-                Cantidad = inventario.Cantidad,
-                FechaIngreso = inventario.FechaIngreso
-            });
         }
     }
 }

@@ -1,14 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Compras.Dtos;
 using SistemaVisionTech.Features.Compras.Dtos.Compras;
 using SistemaVisionTech.Features.Compras.Interfeces;
 
 namespace SistemaVisionTech.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class ComprasController : ControllerBase
+    public class ComprasController : BaseApiController
     {
         private readonly IComprasService _comprasService;
 
@@ -17,18 +18,6 @@ namespace SistemaVisionTech.Controllers
             _comprasService = comprasService;
         }
 
-        // ── Helper para manejar Result<T> ────────────────────────────────
-
-        private IActionResult HandleResult<T>(Result<T> result)
-        {
-            if (result.Success)
-                return Ok(result.Data);
-
-            if (result.IsValidationError)
-                return BadRequest(new { mensaje = result.Error });
-
-            return Conflict(new { mensaje = result.Error });
-        }
 
         // GET api/Compras
         [HttpGet]

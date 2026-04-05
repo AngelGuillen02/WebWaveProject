@@ -1,14 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Inventario.Dtos;
 using SistemaVisionTech.Features.Inventario.Dtos.Inventario;
 using SistemaVisionTech.Features.Inventario.Interfaces;
 
 namespace SistemaVisionTech.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class InventarioController : ControllerBase
+    public class InventarioController : BaseApiController
     {
         private readonly IInventarioService _inventarioService;
 
@@ -17,18 +18,6 @@ namespace SistemaVisionTech.Controllers
             _inventarioService = inventarioService;
         }
 
-        // ── Helper para manejar Result<T> ────────────────────────────────
-
-        private IActionResult HandleResult<T>(Result<T> result)
-        {
-            if (result.Success)
-                return Ok(result.Data);
-
-            if (result.IsValidationError)
-                return BadRequest(new { mensaje = result.Error });
-
-            return Conflict(new { mensaje = result.Error });
-        }
 
         [HttpGet]
         public async Task<IActionResult> ObtenerInventario()
