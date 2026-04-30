@@ -1,4 +1,4 @@
-﻿namespace SistemaVisionTech.Infrastructure.Entities
+namespace SistemaVisionTech.Infrastructure.Entities
 {
     public class Proveedores
     {
@@ -8,5 +8,6 @@
         public string Telefono { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public ICollection<Compras> Compras { get; set; } = [];
+        public bool Activo { get; set; } = true;
     }
 }

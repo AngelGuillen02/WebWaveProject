@@ -1,4 +1,4 @@
-﻿namespace SistemaVisionTech.Infrastructure.Entities
+namespace SistemaVisionTech.Infrastructure.Entities
 {
     public class Sucursales
     {
@@ -7,7 +7,7 @@
         public string Direccion { get; set; } = string.Empty;
         public int EmpresaId { get; set; }
         public Empresas Empresa { get; set; } = new Empresas();
-
+        public bool Activo { get; set; } = true;
 
     }
 }

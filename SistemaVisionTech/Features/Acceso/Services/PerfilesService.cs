@@ -183,7 +183,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     $"porque tiene {perfil.Usuarios.Count} usuario(s) asignado(s).");
 
             _context.PerfilesPermisos.RemoveRange(perfil.Permisos);
-            _context.Perfiles.Remove(perfil);
+            perfil.Activo = false;
+            _context.Perfiles.Update(perfil);
             await _context.SaveChangesAsync();
 
             return Result.Ok();

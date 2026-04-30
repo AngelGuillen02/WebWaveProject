@@ -140,7 +140,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (usuario is null)
                 return Result.Fail($"El usuario con Id {usuarioId} no existe.");
 
-            _context.Usuarios.Remove(usuario);
+            usuario.Activo = false;
+            _context.Usuarios.Update(usuario);
             await _context.SaveChangesAsync();
 
             return Result.Ok();

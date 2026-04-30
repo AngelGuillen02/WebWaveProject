@@ -1,4 +1,4 @@
-﻿namespace SistemaVisionTech.Infrastructure.Entities
+namespace SistemaVisionTech.Infrastructure.Entities
 {
     public class Ventas
     {
@@ -11,5 +11,6 @@
         public EstadosVenta EstadoVenta { get; set; } = new EstadosVenta();
         public ICollection<VentasDetalles> Detalles { get; set; } = [];
         public ICollection<PagosVenta> Pagos { get; set; } = [];
+        public bool Activo { get; set; } = true;
     }
 }

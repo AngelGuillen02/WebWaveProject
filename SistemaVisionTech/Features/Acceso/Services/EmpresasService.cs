@@ -141,7 +141,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     $"No se puede eliminar la empresa '{empresa.Nombre}' " +
                     $"porque tiene {empresa.Sucursales.Count} sucursal(es) asignada(s).");
 
-            _context.Empresas.Remove(empresa);
+            empresa.Activo = false;
+            _context.Empresas.Update(empresa);
             await _context.SaveChangesAsync();
 
             return Result.Ok();

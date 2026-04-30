@@ -11,5 +11,6 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public EstadosCompra EstadoCompra { get; set; } = new EstadosCompra();
         public ICollection<ComprasDetalles> Detalles { get; set; } = [];
         public ICollection<PagosCompra> Pagos { get; set; } = [];
+        public bool Activo { get; set; } = true;
     }
 }

@@ -128,7 +128,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (sucursal is null)
                 return Result.Fail($"La sucursal con Id {sucursalId} no existe.");
 
-            _context.Sucursales.Remove(sucursal);
+            sucursal.Activo = false;
+            _context.Sucursales.Update(sucursal);
             await _context.SaveChangesAsync();
 
             return Result.Ok();

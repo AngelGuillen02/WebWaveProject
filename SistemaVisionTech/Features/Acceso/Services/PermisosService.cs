@@ -93,7 +93,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     $"No se puede eliminar el permiso '{permiso.Nombre}' " +
                     $"porque está asignado a {permiso.Perfiles.Count} perfil(es).");
 
-            _context.Permisos.Remove(permiso);
+            permiso.Activo = false;
+            _context.Permisos.Update(permiso);
             await _context.SaveChangesAsync();
 
             return Result.Ok();

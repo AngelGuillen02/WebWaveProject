@@ -1,4 +1,4 @@
-﻿namespace SistemaVisionTech.Infrastructure.Entities
+namespace SistemaVisionTech.Infrastructure.Entities
 {
     public class Productos
     {
@@ -7,5 +7,6 @@
         public string Descripcion { get; set; } = string.Empty;
         public decimal Precio { get; set; }
         public ICollection<Inventario> Inventarios { get; set; } = [];
+        public bool Activo { get; set; } = true;
     }
 }

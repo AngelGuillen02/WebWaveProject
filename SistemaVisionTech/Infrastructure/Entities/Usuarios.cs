@@ -1,4 +1,4 @@
-﻿namespace SistemaVisionTech.Infrastructure.Entities
+namespace SistemaVisionTech.Infrastructure.Entities
 {
     public class Usuarios
     {
@@ -8,7 +8,7 @@
         public string Contraseña { get; set; } = string.Empty;
         public int PerfilId { get; set; }
         public Perfiles Perfil { get; set; } = new Perfiles();
-
+        public bool Activo { get; set; } = true;
 
     }
 }

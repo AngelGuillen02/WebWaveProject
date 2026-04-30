@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Infrastructure
@@ -38,6 +38,20 @@ namespace SistemaVisionTech.Infrastructure
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Perfiles>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Usuarios>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Permisos>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Empresas>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Sucursales>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Productos>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Clientes>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Proveedores>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<MetodosPago>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<EstadosVenta>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Ventas>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<EstadosCompra>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Compras>().HasQueryFilter(e => e.Activo);
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(WebWaveDbContext).Assembly);
         }
