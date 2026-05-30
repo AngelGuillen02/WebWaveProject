@@ -1,0 +1,488 @@
+
+
+
+
+SistemaVisionTech
+
+Bitacora de Implementacion
+
+WebWaveProject — API Backend .NET 10
+
+
+8 modulos  |  5 fases  |  17 tareas
+
+Ordenado por dependencias tecnicas
+
+
+
+
+Introduccion
+
+Este documento define el orden exacto de implementacion para los nuevos modulos del sistema. Las fases estan ordenadas por dependencias: no se debe avanzar a la siguiente fase sin tener las tablas SQL creadas y el servicio probado en Swagger.
+
+
+
+Cada tarea sigue el flujo estandar del proyecto:
+
+
+DTO  -&gt;  Features/{Modulo}/Dtos/
+
+
+Interfaz  -&gt;  Features/{Modulo}/Interfaces/
+
+
+Servicio  -&gt;  Features/{Modulo}/Services/  (retorna Result&lt;T&gt;)
+
+
+Controller  -&gt;  usa HandleResult(resultado)
+
+
+SQL  -&gt;  script manual en SQL Server + DbSet + QueryFilter(e =&gt; e.Activo)
+
+
+
+Las etiquetas al final de cada tarea indican que artefactos hay que crear:
+
+[SQL] = tabla o ALTER TABLE en SQL Server   [DTO] = clases de request/response   [SVC] = logica en Services/   [CTRL] = endpoint en Controller
+
+
+FASE 1
+Catalogos base
+Proveedores · Clientes · Productos — sin estas entidades, nada mas puede arrancar
+
+
+
+Estas tres entidades ya existen en la base de datos. El trabajo consiste en exponer CRUD completo via API, agregar los campos de trazabilidad a Productos y aplicar las validaciones de negocio.
+
+
+
+1
+Proveedores — CRUD completo
+
+
+
+La entidad Proveedores ya existe. Crear ProveedoresService e implementar: listar activos, obtener por Id, crear, editar, borrado logico (Activo = false). Validar que no se borre un proveedor que tenga compras activas. Si el negocio maneja RNC/NIT, agregar campo y validar unicidad con == (no StringComparison).
+[DTO]  [SVC]  [CTRL]
+
+
+
+2
+Clientes — CRUD completo
+
+
+
+La entidad Clientes ya existe. ClientesService con los mismos endpoints que Proveedores. Agregar campo TipoCliente (Natural/Juridico) si no existe — requiere ALTER TABLE. Validar que no se elimine un cliente que tenga ventas con estado distinto a Cancelado.
+[SQL]  [DTO]  [SVC]  [CTRL]
+
+
+
+3
+Productos — CRUD + campos de lote y serie
+
+
+
+Agregar tres columnas a la tabla Productos: TieneNumeroSerie (BIT NOT NULL DEFAULT 0), TieneLote (BIT NOT NULL DEFAULT 0), CodigoBarras (NVARCHAR(100) NULL). Ejecutar ALTER TABLE antes de modificar la entidad POCO. ProductosService debe validar que el CodigoBarras no este duplicado usando ==.
+[SQL]  [DTO]  [SVC]  [CTRL]
+
+
+
+
+Script SQL — Fase 1
+-- Tarea 2: campo opcional en Clientes
+ALTER TABLE Clientes
+  ADD TipoCliente NVARCHAR(20) NOT NULL DEFAULT &apos;Natural&apos;;
+ 
+-- Tarea 3: trazabilidad en Productos
+ALTER TABLE Productos
+  ADD TieneNumeroSerie BIT NOT NULL DEFAULT 0,
+      TieneLote        BIT NOT NULL DEFAULT 0,
+      CodigoBarras     NVARCHAR(100) NULL;
+ 
+CREATE UNIQUE INDEX UX_Productos_CodigoBarras
+  ON Productos(CodigoBarras)
+  WHERE CodigoBarras IS NOT NULL AND Activo = 1;
+
+
+FASE 2
+Serie, lote y origen de inventario
+Trazabilidad de producto y procedencia de cada movimiento de stock
+
+
+
+Esta fase agrega las tablas de trazabilidad y extiende el historial de movimientos para saber exactamente que compra o venta origino cada cambio en el stock.
+
+
+
+4
+Tabla SeriesProducto
+
+
+
+Crear tabla nueva. Cada fila = una unidad fisica rastreable por su numero de serie. Los campos VentaDetalleId y CompraDetalleId son nullable: se llenan cuando la unidad se vende o cuando ingresa por compra. El campo Estado maneja el ciclo de vida: Disponible -&gt; Vendido. Agregar DbSet&lt;SerieProducto&gt; al WebWaveDbContext y el QueryFilter(e =&gt; e.Activo).
+[SQL]  [DTO]  [SVC]
+
+
+
+5
+Tabla LotesProducto
+
+
+
+Crear tabla nueva. Un lote agrupa N unidades del mismo producto con igual fecha de vencimiento. El campo Cantidad se descuenta conforme se venden unidades del lote (logica en VentasService). Asociar el lote al CompraDetalleId que lo ingreso. Misma configuracion de DbSet y QueryFilter.
+[SQL]  [DTO]  [SVC]
+
+
+
+6
+Origen en HistorialMovimientoInventario
+
+
+
+ALTER TABLE para agregar dos columnas: OrigenTipo (NVARCHAR(20): Compra/Venta/Ajuste/Devolucion) y OrigenId (INT NULL). Con esto cada movimiento de kardex queda vinculado al documento que lo origino. Actualizar InventarioService para llenar estos campos en cada registro.
+[SQL]  [SVC]
+
+
+
+
+Script SQL — Fase 2
+-- Tarea 4: series por unidad
+CREATE TABLE SeriesProducto (
+  Id               INT PRIMARY KEY IDENTITY,
+  ProductoId       INT NOT NULL REFERENCES Productos(Id),
+  NumeroSerie      NVARCHAR(100) NOT NULL,
+  CompraDetalleId  INT NULL REFERENCES ComprasDetalles(Id),
+  VentaDetalleId   INT NULL REFERENCES VentasDetalles(Id),
+  Estado           NVARCHAR(20) NOT NULL DEFAULT &apos;Disponible&apos;,
+  Activo           BIT NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX UX_SeriesProducto_NumeroSerie
+  ON SeriesProducto(NumeroSerie) WHERE Activo = 1;
+ 
+-- Tarea 5: lotes
+CREATE TABLE LotesProducto (
+  Id              INT PRIMARY KEY IDENTITY,
+  ProductoId      INT NOT NULL REFERENCES Productos(Id),
+  NumeroLote      NVARCHAR(100) NOT NULL,
+  FechaVencimiento DATE NULL,
+  Cantidad        INT NOT NULL DEFAULT 0,
+  CompraDetalleId INT NULL REFERENCES ComprasDetalles(Id),
+  Activo          BIT NOT NULL DEFAULT 1
+);
+ 
+-- Tarea 6: origen en kardex
+ALTER TABLE HistorialMovimientoInventario
+  ADD OrigenTipo NVARCHAR(20) NULL,
+      OrigenId   INT NULL;
+
+
+FASE 3
+Metodos de pago multiples + Registro de pago
+Pagos mixtos (efectivo + tarjeta) en ventas y compras
+
+
+
+La tabla PagosVenta ya permite multiples filas por VentaId. El trabajo es exponer esto correctamente en los DTOs, agregar el endpoint de abono parcial y retornar el saldo pendiente en cada respuesta.
+
+
+
+7
+Permitir N metodos de pago por transaccion
+
+
+
+Verificar que VentasCreacionDto incluya un arreglo PagosDto[] con MetodoPagoId y Monto. VentasService debe insertar todos los registros en PagosVenta dentro del mismo SaveChanges. Validar que la suma de montos no exceda el Total de la venta. Misma logica para ComprasCreacionDto y PagosCompra.
+[DTO]  [SVC]
+
+
+
+8
+Endpoint de registro de pago parcial / abono
+
+
+
+POST /api/ventas/{id}/pagos recibe MetodoPagoId y Monto. El servicio acumula el total pagado, cambia EstadoVentaId a Pagado cuando se cubre el total, y retorna el saldo pendiente en el response DTO. Repetir para POST /api/compras/{id}/pagos.
+[DTO]  [SVC]  [CTRL]
+
+
+
+9
+GET detalle de pagos por venta y compra
+
+
+
+Endpoints de consulta: GET /api/ventas/{id}/pagos y GET /api/compras/{id}/pagos. Devuelven historial de abonos con MetodoPago, Monto, Fecha y nombre del usuario que registro el pago. Incluir Include() en la consulta EF para traer la navegacion.
+[DTO]  [CTRL]
+
+
+FASE 4
+Cierre de caja
+Depende de que la Fase 3 (pagos) este funcionando correctamente
+
+
+
+El cierre de caja consume los registros de PagosVenta del periodo. Debe validar que solo haya una caja abierta por sucursal a la vez y calcular la diferencia entre el efectivo declarado y el total de ventas en efectivo.
+
+
+
+10
+Tabla CierresCaja
+
+
+
+Crear tabla nueva con los campos de apertura, cierre y totales por metodo de pago. El campo Diferencia = MontoEfectivoFinal - TotalVentasEfectivo. Estado maneja el ciclo: Abierto -&gt; Cerrado. Agregar DbSet y QueryFilter al WebWaveDbContext.
+[SQL]
+
+
+
+11
+CajaService — abrir y cerrar caja
+
+
+
+AbrirCaja(): verificar que no haya una caja abierta para la misma sucursal (Result.Fail si la hay), crear registro con FechaApertura y MontoApertura. CerrarCaja(): sumar todas las PagosVenta del periodo por MetodoPago, calcular Diferencia, marcar Estado = Cerrado. Ambas operaciones en una sola transaccion SaveChanges.
+[SVC]  [DTO]
+
+
+
+12
+Endpoints de caja
+
+
+
+POST /api/caja/abrir  |  POST /api/caja/cerrar  |  GET /api/caja/actual (estado en tiempo real para el turno vigente)  |  GET /api/caja/historial (listado de cierres anteriores). Proteger todos con [Authorize].
+[CTRL]
+
+
+
+
+Script SQL — Fase 4
+CREATE TABLE CierresCaja (
+  Id                    INT PRIMARY KEY IDENTITY,
+  SucursalId            INT NOT NULL REFERENCES Sucursales(Id),
+  UsuarioId             INT NOT NULL REFERENCES Usuarios(Id),
+  FechaApertura         DATETIME NOT NULL DEFAULT GETUTCDATE(),
+  FechaCierre           DATETIME NULL,
+  MontoApertura         DECIMAL(18,2) NOT NULL DEFAULT 0,
+  MontoEfectivoFinal    DECIMAL(18,2) NULL,
+  TotalVentasEfectivo   DECIMAL(18,2) NOT NULL DEFAULT 0,
+  TotalVentasTarjeta    DECIMAL(18,2) NOT NULL DEFAULT 0,
+  TotalVentasOtros      DECIMAL(18,2) NOT NULL DEFAULT 0,
+  Diferencia            DECIMAL(18,2) NULL,
+  Estado                NVARCHAR(20) NOT NULL DEFAULT &apos;Abierto&apos;,
+  Activo                BIT NOT NULL DEFAULT 1
+);
+
+
+FASE 5
+Administracion del SAR
+Facturacion fiscal Honduras — CAI, correlativos, ISV 15% y 18%
+
+
+
+El SAR depende de que Productos tenga TipoISV, que Clientes pueda almacenar RTN y que el flujo de pagos (Fase 3) este completo. El numero de factura debe generarse atomicamente para evitar correlativos duplicados en concurrencia.
+
+
+
+13
+Tabla ConfiguracionSAR
+
+
+
+Un registro activo por sucursal. Almacena el CAI vigente, el rango de correlativos autorizado y la fecha limite de emision. Solo un usuario con rol Admin puede crear o renovar la configuracion. Al vencer FechaLimiteEmision o al alcanzar RangoHasta, el servicio debe retornar Result.Fail indicando que se debe renovar el CAI.
+[SQL]  [SVC]
+
+
+
+14
+Tabla FacturasEmitidas
+
+
+
+Una factura por venta (relacion 1:1, VentaId tiene indice unico). Almacena el desglose fiscal: MontoExento, MontoGravado15, MontoGravado18, ISV15 calculado, ISV18 calculado. RTNCliente es nullable (consumidor final no requiere RTN). El campo NumeroFactura almacena el numero con formato SAR.
+[SQL]  [DTO]  [SVC]
+
+
+
+15
+SARService — generar numero de factura
+
+
+
+Al confirmar una venta: (1) verificar ConfiguracionSAR activa para la sucursal, (2) verificar que CorrelativoActual &lt; RangoHasta y que DateTime.UtcNow &lt; FechaLimiteEmision, (3) formatear numero con formato SAR: 000-001-01-00000001, (4) incrementar CorrelativoActual e insertar FacturaEmitida en el mismo SaveChanges para garantizar atomicidad.
+[SVC]
+
+
+
+16
+Calculo de ISV 15% y 18%
+
+
+
+Agregar columna TipoISV a Productos (NVARCHAR(10): Exento / ISV15 / ISV18). Al emitir factura, SARService recorre los VentasDetalles y acumula: MontoExento (productos Exento), MontoGravado15 (productos ISV15), MontoGravado18 (productos ISV18). ISV15 = MontoGravado15 * 0.15, ISV18 = MontoGravado18 * 0.18. Reflejar el desglose en el DTO de respuesta.
+[SQL]  [SVC]
+
+
+
+17
+Endpoints SAR
+
+
+
+POST /api/sar/configuracion (crear o renovar CAI — solo Admin)  |  GET /api/sar/configuracion/actual  |  POST /api/ventas/{id}/emitir-factura (puede llamarse automaticamente al cambiar estado a Pagado)  |  GET /api/ventas/{id}/factura (retorna el PDF o el DTO de la factura emitida).
+[CTRL]
+
+
+
+
+Script SQL — Fase 5
+-- Tarea 13: configuracion SAR por sucursal
+CREATE TABLE ConfiguracionSAR (
+  Id                  INT PRIMARY KEY IDENTITY,
+  SucursalId          INT NOT NULL REFERENCES Sucursales(Id),
+  RTN                 NVARCHAR(20) NOT NULL,
+  CAI                 NVARCHAR(50) NOT NULL,
+  RangoDesde          NVARCHAR(20) NOT NULL,
+  RangoHasta          NVARCHAR(20) NOT NULL,
+  FechaLimiteEmision  DATE NOT NULL,
+  CorrelativoActual   INT NOT NULL DEFAULT 0,
+  Activo              BIT NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX UX_ConfiguracionSAR_Sucursal
+  ON ConfiguracionSAR(SucursalId) WHERE Activo = 1;
+ 
+-- Tarea 14: facturas emitidas
+CREATE TABLE FacturasEmitidas (
+  Id              INT PRIMARY KEY IDENTITY,
+  VentaId         INT NOT NULL REFERENCES Ventas(Id),
+  SucursalId      INT NOT NULL REFERENCES Sucursales(Id),
+  NumeroFactura   NVARCHAR(30) NOT NULL,
+  CAI             NVARCHAR(50) NOT NULL,
+  FechaEmision    DATETIME NOT NULL DEFAULT GETUTCDATE(),
+  RTNCliente      NVARCHAR(20) NULL,
+  NombreCliente   NVARCHAR(200) NOT NULL,
+  MontoExento     DECIMAL(18,2) NOT NULL DEFAULT 0,
+  MontoGravado15  DECIMAL(18,2) NOT NULL DEFAULT 0,
+  MontoGravado18  DECIMAL(18,2) NOT NULL DEFAULT 0,
+  ISV15           DECIMAL(18,2) NOT NULL DEFAULT 0,
+  ISV18           DECIMAL(18,2) NOT NULL DEFAULT 0,
+  Total           DECIMAL(18,2) NOT NULL,
+  Activo          BIT NOT NULL DEFAULT 1
+);
+CREATE UNIQUE INDEX UX_FacturasEmitidas_Venta
+  ON FacturasEmitidas(VentaId) WHERE Activo = 1;
+ 
+-- Tarea 16: tipo de ISV en Productos
+ALTER TABLE Productos
+  ADD TipoISV NVARCHAR(10) NOT NULL DEFAULT &apos;ISV15&apos;;
+
+
+
+
+Apendice — Plantilla de servicio estandar
+
+Cada nuevo servicio en el proyecto debe seguir exactamente esta estructura. No hay logica de negocio en los controllers.
+
+
+
+
+1. DTO de creacion (Features/{Modulo}/Dtos/)
+public class ProveedorCreacionDto
+{
+    public string Nombre    { get; set; } = string.Empty;
+    public string Contacto  { get; set; } = string.Empty;
+    public string RTN       { get; set; } = string.Empty;
+}
+
+
+
+
+2. Interfaz (Features/{Modulo}/Interfaces/)
+public interface IProveedoresService
+{
+    Task&lt;Result&lt;List&lt;ProveedorResponseDto&gt;&gt;&gt; ListarAsync();
+    Task&lt;Result&lt;ProveedorResponseDto&gt;&gt;      ObtenerPorIdAsync(int id);
+    Task&lt;Result&lt;ProveedorResponseDto&gt;&gt;      CrearAsync(ProveedorCreacionDto dto);
+    Task&lt;Result&lt;ProveedorResponseDto&gt;&gt;      EditarAsync(int id, ProveedorCreacionDto dto);
+    Task&lt;Result&lt;bool&gt;&gt;                      EliminarAsync(int id);
+}
+
+
+
+
+3. Servicio (Features/{Modulo}/Services/)
+public class ProveedoresService : IProveedoresService
+{
+    private readonly WebWaveDbContext _context;
+    public ProveedoresService(WebWaveDbContext context) =&gt; _context = context;
+ 
+    public async Task&lt;Result&lt;ProveedorResponseDto&gt;&gt; CrearAsync(ProveedorCreacionDto dto)
+    {
+        var existe = await _context.Proveedores
+            .AnyAsync(p =&gt; p.RTN == dto.RTN);  // == no StringComparison
+        if (existe)
+            return Result&lt;ProveedorResponseDto&gt;.Fail(&quot;Ya existe un proveedor con ese RTN.&quot;);
+ 
+        var proveedor = new Proveedor
+        {
+            Nombre   = dto.Nombre,
+            Contacto = dto.Contacto,
+            RTN      = dto.RTN,
+            Activo   = true
+        };
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+ 
+        return Result&lt;ProveedorResponseDto&gt;.Ok(MapToDto(proveedor));
+    }
+ 
+    private static ProveedorResponseDto MapToDto(Proveedor p) =&gt; new()
+    {
+        Id      = p.Id,
+        Nombre  = p.Nombre,
+        Contacto = p.Contacto,
+        RTN     = p.RTN
+    };
+}
+
+
+
+
+4. Controller (Controllers/)
+[ApiController]
+[Route(&quot;api/[controller]&quot;)]
+[Authorize]
+public class ProveedoresController : BaseApiController
+{
+    private readonly IProveedoresService _svc;
+    public ProveedoresController(IProveedoresService svc) =&gt; _svc = svc;
+ 
+    [HttpGet]
+    public async Task&lt;IActionResult&gt; Listar()
+        =&gt; HandleResult(await _svc.ListarAsync());
+ 
+    [HttpPost]
+    public async Task&lt;IActionResult&gt; Crear([FromBody] ProveedorCreacionDto dto)
+        =&gt; HandleResult(await _svc.CrearAsync(dto));
+ 
+    [HttpPut(&quot;{id}&quot;)]
+    public async Task&lt;IActionResult&gt; Editar(int id, [FromBody] ProveedorCreacionDto dto)
+        =&gt; HandleResult(await _svc.EditarAsync(id, dto));
+ 
+    [HttpDelete(&quot;{id}&quot;)]
+    public async Task&lt;IActionResult&gt; Eliminar(int id)
+        =&gt; HandleResult(await _svc.EliminarAsync(id));
+}
+
+
+
+
+5. Registro en Program.cs
+// Agregar junto a los demas AddScoped del proyecto
+builder.Services.AddScoped&lt;IProveedoresService, ProveedoresService&gt;();
+
+
+
+
+Regla de oro: no pasar a la siguiente fase sin probar la actual en Swagger.
+
+
