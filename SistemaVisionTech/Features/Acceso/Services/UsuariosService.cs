@@ -19,7 +19,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<IEnumerable<UsuariosDto>>> ObtenerUsuariosAsync()
         {
-            var usuarios = await _context.Usuarios
+            List<UsuariosDto> usuarios = await _context.Usuarios
                 .AsNoTracking()
                 .Include(u => u.Perfil)
                 .Select(u => new UsuariosDto
@@ -37,7 +37,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<UsuariosDto>> ObtenerUsuarioPorIdAsync(int usuarioId)
         {
-            var usuario = await _context.Usuarios
+            Usuarios? usuario = await _context.Usuarios
                 .AsNoTracking()
                 .Include(u => u.Perfil)
                 .FirstOrDefaultAsync(u => u.UsuarioId == usuarioId);
@@ -67,19 +67,19 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Contraseña))
                 return Result<UsuariosDto>.Fail("La contraseña es obligatoria.", isValidation: true);
 
-            var emailExiste = await _context.Usuarios
+            bool emailExiste = await _context.Usuarios
                 .AnyAsync(u => u.Email == dto.Email);
 
             if (emailExiste)
                 return Result<UsuariosDto>.Fail($"Ya existe un usuario con el email '{dto.Email}'.");
 
-            var perfilExiste = await _context.Perfiles
+            bool perfilExiste = await _context.Perfiles
                 .AnyAsync(p => p.PerfilId == dto.PerfilId);
 
             if (!perfilExiste)
                 return Result<UsuariosDto>.Fail($"El perfil con Id {dto.PerfilId} no existe.");
 
-            var usuario = new Usuarios
+            Usuarios usuario = new()
             {
                 Nombre = dto.Nombre.Trim(),
                 Email = dto.Email.Trim().ToLower(),
@@ -90,7 +90,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
 
-            var resultado = await ObtenerUsuarioPorIdAsync(usuario.UsuarioId);
+            Result<UsuariosDto> resultado = await ObtenerUsuarioPorIdAsync(usuario.UsuarioId);
             return resultado;
         }
 
@@ -102,14 +102,14 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Email))
                 return Result<UsuariosDto>.Fail("El email es obligatorio.", isValidation: true);
 
-            var usuario = await _context.Usuarios
+            Usuarios? usuario = await _context.Usuarios
                 .FirstOrDefaultAsync(u => u.UsuarioId == usuarioId);
 
             if (usuario is null)
                 return Result<UsuariosDto>.Fail(
                     $"El usuario con Id {usuarioId} no existe.");
 
-            var emailDuplicado = await _context.Usuarios
+            bool emailDuplicado = await _context.Usuarios
                 .AnyAsync(u => u.Email == dto.Email
                             && u.UsuarioId != usuarioId);
 
@@ -117,7 +117,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result<UsuariosDto>.Fail(
                     $"Ya existe otro usuario con el email '{dto.Email}'.");
 
-            var perfilExiste = await _context.Perfiles
+            bool perfilExiste = await _context.Perfiles
                 .AnyAsync(p => p.PerfilId == dto.PerfilId);
 
             if (!perfilExiste)
@@ -134,7 +134,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result> EliminarUsuarioAsync(int usuarioId)
         {
-            var usuario = await _context.Usuarios
+            Usuarios? usuario = await _context.Usuarios
                 .FirstOrDefaultAsync(u => u.UsuarioId == usuarioId);
 
             if (usuario is null)

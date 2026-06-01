@@ -1,4 +1,4 @@
-namespace SistemaVisionTech.Features.Compras.Dtos
+namespace SistemaVisionTech.Features.Compras.Dtos.Compras
 {
     public class CrearCompraDetalleDto
     {

@@ -6,10 +6,6 @@ using System.Text;
 
 namespace SistemaVisionTech.Features.Acceso.Services
 {
-    /// <summary>
-    /// Servicio de responsabilidad única encargado SOLO de generar tokens JWT.
-    /// SRP: la generación del token está separada de la lógica de login.
-    /// </summary>
     public class JwtTokenService : IJwtTokenService
     {
         private readonly IConfiguration _configuration;
@@ -19,30 +15,28 @@ namespace SistemaVisionTech.Features.Acceso.Services
             _configuration = configuration;
         }
 
-        public LoginTokenResult GenerarToken(
-            int usuarioId, string nombre, string email, string perfil)
+        public LoginTokenResult GenerarToken( int usuarioId, string nombre, string email, string perfil)
         {
-            var jwtKey = _configuration["Jwt:Key"]!;
-            var issuer = _configuration["Jwt:Issuer"]!;
-            var audience = _configuration["Jwt:Audience"]!;
-            var expires = int.Parse(_configuration["Jwt:ExpiresInMinutes"] ?? "480");
+            string jwtKey = _configuration["Jwt:Key"]!;
+            string issuer = _configuration["Jwt:Issuer"]!;
+            string audience = _configuration["Jwt:Audience"]!;
+            int expires = int.Parse(_configuration["Jwt:ExpiresInMinutes"] ?? "480");
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(jwtKey));
+            SigningCredentials creds = new(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
-            {
+            Claim[] claims =
+            [
                 new Claim(JwtRegisteredClaimNames.Sub,   usuarioId.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(JwtRegisteredClaimNames.Name,  nombre),
                 new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
-                // ClaimTypes.Role habilita [Authorize(Roles = "...")] en los controllers
                 new Claim(ClaimTypes.Role, perfil)
-            };
+            ];
 
-            var expiracion = DateTime.UtcNow.AddMinutes(expires);
+            DateTime expiracion = DateTime.UtcNow.AddMinutes(expires);
 
-            var token = new JwtSecurityToken(
+            JwtSecurityToken token = new(
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
@@ -50,8 +44,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 expires: expiracion,
                 signingCredentials: creds);
 
-            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-
+            string tokenString = new JwtSecurityTokenHandler().WriteToken(token);
             return new LoginTokenResult(tokenString, expiracion);
         }
     }

@@ -18,7 +18,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<IEnumerable<PermisosDto>>> ObtenerPermisosAsync()
         {
-            var permisos = await _context.Permisos
+            List<PermisosDto> permisos = await _context.Permisos
                 .AsNoTracking()
                 .Select(p => new PermisosDto
                 {
@@ -35,13 +35,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<PermisosDto>.Fail("El nombre del permiso es obligatorio.", isValidation: true);
 
-            var existe = await _context.Permisos
+            bool existe = await _context.Permisos
                 .AnyAsync(p => p.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase));
 
             if (existe)
                 return Result<PermisosDto>.Fail($"Ya existe un permiso con el nombre '{dto.Nombre}'.");
 
-            var permiso = new Permisos { Nombre = dto.Nombre.Trim() };
+            Permisos permiso = new() { Nombre = dto.Nombre.Trim() };
             _context.Permisos.Add(permiso);
             await _context.SaveChangesAsync();
 
@@ -57,13 +57,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<PermisosDto>.Fail("El nombre del permiso es obligatorio.", isValidation: true);
 
-            var permiso = await _context.Permisos
+            Permisos? permiso = await _context.Permisos
                 .FirstOrDefaultAsync(p => p.PermisoId == permisoId);
 
             if (permiso is null)
                 return Result<PermisosDto>.Fail($"El permiso con Id {permisoId} no existe.");
 
-            var nombreDuplicado = await _context.Permisos
+            bool nombreDuplicado = await _context.Permisos
                 .AnyAsync(p => p.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase) && p.PermisoId != permisoId);
 
             if (nombreDuplicado)
@@ -81,7 +81,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result> EliminarPermisoAsync(int permisoId)
         {
-            var permiso = await _context.Permisos
+            Permisos? permiso = await _context.Permisos
                 .Include(p => p.Perfiles)
                 .FirstOrDefaultAsync(p => p.PermisoId == permisoId);
 

@@ -19,7 +19,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<IEnumerable<EmpresasDto>>> ObtenerEmpresasAsync()
         {
-            var empresas = await _context.Empresas
+            List<EmpresasDto> empresas = await _context.Empresas
                 .AsNoTracking()
                 .Include(e => e.Sucursales)
                 .Select(e => new EmpresasDto
@@ -46,7 +46,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<EmpresasDto>> ObtenerEmpresaPorIdAsync(int empresaId)
         {
-            var empresa = await _context.Empresas
+            Empresas? empresa = await _context.Empresas
                 .AsNoTracking()
                 .Include(e => e.Sucursales)
                 .FirstOrDefaultAsync(e => e.EmpresaId == empresaId);
@@ -78,13 +78,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<EmpresasDto>.Fail("El nombre de la empresa es obligatorio.", isValidation: true);
 
-            var existe = await _context.Empresas
+            bool existe = await _context.Empresas
                 .AnyAsync(e => e.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase));
 
             if (existe)
                 return Result<EmpresasDto>.Fail($"Ya existe una empresa con el nombre '{dto.Nombre}'.");
 
-            var empresa = new Empresas
+            Empresas empresa = new()
             {
                 Nombre = dto.Nombre.Trim(),
                 Direccion = dto.Direccion?.Trim()!,
@@ -104,13 +104,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<EmpresasDto>.Fail("El nombre de la empresa es obligatorio.", isValidation: true);
 
-            var empresa = await _context.Empresas
+            Empresas? empresa = await _context.Empresas
                 .FirstOrDefaultAsync(e => e.EmpresaId == empresaId);
 
             if (empresa is null)
                 return Result<EmpresasDto>.Fail($"La empresa con Id {empresaId} no existe.");
 
-            var nombreDuplicado = await _context.Empresas
+            bool nombreDuplicado = await _context.Empresas
                 .AnyAsync(e => e.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase) && e.EmpresaId != empresaId);
 
             if (nombreDuplicado)
@@ -129,7 +129,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result> EliminarEmpresaAsync(int empresaId)
         {
-            var empresa = await _context.Empresas
+            Empresas? empresa = await _context.Empresas
                 .Include(e => e.Sucursales)
                 .FirstOrDefaultAsync(e => e.EmpresaId == empresaId);
 

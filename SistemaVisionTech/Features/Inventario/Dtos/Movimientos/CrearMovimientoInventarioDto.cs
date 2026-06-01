@@ -1,6 +1,6 @@
 using SistemaVisionTech.Features.Inventario.Enums;
 
-namespace SistemaVisionTech.Features.Inventario.Dtos
+namespace SistemaVisionTech.Features.Inventario.Dtos.Movimientos
 {
     public class CrearMovimientoInventarioDto
     {

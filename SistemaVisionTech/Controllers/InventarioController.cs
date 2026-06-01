@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SistemaVisionTech.Features.Inventario.Dtos;
+using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Inventario.Dtos.Inventario;
+using SistemaVisionTech.Features.Inventario.Dtos.Movimientos;
 using SistemaVisionTech.Features.Inventario.Interfaces;
 
 namespace SistemaVisionTech.Controllers
@@ -22,14 +23,14 @@ namespace SistemaVisionTech.Controllers
         [HttpGet]
         public async Task<IActionResult> ObtenerInventario()
         {
-            var resultado = await _inventarioService.ObtenerInventarioAsync();
+            Result<IEnumerable<InventarioDto>> resultado = await _inventarioService.ObtenerInventarioAsync();
             return HandleResult(resultado);
         }
 
         [HttpGet("Producto/{productoId:int}")]
         public async Task<IActionResult> ObtenerPorProducto(int productoId)
         {
-            var resultado = await _inventarioService
+            Result<InventarioDto> resultado = await _inventarioService
                 .ObtenerInventarioPorProductoAsync(productoId);
 
             if (!resultado.Success)
@@ -41,7 +42,7 @@ namespace SistemaVisionTech.Controllers
         [HttpPost("Movimiento")]
         public async Task<IActionResult> RegistrarMovimiento([FromBody] CrearMovimientoInventarioDto dto)
         {
-            var resultado = await _inventarioService
+            Result<MovimientoDto> resultado = await _inventarioService
                 .RegistrarMovimientoAsync(dto);
 
             if (resultado.Success)
@@ -56,7 +57,7 @@ namespace SistemaVisionTech.Controllers
         [HttpGet("Movimientos")]
         public async Task<IActionResult> ObtenerMovimientos([FromQuery] int? productoId = null)
         {
-            var resultado = await _inventarioService
+            Result<IEnumerable<MovimientoDto>> resultado = await _inventarioService
                 .ObtenerMovimientosAsync(productoId);
             return HandleResult(resultado);
         }
@@ -64,7 +65,7 @@ namespace SistemaVisionTech.Controllers
         [HttpPut("Ajuste")]
         public async Task<IActionResult> AjustarInventario([FromBody] AjusteInventarioDto dto)
         {
-            var resultado = await _inventarioService
+            Result<InventarioDto> resultado = await _inventarioService
                 .AjustarInventarioAsync(dto);
             return HandleResult(resultado);
         }

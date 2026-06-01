@@ -1,13 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
-using SistemaVisionTech.Features.Inventario.Dtos;
 using SistemaVisionTech.Features.Inventario.Dtos.Inventario;
 using SistemaVisionTech.Features.Inventario.Dtos.Movimientos;
 using SistemaVisionTech.Features.Inventario.Enums;
 using SistemaVisionTech.Features.Inventario.Interfaces;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
-using Entities = SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Features.Inventario.Service
 {
@@ -22,7 +20,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
 
         public async Task<Result<IEnumerable<InventarioDto>>> ObtenerInventarioAsync()
         {
-            var inventario = await _context.Inventario
+            List<InventarioDto> inventario = await _context.Inventario
                 .AsNoTracking()
                 .Include(i => i.Producto)
                 .Select(i => new InventarioDto
@@ -39,10 +37,9 @@ namespace SistemaVisionTech.Features.Inventario.Service
             return Result<IEnumerable<InventarioDto>>.Ok(inventario);
         }
 
-        public async Task<Result<InventarioDto>> ObtenerInventarioPorProductoAsync(
-            int productoId)
+        public async Task<Result<InventarioDto>> ObtenerInventarioPorProductoAsync( int productoId)
         {
-            var registro = await _context.Inventario
+            Inventarios? registro = await _context.Inventario
                 .AsNoTracking()
                 .Include(i => i.Producto)
                 .FirstOrDefaultAsync(i => i.ProductoId == productoId);
@@ -63,8 +60,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
         }
 
 
-        public async Task<Result<MovimientoDto>> RegistrarMovimientoAsync(
-            CrearMovimientoInventarioDto dto)
+        public async Task<Result<MovimientoDto>> RegistrarMovimientoAsync( CrearMovimientoInventarioDto dto)
         {
             if (dto.Cantidad <= 0)
                 return Result<MovimientoDto>.Fail(
@@ -75,14 +71,14 @@ namespace SistemaVisionTech.Features.Inventario.Service
                     "Tipo de movimiento inválido. " +
                     "Valores válidos: ENTRADA, SALIDA, AJUSTE.", isValidation: true);
 
-            var productoExiste = await _context.Productos
+            bool productoExiste = await _context.Productos
                 .AnyAsync(p => p.ProductoId == dto.ProductoId);
 
             if (!productoExiste)
                 return Result<MovimientoDto>.Fail(
                     $"El producto con Id {dto.ProductoId} no existe.");
 
-            var inventario = await _context.Inventario
+            Inventarios? inventario = await _context.Inventario
                 .FirstOrDefaultAsync(i => i.ProductoId == dto.ProductoId);
 
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -93,7 +89,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 if (inventario is null &&
                     dto.TipoMovimiento == TipoMovimientoEnum.ENTRADA)
                 {
-                    inventario = new Entities.Inventario
+                    inventario = new Inventarios
                     {
                         ProductoId = dto.ProductoId,
                         Cantidad = 0,
@@ -108,8 +104,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
                         "No existe registro de inventario para este producto. " +
                         "Registre una entrada primero.");
 
-                if (dto.TipoMovimiento == TipoMovimientoEnum.SALIDA &&
-                    inventario.Cantidad < dto.Cantidad)
+                if (dto.TipoMovimiento == TipoMovimientoEnum.SALIDA && inventario.Cantidad < dto.Cantidad)
                 {
                     return Result<MovimientoDto>.Fail(
                         $"Stock insuficiente. " +
@@ -127,9 +122,9 @@ namespace SistemaVisionTech.Features.Inventario.Service
                         break;
                 }
 
-                var tipoStr = dto.TipoMovimiento.ToString();
+                string tipoStr = dto.TipoMovimiento.ToString();
 
-                var movimiento = new HistorialMovimientoInventario
+                HistorialMovimientoInventario movimiento = new()
                 {
                     Cantidad = dto.Cantidad,
                     TipoMovimiento = tipoStr,
@@ -146,7 +141,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                var nombreProducto = await _context.Productos
+                string nombreProducto = await _context.Productos
                     .Where(p => p.ProductoId == dto.ProductoId)
                     .Select(p => p.Nombre)
                     .FirstAsync();
@@ -171,7 +166,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
 
         public async Task<Result<IEnumerable<MovimientoDto>>> ObtenerMovimientosAsync(int? productoId = null)
         {
-            var query = _context.HistorialMovimientoInventario
+            IQueryable<HistorialMovimientoInventario> query = _context.HistorialMovimientoInventario
                 .AsNoTracking()
                 .Include(m => m.Inventario)
                     .ThenInclude(i => i.Producto)
@@ -181,7 +176,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 query = query.Where(
                     m => m.Inventario.ProductoId == productoId.Value);
 
-            var movimientos = await query
+            List<MovimientoDto> movimientos = await query
                 .OrderByDescending(m => m.FechaMovimiento)
                 .Select(m => new MovimientoDto
                 {
@@ -198,8 +193,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
             return Result<IEnumerable<MovimientoDto>>.Ok(movimientos);
         }
 
-        public async Task<Result<InventarioDto>> AjustarInventarioAsync(
-            AjusteInventarioDto dto)
+        public async Task<Result<InventarioDto>> AjustarInventarioAsync(AjusteInventarioDto dto)
         {
             if (dto.CantidadNueva < 0)
                 return Result<InventarioDto>.Fail(
@@ -209,14 +203,14 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 return Result<InventarioDto>.Fail(
                     "El motivo del ajuste es obligatorio.", isValidation: true);
 
-            var productoExiste = await _context.Productos
+            bool productoExiste = await _context.Productos
                 .AnyAsync(p => p.ProductoId == dto.ProductoId);
 
             if (!productoExiste)
                 return Result<InventarioDto>.Fail(
                     $"El producto con Id {dto.ProductoId} no existe.");
 
-            var inventario = await _context.Inventario
+            Inventarios? inventario = await _context.Inventario
                 .Include(i => i.Producto)
                 .FirstOrDefaultAsync(i => i.ProductoId == dto.ProductoId);
 
@@ -227,7 +221,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 bool isNew = false;
                 if (inventario is null)
                 {
-                    inventario = new Entities.Inventario
+                    inventario = new Inventarios
                     {
                         ProductoId = dto.ProductoId,
                         Cantidad = dto.CantidadNueva,
@@ -237,11 +231,11 @@ namespace SistemaVisionTech.Features.Inventario.Service
                     isNew = true;
                 }
 
-                var diferencia = dto.CantidadNueva - inventario.Cantidad;
+                int diferencia = dto.CantidadNueva - inventario.Cantidad;
 
                 inventario.Cantidad = dto.CantidadNueva;
 
-                var movimiento = new HistorialMovimientoInventario
+                HistorialMovimientoInventario movimiento = new()
                 {
                     Cantidad = Math.Abs(diferencia),
                     TipoMovimiento = TipoMovimientoEnum.AJUSTE.ToString(),
@@ -258,7 +252,6 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // Recargar Producto si no se cargó (caso de inventario nuevo)
                 if (inventario.Producto is null)
                 {
                     await _context.Entry(inventario)

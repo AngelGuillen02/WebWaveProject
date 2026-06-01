@@ -18,13 +18,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<IEnumerable<PerfilesDto>>> ObtenerPerfilesAsync()
         {
-            var perfiles = await _context.Perfiles
+            List<Perfiles> perfiles = await _context.Perfiles
                 .AsNoTracking()
                 .Include(p => p.Permisos)
                     .ThenInclude(pp => pp.Permiso)
                 .ToListAsync();
 
-            var resultado = perfiles.Select(p => new PerfilesDto
+            IEnumerable<PerfilesDto> resultado = perfiles.Select(p => new PerfilesDto
             {
                 PerfilId = p.PerfilId,
                 Nombre = p.Nombre,
@@ -38,7 +38,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<PerfilesDto>> ObtenerPerfilPorIdAsync(int perfilId)
         {
-            var perfil = await _context.Perfiles
+            Perfiles? perfil = await _context.Perfiles
                 .AsNoTracking()
                 .Include(p => p.Permisos)
                     .ThenInclude(pp => pp.Permiso)
@@ -62,7 +62,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<PerfilesDto>.Fail("El nombre del perfil es obligatorio.", isValidation: true);
 
-            var existe = await _context.Perfiles
+            bool existe = await _context.Perfiles
                 .AnyAsync(p => p.Nombre == dto.Nombre);
 
             if (existe)
@@ -71,12 +71,12 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             if (dto.PermisosIds.Count != 0)
             {
-                var permisosExistentes = await _context.Permisos
+                List<int> permisosExistentes = await _context.Permisos
                     .Where(p => dto.PermisosIds.Contains(p.PermisoId))
                     .Select(p => p.PermisoId)
                     .ToListAsync();
 
-                var noEncontrados = dto.PermisosIds
+                List<int> noEncontrados = dto.PermisosIds
                     .Except(permisosExistentes)
                     .ToList();
 
@@ -84,13 +84,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     return Result<PerfilesDto>.Fail($"Los siguientes permisos no existen: " + $"{string.Join(", ", noEncontrados)}.");
             }
 
-            var perfil = new Perfiles { Nombre = dto.Nombre.Trim() };
+            Perfiles perfil = new() { Nombre = dto.Nombre.Trim() };
             _context.Perfiles.Add(perfil);
             await _context.SaveChangesAsync();
 
             if (dto.PermisosIds.Count != 0)
             {
-                var perfilesPermisos = dto.PermisosIds
+                List<PerfilesPermisos> perfilesPermisos = dto.PermisosIds
                     .Select(pid => new PerfilesPermisos
                     {
                         PerfilId = perfil.PerfilId,
@@ -109,14 +109,14 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<PerfilesDto>.Fail("El nombre del perfil es obligatorio.", isValidation: true);
 
-            var perfil = await _context.Perfiles
+            Perfiles? perfil = await _context.Perfiles
                 .Include(p => p.Permisos)
                 .FirstOrDefaultAsync(p => p.PerfilId == perfilId);
 
             if (perfil is null)
                 return Result<PerfilesDto>.Fail($"El perfil con Id {perfilId} no existe.");
 
-            var nombreDuplicado = await _context.Perfiles
+            bool nombreDuplicado = await _context.Perfiles
                 .AnyAsync(p => p.Nombre == dto.Nombre && p.PerfilId != perfilId);
 
             if (nombreDuplicado)
@@ -124,12 +124,12 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             if (dto.PermisosIds.Count != 0)
             {
-                var permisosExistentes = await _context.Permisos
+                List<int> permisosExistentes = await _context.Permisos
                     .Where(p => dto.PermisosIds.Contains(p.PermisoId))
                     .Select(p => p.PermisoId)
                     .ToListAsync();
 
-                var noEncontrados = dto.PermisosIds
+                List<int> noEncontrados = dto.PermisosIds
                     .Except(permisosExistentes)
                     .ToList();
 
@@ -139,17 +139,16 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             perfil.Nombre = dto.Nombre.Trim();
 
-            var permisosActuales = perfil.Permisos
+            HashSet<int> permisosActuales = perfil.Permisos
                 .Select(p => p.PermisoId)
                 .ToHashSet();
 
-            var permisosNuevos = dto.PermisosIds.ToHashSet();
-
-            var aEliminar = perfil.Permisos
+            HashSet<int> permisosNuevos = dto.PermisosIds.ToHashSet();
+            List<PerfilesPermisos> aEliminar = perfil.Permisos
                 .Where(p => !permisosNuevos.Contains(p.PermisoId))
                 .ToList();
 
-            var aAgregar = permisosNuevos
+            List<PerfilesPermisos> aAgregar = permisosNuevos
                 .Except(permisosActuales)
                 .Select(pid => new PerfilesPermisos
                 {
@@ -170,7 +169,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result> EliminarPerfilAsync(int perfilId)
         {
-            var perfil = await _context.Perfiles
+            Perfiles? perfil = await _context.Perfiles
                 .Include(p => p.Permisos)
                 .Include(p => p.Usuarios)
                 .FirstOrDefaultAsync(p => p.PerfilId == perfilId);

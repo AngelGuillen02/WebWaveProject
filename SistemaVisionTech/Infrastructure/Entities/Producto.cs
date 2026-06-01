@@ -1,6 +1,6 @@
 namespace SistemaVisionTech.Infrastructure.Entities
 {
-    public class Productos
+    public class Producto
     {
         public int ProductoId { get; set; }
         public string Nombre { get; set; } = string.Empty;
@@ -9,7 +9,8 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public bool TieneNumeroSerie { get; set; } = false;
         public bool TieneLote { get; set; } = false;
         public string? CodigoBarras { get; set; }
-        public ICollection<Inventario> Inventarios { get; set; } = [];
+        public string TipoISV { get; set; } = "ISV15";
+        public ICollection<Inventarios> Inventarios { get; set; } = [];
         public bool Activo { get; set; } = true;
     }
 }

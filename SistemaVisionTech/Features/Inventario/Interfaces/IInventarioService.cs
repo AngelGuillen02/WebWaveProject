@@ -1,5 +1,4 @@
 using SistemaVisionTech.Common;
-using SistemaVisionTech.Features.Inventario.Dtos;
 using SistemaVisionTech.Features.Inventario.Dtos.Inventario;
 using SistemaVisionTech.Features.Inventario.Dtos.Movimientos;
 

@@ -4,9 +4,9 @@ using SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Infrastructure.Maps
 {
-    public class ComprasMap : IEntityTypeConfiguration<Compras>
+    public class ComprasMap : IEntityTypeConfiguration<Compra>
     {
-        public void Configure(EntityTypeBuilder<Compras> builder)
+        public void Configure(EntityTypeBuilder<Compra> builder)
         {
             builder.ToTable("Compras", "dbo");
             builder.HasKey(x => x.CompraId);

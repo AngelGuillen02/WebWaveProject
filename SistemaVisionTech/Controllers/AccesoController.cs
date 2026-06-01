@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Acceso.Dtos.Auth;
 using SistemaVisionTech.Features.Acceso.Dtos.Empresas;
 using SistemaVisionTech.Features.Acceso.Dtos.Perfiles;
@@ -22,13 +23,7 @@ namespace SistemaVisionTech.Controllers
         private readonly IEmpresasService _empresasService;
         private readonly ISucursalesService _sucursalesService;
 
-        public AccesoController(
-            IAuthService authService,
-            IUsuariosService usuariosService,
-            IPerfilesService perfilesService,
-            IPermisosService permisosService,
-            IEmpresasService empresasService,
-            ISucursalesService sucursalesService)
+        public AccesoController(IAuthService authService,IUsuariosService usuariosService,IPerfilesService perfilesService,IPermisosService permisosService,IEmpresasService empresasService, ISucursalesService sucursalesService)
         {
             _authService = authService;
             _usuariosService = usuariosService;
@@ -38,15 +33,11 @@ namespace SistemaVisionTech.Controllers
             _sucursalesService = sucursalesService;
         }
 
-
-
-        // ── AUTH ─────────────────────────────────────────────────────────
-
         [AllowAnonymous]
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
-            var resultado = await _authService.LoginAsync(dto);
+            Result<LoginResponseDto> resultado = await _authService.LoginAsync(dto);
 
             if (!resultado.Success)
                 return Unauthorized(new { mensaje = resultado.Error });
@@ -54,19 +45,17 @@ namespace SistemaVisionTech.Controllers
             return Ok(resultado.Data);
         }
 
-        // ── USUARIOS ──────────────────────────────────────────────────────
-
         [HttpGet("Usuarios")]
         public async Task<IActionResult> ObtenerUsuarios()
         {
-            var resultado = await _usuariosService.ObtenerUsuariosAsync();
+            Result<IEnumerable<UsuariosDto>> resultado = await _usuariosService.ObtenerUsuariosAsync();
             return HandleResult(resultado);
         }
 
         [HttpGet("Usuarios/{id:int}")]
         public async Task<IActionResult> ObtenerUsuarioPorId(int id)
         {
-            var resultado = await _usuariosService.ObtenerUsuarioPorIdAsync(id);
+            Result<UsuariosDto> resultado = await _usuariosService.ObtenerUsuarioPorIdAsync(id);
 
             if (!resultado.Success)
                 return NotFound(new { mensaje = resultado.Error });
@@ -76,20 +65,16 @@ namespace SistemaVisionTech.Controllers
 
         [AllowAnonymous]
         [HttpPost("Usuarios")]
-        public async Task<IActionResult> CrearUsuario(
-            [FromBody] UsuariosCreacionDto dto)
+        public async Task<IActionResult> CrearUsuario( [FromBody] UsuariosCreacionDto dto)
         {
-            var resultado = await _usuariosService.CrearUsuarioAsync(dto);
-            return HandleCreatedResult(resultado,
-                nameof(ObtenerUsuarioPorId),
-                data => new { id = data.UsuarioId });
+            Result<UsuariosDto> resultado = await _usuariosService.CrearUsuarioAsync(dto);
+            return HandleCreatedResult(resultado, nameof(ObtenerUsuarioPorId), data => new { id = data.UsuarioId });
         }
 
         [HttpPut("Usuarios/{id:int}")]
-        public async Task<IActionResult> ActualizarUsuario(
-            int id, [FromBody] UsuariosActualizacionDto dto)
+        public async Task<IActionResult> ActualizarUsuario( int id, [FromBody] UsuariosActualizacionDto dto)
         {
-            var resultado = await _usuariosService.ActualizarUsuarioAsync(id, dto);
+            Result<UsuariosDto> resultado = await _usuariosService.ActualizarUsuarioAsync(id, dto);
             return HandleResult(resultado);
         }
 
@@ -97,23 +82,21 @@ namespace SistemaVisionTech.Controllers
         [HttpDelete("Usuarios/{id:int}")]
         public async Task<IActionResult> EliminarUsuario(int id)
         {
-            var resultado = await _usuariosService.EliminarUsuarioAsync(id);
+            Result resultado = await _usuariosService.EliminarUsuarioAsync(id);
             return HandleResult(resultado);
         }
-
-        // ── PERFILES ──────────────────────────────────────────────────────
 
         [HttpGet("Perfiles")]
         public async Task<IActionResult> ObtenerPerfiles()
         {
-            var resultado = await _perfilesService.ObtenerPerfilesAsync();
+            Result<IEnumerable<PerfilesDto>> resultado = await _perfilesService.ObtenerPerfilesAsync();
             return HandleResult(resultado);
         }
 
         [HttpGet("Perfiles/{id:int}")]
         public async Task<IActionResult> ObtenerPerfilPorId(int id)
         {
-            var resultado = await _perfilesService.ObtenerPerfilPorIdAsync(id);
+            Result<PerfilesDto> resultado = await _perfilesService.ObtenerPerfilPorIdAsync(id);
 
             if (!resultado.Success)
                 return NotFound(new { mensaje = resultado.Error });
@@ -123,77 +106,66 @@ namespace SistemaVisionTech.Controllers
 
         [AllowAnonymous]
         [HttpPost("Perfiles")]
-        public async Task<IActionResult> CrearPerfil(
-            [FromBody] PerfilesCreacionDto dto)
+        public async Task<IActionResult> CrearPerfil( [FromBody] PerfilesCreacionDto dto)
         {
-            var resultado = await _perfilesService.CrearPerfilAsync(dto);
-            return HandleCreatedResult(resultado,
-                nameof(ObtenerPerfilPorId),
-                data => new { id = data.PerfilId });
+            Result<PerfilesDto> resultado = await _perfilesService.CrearPerfilAsync(dto);
+            return HandleCreatedResult(resultado, nameof(ObtenerPerfilPorId), data => new { id = data.PerfilId });
         }
 
         [HttpPut("Perfiles/{id:int}")]
-        public async Task<IActionResult> ActualizarPerfil(
-            int id, [FromBody] PerfilesActualizacionDto dto)
+        public async Task<IActionResult> ActualizarPerfil( int id, [FromBody] PerfilesActualizacionDto dto)
         {
-            var resultado = await _perfilesService.ActualizarPerfilAsync(id, dto);
+            Result<PerfilesDto> resultado = await _perfilesService.ActualizarPerfilAsync(id, dto);
             return HandleResult(resultado);
         }
 
         [HttpDelete("Perfiles/{id:int}")]
         public async Task<IActionResult> EliminarPerfil(int id)
         {
-            var resultado = await _perfilesService.EliminarPerfilAsync(id);
+            Result resultado = await _perfilesService.EliminarPerfilAsync(id);
             return HandleResult(resultado);
         }
-
-        // ── PERMISOS ──────────────────────────────────────────────────────
 
         [HttpGet("Permisos")]
         public async Task<IActionResult> ObtenerPermisos()
         {
-            var resultado = await _permisosService.ObtenerPermisosAsync();
+            Result<IEnumerable<PermisosDto>> resultado = await _permisosService.ObtenerPermisosAsync();
             return HandleResult(resultado);
         }
 
         [HttpPost("Permisos")]
-        public async Task<IActionResult> CrearPermiso(
-            [FromBody] PermisosCreacionDto dto)
+        public async Task<IActionResult> CrearPermiso( [FromBody] PermisosCreacionDto dto)
         {
-            var resultado = await _permisosService.CrearPermisoAsync(dto);
-            return HandleCreatedResult(resultado,
-                nameof(ObtenerPerfilPorId),
-                data => new { id = data.PermisoId });
+            Result<PermisosDto> resultado = await _permisosService.CrearPermisoAsync(dto);
+            return HandleCreatedResult(resultado, nameof(ObtenerPerfilPorId), data => new { id = data.PermisoId });
         }
 
         [HttpPut("Permisos/{id:int}")]
-        public async Task<IActionResult> ActualizarPermiso(
-            int id, [FromBody] PermisosActualizacionDto dto)
+        public async Task<IActionResult> ActualizarPermiso( int id, [FromBody] PermisosActualizacionDto dto)
         {
-            var resultado = await _permisosService.ActualizarPermisoAsync(id, dto);
+            Result<PermisosDto> resultado = await _permisosService.ActualizarPermisoAsync(id, dto);
             return HandleResult(resultado);
         }
 
         [HttpDelete("Permisos/{id:int}")]
         public async Task<IActionResult> EliminarPermiso(int id)
         {
-            var resultado = await _permisosService.EliminarPermisoAsync(id);
+            Result resultado = await _permisosService.EliminarPermisoAsync(id);
             return HandleResult(resultado);
         }
 
-        // ── EMPRESAS ──────────────────────────────────────────────────────
 
         [HttpGet("Empresas")]
         public async Task<IActionResult> ObtenerEmpresas()
         {
-            var resultado = await _empresasService.ObtenerEmpresasAsync();
+            Result<IEnumerable<EmpresasDto>> resultado = await _empresasService.ObtenerEmpresasAsync();
             return HandleResult(resultado);
         }
 
         [HttpGet("Empresas/{id:int}")]
         public async Task<IActionResult> ObtenerEmpresaPorId(int id)
         {
-            var resultado = await _empresasService.ObtenerEmpresaPorIdAsync(id);
+            Result<EmpresasDto> resultado = await _empresasService.ObtenerEmpresaPorIdAsync(id);
 
             if (!resultado.Success)
                 return NotFound(new { mensaje = resultado.Error });
@@ -202,43 +174,37 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpPost("Empresas")]
-        public async Task<IActionResult> CrearEmpresa(
-            [FromBody] EmpresasCreacionDto dto)
+        public async Task<IActionResult> CrearEmpresa( [FromBody] EmpresasCreacionDto dto)
         {
-            var resultado = await _empresasService.CrearEmpresaAsync(dto);
-            return HandleCreatedResult(resultado,
-                nameof(ObtenerEmpresaPorId),
-                data => new { id = data.EmpresaId });
+            Result<EmpresasDto> resultado = await _empresasService.CrearEmpresaAsync(dto);
+            return HandleCreatedResult(resultado, nameof(ObtenerEmpresaPorId), data => new { id = data.EmpresaId });
         }
 
         [HttpPut("Empresas/{id:int}")]
-        public async Task<IActionResult> ActualizarEmpresa(
-            int id, [FromBody] EmpresasActualizacionDto dto)
+        public async Task<IActionResult> ActualizarEmpresa( int id, [FromBody] EmpresasActualizacionDto dto)
         {
-            var resultado = await _empresasService.ActualizarEmpresaAsync(id, dto);
+            Result<EmpresasDto> resultado = await _empresasService.ActualizarEmpresaAsync(id, dto);
             return HandleResult(resultado);
         }
 
         [HttpDelete("Empresas/{id:int}")]
         public async Task<IActionResult> EliminarEmpresa(int id)
         {
-            var resultado = await _empresasService.EliminarEmpresaAsync(id);
+            Result resultado = await _empresasService.EliminarEmpresaAsync(id);
             return HandleResult(resultado);
         }
-
-        // ── SUCURSALES ────────────────────────────────────────────────────
 
         [HttpGet("Sucursales")]
         public async Task<IActionResult> ObtenerSucursales()
         {
-            var resultado = await _sucursalesService.ObtenerSucursalesAsync();
+            Result<IEnumerable<SucursalesDto>> resultado = await _sucursalesService.ObtenerSucursalesAsync();
             return HandleResult(resultado);
         }
 
         [HttpGet("Sucursales/{id:int}")]
         public async Task<IActionResult> ObtenerSucursalPorId(int id)
         {
-            var resultado = await _sucursalesService.ObtenerSucursalPorIdAsync(id);
+            Result<SucursalesDto> resultado = await _sucursalesService.ObtenerSucursalPorIdAsync(id);
 
             if (!resultado.Success)
                 return NotFound(new { mensaje = resultado.Error });
@@ -247,27 +213,23 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpPost("Sucursales")]
-        public async Task<IActionResult> CrearSucursal(
-            [FromBody] SucursalesCreacionDto dto)
+        public async Task<IActionResult> CrearSucursal( [FromBody] SucursalesCreacionDto dto)
         {
-            var resultado = await _sucursalesService.CrearSucursalAsync(dto);
-            return HandleCreatedResult(resultado,
-                nameof(ObtenerSucursalPorId),
-                data => new { id = data.SucursalId });
+            Result<SucursalesDto> resultado = await _sucursalesService.CrearSucursalAsync(dto);
+            return HandleCreatedResult(resultado, nameof(ObtenerSucursalPorId), data => new { id = data.SucursalId });
         }
 
         [HttpPut("Sucursales/{id:int}")]
-        public async Task<IActionResult> ActualizarSucursal(
-            int id, [FromBody] SucursalesActualizacionDto dto)
+        public async Task<IActionResult> ActualizarSucursal( int id, [FromBody] SucursalesActualizacionDto dto)
         {
-            var resultado = await _sucursalesService.ActualizarSucursalAsync(id, dto);
+            Result<SucursalesDto> resultado = await _sucursalesService.ActualizarSucursalAsync(id, dto);
             return HandleResult(resultado);
         }
 
         [HttpDelete("Sucursales/{id:int}")]
         public async Task<IActionResult> EliminarSucursal(int id)
         {
-            var resultado = await _sucursalesService.EliminarSucursalAsync(id);
+            Result resultado = await _sucursalesService.EliminarSucursalAsync(id);
             return HandleResult(resultado);
         }
     }

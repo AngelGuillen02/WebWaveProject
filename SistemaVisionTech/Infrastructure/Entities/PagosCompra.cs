@@ -7,7 +7,7 @@
         public int MetodoPagoId { get; set; }
         public decimal Monto { get; set; }
         public DateTime FechaPago { get; set; }
-        public Compras Compra { get; set; } = new Compras();
+        public Compra Compra { get; set; } = new Compra();
         public MetodosPago MetodoPago { get; set; } = new MetodosPago();
     }
 }

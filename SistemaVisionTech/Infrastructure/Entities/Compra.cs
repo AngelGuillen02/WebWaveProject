@@ -1,6 +1,6 @@
 namespace SistemaVisionTech.Infrastructure.Entities
 {
-    public class Compras
+    public class Compra
     {
         public int CompraId { get; set; }
         public int ProveedorId { get; set; }

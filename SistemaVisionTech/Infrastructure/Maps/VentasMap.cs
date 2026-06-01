@@ -4,9 +4,9 @@ using SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Infrastructure.Maps
 {
-    public class VentasMap : IEntityTypeConfiguration<Ventas>
+    public class VentasMap : IEntityTypeConfiguration<Venta>
     {
-        public void Configure(EntityTypeBuilder<Ventas> builder)
+        public void Configure(EntityTypeBuilder<Venta> builder)
         {
             builder.ToTable("Ventas", "dbo");
             builder.HasKey(x => x.VentaId);

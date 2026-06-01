@@ -7,6 +7,8 @@
         public int Cantidad { get; set; }
         public string TipoMovimiento { get; set; } = string.Empty;
         public DateTime FechaMovimiento { get; set; }
-        public Inventario Inventario { get; set; } = new Inventario();
+        public string? OrigenTipo { get; set; } // Compra, Venta, Ajuste, Devolucion
+        public int? OrigenId { get; set; }
+        public Inventarios Inventario { get; set; } = new Inventarios();
     }
 }

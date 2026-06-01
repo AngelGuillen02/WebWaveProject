@@ -22,7 +22,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
 
         public async Task<Result<IEnumerable<VentasDto>>> ObtenerVentasAsync()
         {
-            var ventas = await _context.Ventas
+            List<VentasDto> ventas = await _context.Ventas
                 .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.EstadoVenta)
@@ -39,7 +39,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
 
         public async Task<Result<VentasDto>> ObtenerVentaPorIdAsync(int ventaId)
         {
-            var venta = await _context.Ventas
+            Venta? venta = await _context.Ventas
                 .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.EstadoVenta)
@@ -56,11 +56,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
             return Result<VentasDto>.Ok(MapearVentaResponse(venta));
         }
 
-        // ─── CREAR VENTA ─────────────────────────────────────────────────
 
         public async Task<Result<VentasDto>> CrearVentaAsync(CrearVentaDto dto)
         {
-            // Validaciones técnicas
             if (dto.Detalles is null || !dto.Detalles.Any())
                 return Result<VentasDto>.Fail(
                     "La venta debe tener al menos un producto.", isValidation: true);
@@ -74,23 +72,20 @@ namespace SistemaVisionTech.Features.Ventas.Services
                     "No se puede repetir el mismo producto en los detalles. " +
                     "Ajuste la cantidad en un solo renglón.", isValidation: true);
 
-            // Validar cliente
-            var clienteExiste = await _context.Clientes
+            bool clienteExiste = await _context.Clientes
                 .AnyAsync(c => c.ClienteId == dto.ClienteId);
 
             if (!clienteExiste)
                 return Result<VentasDto>.Fail(
                     $"El cliente con Id {dto.ClienteId} no existe.");
 
-            // Obtener productos e inventarios de una sola vez
-            var productosIds = dto.Detalles.Select(d => d.ProductoId).ToList();
+            List<int>? productosIds = dto.Detalles.Select(d => d.ProductoId).ToList();
 
-            var productos = await _context.Productos
+            List<Producto>? productos = await _context.Productos
                 .Where(p => productosIds.Contains(p.ProductoId))
                 .ToListAsync();
 
-            // Validar que todos los productos existan
-            var productosNoEncontrados = productosIds
+            List<int>? productosNoEncontrados = productosIds
                 .Except(productos.Select(p => p.ProductoId))
                 .ToList();
 
@@ -99,20 +94,19 @@ namespace SistemaVisionTech.Features.Ventas.Services
                     $"Los siguientes productos no existen: " +
                     $"{string.Join(", ", productosNoEncontrados)}.");
 
-            var inventarios = await _context.Inventario
+            List<Inventarios>? inventarios = await _context.Inventario
                 .Where(i => productosIds.Contains(i.ProductoId))
                 .ToListAsync();
 
-            // Validar stock por cada producto antes de crear nada
             foreach (var detalle in dto.Detalles)
             {
-                var inv = inventarios
+                Inventarios? inv = inventarios
                     .FirstOrDefault(i => i.ProductoId == detalle.ProductoId);
 
                 if (inv is null || inv.Cantidad < detalle.Cantidad)
                 {
-                    var disponible = inv?.Cantidad ?? 0;
-                    var nombreProd = productos
+                    int disponible = inv?.Cantidad ?? 0;
+                    string nombreProd = productos
                         .First(p => p.ProductoId == detalle.ProductoId).Nombre;
 
                     return Result<VentasDto>.Fail(
@@ -121,13 +115,12 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 }
             }
 
-            // Construir detalles y calcular total
-            var detallesEntidad = new List<VentasDetalles>();
+            List<VentasDetalles> detallesEntidad = [];
 
             foreach (var detalle in dto.Detalles)
             {
-                var producto = productos.First(p => p.ProductoId == detalle.ProductoId);
-                var totalLinea = producto.Precio * detalle.Cantidad;
+                Producto producto = productos.First(p => p.ProductoId == detalle.ProductoId);
+                decimal totalLinea = producto.Precio * detalle.Cantidad;
 
                 detallesEntidad.Add(new VentasDetalles
                 {
@@ -138,10 +131,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 });
             }
 
-            var totalVenta = detallesEntidad.Sum(d => d.Total);
+            decimal totalVenta = detallesEntidad.Sum(d => d.Total);
 
-            // Crear la venta en estado Pendiente
-            var venta = new Entities.Ventas
+            Venta venta = new() 
             {
                 ClienteId = dto.ClienteId,
                 FechaVenta = DateTime.UtcNow,
@@ -156,10 +148,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
             {
                 _context.Ventas.Add(venta);
 
-                // Descontar stock e insertar movimientos de inventario
                 foreach (var detalle in dto.Detalles)
                 {
-                    var inv = inventarios.First(i => i.ProductoId == detalle.ProductoId);
+                    Inventarios? inv = inventarios.First(i => i.ProductoId == detalle.ProductoId);
                     inv.Cantidad -= detalle.Cantidad;
 
                     _context.HistorialMovimientoInventario.Add(
@@ -184,11 +175,10 @@ namespace SistemaVisionTech.Features.Ventas.Services
             }
         }
 
-        // ─── CONFIRMAR VENTA ─────────────────────────────────────────────
 
         public async Task<Result<VentasDto>> ConfirmarVentaAsync(int ventaId)
         {
-            var venta = await _context.Ventas
+            Venta? venta = await _context.Ventas
                 .FirstOrDefaultAsync(v => v.VentaId == ventaId);
 
             if (venta is null)
@@ -205,11 +195,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
             return await ObtenerVentaPorIdAsync(ventaId);
         }
 
-        // ─── ANULAR VENTA ────────────────────────────────────────────────
-
         public async Task<Result<VentasDto>> AnularVentaAsync(int ventaId)
         {
-            var venta = await _context.Ventas
+            Venta? venta = await _context.Ventas
                 .Include(v => v.Detalles)
                 .FirstOrDefaultAsync(v => v.VentaId == ventaId);
 
@@ -221,12 +209,11 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 return Result<VentasDto>.Fail(
                     "La venta ya se encuentra anulada.");
 
-            // Restaurar stock por cada producto del detalle
-            var productosIds = venta.Detalles
+            List<int>? productosIds = venta.Detalles
                 .Select(d => d.ProductoId)
                 .ToList();
 
-            var inventarios = await _context.Inventario
+            List<Inventarios>? inventarios = await _context.Inventario
                 .Where(i => productosIds.Contains(i.ProductoId))
                 .ToListAsync();
 
@@ -236,7 +223,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
             {
                 foreach (var detalle in venta.Detalles)
                 {
-                    var inv = inventarios
+                    Inventarios? inv = inventarios
                         .First(i => i.ProductoId == detalle.ProductoId);
 
                     inv.Cantidad += detalle.Cantidad;
@@ -265,15 +252,13 @@ namespace SistemaVisionTech.Features.Ventas.Services
             }
         }
 
-        // ─── REGISTRAR PAGO ──────────────────────────────────────────────
-
         public async Task<Result<PagoVentaDto>> RegistrarPagoAsync(CrearPagoVentaDto dto)
         {
             if (dto.Monto <= 0)
                 return Result<PagoVentaDto>.Fail(
                     "El monto del pago debe ser mayor a cero.", isValidation: true);
 
-            var venta = await _context.Ventas
+            Venta? venta = await _context.Ventas
                 .Include(v => v.Pagos)
                 .FirstOrDefaultAsync(v => v.VentaId == dto.VentaId);
 
@@ -285,24 +270,22 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 return Result<PagoVentaDto>.Fail(
                     "Solo se puede registrar pago a ventas Confirmadas.");
 
-            // Validar que no se exceda el total
-            var totalPagado = venta.Pagos.Sum(p => p.Monto);
-            var pendientePago = venta.Total - totalPagado;
+            decimal totalPagado = venta.Pagos.Sum(p => p.Monto);
+            decimal pendientePago = venta.Total - totalPagado;
 
             if (dto.Monto > pendientePago)
                 return Result<PagoVentaDto>.Fail(
                     $"El monto excede el saldo pendiente. " +
                     $"Pendiente: {pendientePago:C}, Monto enviado: {dto.Monto:C}.");
 
-            // Validar método de pago
-            var metodoPago = await _context.MetodosPago
+            MetodosPago? metodoPago = await _context.MetodosPago
                 .FirstOrDefaultAsync(m => m.MetodoPagoId == dto.MetodoPagoId);
 
             if (metodoPago is null)
                 return Result<PagoVentaDto>.Fail(
                     $"El método de pago con Id {dto.MetodoPagoId} no existe.");
 
-            var pago = new PagosVenta
+            PagosVenta pago = new ()
             {
                 VentaId = dto.VentaId,
                 MetodoPagoId = dto.MetodoPagoId,
@@ -325,9 +308,8 @@ namespace SistemaVisionTech.Features.Ventas.Services
             });
         }
 
-        // ─── MAPPER PRIVADO ──────────────────────────────────────────────
 
-        private static VentasDto MapearVentaResponse(Entities.Ventas v)
+        private static VentasDto MapearVentaResponse(Venta v)
         {
             return new VentasDto
             {

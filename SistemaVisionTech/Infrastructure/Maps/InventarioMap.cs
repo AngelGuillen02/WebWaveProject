@@ -4,9 +4,9 @@ using SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Infrastructure.Maps
 {
-    public class InventarioMap : IEntityTypeConfiguration<Inventario>
+    public class InventarioMap : IEntityTypeConfiguration<Inventarios>
     {
-        public void Configure(EntityTypeBuilder<Inventario> builder)
+        public void Configure(EntityTypeBuilder<Inventarios> builder)
         {
             builder.ToTable("Inventario", "dbo");
             builder.HasKey(x => x.InventarioId);

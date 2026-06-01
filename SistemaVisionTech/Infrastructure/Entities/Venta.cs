@@ -1,6 +1,6 @@
 namespace SistemaVisionTech.Infrastructure.Entities
 {
-    public class Ventas
+    public class Venta
     {
         public int VentaId { get; set; }
         public int ClienteId { get; set; }
@@ -12,5 +12,7 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public ICollection<VentasDetalles> Detalles { get; set; } = [];
         public ICollection<PagosVenta> Pagos { get; set; } = [];
         public bool Activo { get; set; } = true;
+        
+        public string Rtn { get; set; } = string.Empty;
     }
 }

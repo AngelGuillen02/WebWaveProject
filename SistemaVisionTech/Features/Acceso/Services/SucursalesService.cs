@@ -18,7 +18,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<IEnumerable<SucursalesDto>>> ObtenerSucursalesAsync()
         {
-            var sucursales = await _context.Sucursales
+            List<SucursalesDto> sucursales = await _context.Sucursales
                 .AsNoTracking()
                 .Include(s => s.Empresa)
                 .Select(s => new SucursalesDto
@@ -36,7 +36,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<SucursalesDto>> ObtenerSucursalPorIdAsync(int sucursalId)
         {
-            var sucursal = await _context.Sucursales
+            Sucursales? sucursal = await _context.Sucursales
                 .AsNoTracking()
                 .Include(s => s.Empresa)
                 .FirstOrDefaultAsync(s => s.SucursalId == sucursalId);
@@ -59,14 +59,14 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<SucursalesDto>.Fail("El nombre de la sucursal es obligatorio.", isValidation: true);
 
-            var empresaExiste = await _context.Empresas
+            bool empresaExiste = await _context.Empresas
                 .AnyAsync(e => e.EmpresaId == dto.EmpresaId);
 
             if (!empresaExiste)
                 return Result<SucursalesDto>.Fail(
                     $"La empresa con Id {dto.EmpresaId} no existe.");
 
-            var nombreDuplicado = await _context.Sucursales
+            bool nombreDuplicado = await _context.Sucursales
                 .AnyAsync(s => s.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase)
                             && s.EmpresaId == dto.EmpresaId);
 
@@ -75,7 +75,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     $"Ya existe una sucursal con el nombre '{dto.Nombre}' " +
                     $"en esta empresa.");
 
-            var sucursal = new Sucursales
+            Sucursales sucursal = new()
             {
                 Nombre = dto.Nombre.Trim(),
                 Direccion = dto.Direccion?.Trim()!,
@@ -88,21 +88,20 @@ namespace SistemaVisionTech.Features.Acceso.Services
             return await ObtenerSucursalPorIdAsync(sucursal.SucursalId);
         }
 
-        public async Task<Result<SucursalesDto>> ActualizarSucursalAsync(
-            int sucursalId, SucursalesActualizacionDto dto)
+        public async Task<Result<SucursalesDto>> ActualizarSucursalAsync( int sucursalId, SucursalesActualizacionDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<SucursalesDto>.Fail(
                     "El nombre de la sucursal es obligatorio.", isValidation: true);
 
-            var sucursal = await _context.Sucursales
+            Sucursales? sucursal = await _context.Sucursales
                 .FirstOrDefaultAsync(s => s.SucursalId == sucursalId);
 
             if (sucursal is null)
                 return Result<SucursalesDto>.Fail(
                     $"La sucursal con Id {sucursalId} no existe.");
 
-            var nombreDuplicado = await _context.Sucursales
+            bool nombreDuplicado = await _context.Sucursales
                 .AnyAsync(s => s.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase)
                             && s.EmpresaId == sucursal.EmpresaId
                             && s.SucursalId != sucursalId);
@@ -122,7 +121,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result> EliminarSucursalAsync(int sucursalId)
         {
-            var sucursal = await _context.Sucursales
+            Sucursales? sucursal = await _context.Sucursales
                 .FirstOrDefaultAsync(s => s.SucursalId == sucursalId);
 
             if (sucursal is null)

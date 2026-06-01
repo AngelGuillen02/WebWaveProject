@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Ventas.Dtos;
 using SistemaVisionTech.Features.Ventas.Interfaces;
 
@@ -21,14 +22,14 @@ namespace SistemaVisionTech.Controllers
         [HttpGet]
         public async Task<IActionResult> ObtenerVentas()
         {
-            var resultado = await _ventasService.ObtenerVentasAsync();
+            Result<IEnumerable<VentasDto>> resultado = await _ventasService.ObtenerVentasAsync();
             return HandleResult(resultado);
         }
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> ObtenerVentaPorId(int id)
         {
-            var resultado = await _ventasService.ObtenerVentaPorIdAsync(id);
+            Result<VentasDto> resultado = await _ventasService.ObtenerVentaPorIdAsync(id);
 
             if (!resultado.Success)
                 return NotFound(new { mensaje = resultado.Error });
@@ -39,13 +40,14 @@ namespace SistemaVisionTech.Controllers
         [HttpPost]
         public async Task<IActionResult> CrearVenta([FromBody] CrearVentaDto dto)
         {
-            var resultado = await _ventasService.CrearVentaAsync(dto);
-
-            if (resultado.Success)
+            Result<VentasDto> resultado = await _ventasService.CrearVentaAsync(dto);
+            if (resultado.Success && resultado.Data != null)
+            {
                 return CreatedAtAction(
                     nameof(ObtenerVentaPorId),
                     new { id = resultado.Data.VentaId },
                     resultado.Data);
+            }
 
             if (resultado.IsValidationError)
                 return BadRequest(new { mensaje = resultado.Error });
@@ -56,21 +58,21 @@ namespace SistemaVisionTech.Controllers
         [HttpPut("{id:int}/Confirmar")]
         public async Task<IActionResult> ConfirmarVenta(int id)
         {
-            var resultado = await _ventasService.ConfirmarVentaAsync(id);
+            Result<VentasDto> resultado = await _ventasService.ConfirmarVentaAsync(id);
             return HandleResult(resultado);
         }
 
         [HttpPut("{id:int}/Anular")]
         public async Task<IActionResult> AnularVenta(int id)
         {
-            var resultado = await _ventasService.AnularVentaAsync(id);
+            Result<VentasDto> resultado = await _ventasService.AnularVentaAsync(id);
             return HandleResult(resultado);
         }
 
         [HttpPost("Pago")]
         public async Task<IActionResult> RegistrarPago([FromBody] CrearPagoVentaDto dto)
         {
-            var resultado = await _ventasService.RegistrarPagoAsync(dto);
+            Result<PagoVentaDto> resultado = await _ventasService.RegistrarPagoAsync(dto);
 
             if (resultado.Success)
                 return StatusCode(201, resultado.Data);

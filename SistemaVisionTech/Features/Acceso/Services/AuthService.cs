@@ -3,7 +3,7 @@ using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Acceso.Dtos.Auth;
 using SistemaVisionTech.Features.Acceso.Interfaces;
 using SistemaVisionTech.Infrastructure;
-
+using SistemaVisionTech.Infrastructure.Entities;
 using BCryptNet = BCrypt.Net.BCrypt;
 
 namespace SistemaVisionTech.Features.Acceso.Services
@@ -27,17 +27,18 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Contraseña))
                 return Result<LoginResponseDto>.Fail("La contraseña es obligatoria.", isValidation: true);
 
-            var usuario = await _context.Usuarios
+            string email = dto.Email.Trim();
+
+            Usuarios? usuario = await _context.Usuarios
                 .AsNoTracking()
                 .Include(u => u.Perfil)
-                .FirstOrDefaultAsync(
-                    u => u.Email == dto.Email.Trim().ToLower());
+                .FirstOrDefaultAsync(u => u.Email == email);
 
             if (usuario is null || !BCryptNet.Verify(dto.Contraseña, usuario.Contraseña))
                 return Result<LoginResponseDto>.Fail(
                     "Credenciales incorrectas.", isValidation: true);
 
-            var tokenResult = _jwtTokenService.GenerarToken(
+            LoginTokenResult tokenResult = _jwtTokenService.GenerarToken(
                 usuario.UsuarioId,
                 usuario.Nombre,
                 usuario.Email,

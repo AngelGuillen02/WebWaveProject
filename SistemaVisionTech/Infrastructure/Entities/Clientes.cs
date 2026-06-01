@@ -8,7 +8,8 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public string Telefono { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string TipoCliente { get; set; } = "Natural";
-        public ICollection<Ventas> Ventas { get; set; } = [];
+        public string? RTN { get; set; }
+        public ICollection<Venta> Ventas { get; set; } = [];
         public bool Activo { get; set; } = true;
     }
 }

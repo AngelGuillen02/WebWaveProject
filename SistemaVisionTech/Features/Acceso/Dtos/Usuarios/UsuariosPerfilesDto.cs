@@ -1,4 +1,4 @@
-namespace SistemaVisionTech.Features.Acceso.Dtos
+namespace SistemaVisionTech.Features.Acceso.Dtos.Usuarios
 {
     public class UsuariosPerfilesDto
     {

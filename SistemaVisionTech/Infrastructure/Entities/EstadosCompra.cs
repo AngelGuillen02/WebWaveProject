@@ -4,7 +4,7 @@ namespace SistemaVisionTech.Infrastructure.Entities
     {
         public int EstadoId { get; set; }
         public string Nombre { get; set; } = string.Empty;
-        public ICollection<Compras> Compras { get; set; } = [];
+        public ICollection<Compra> Compras { get; set; } = [];
         public bool Activo { get; set; } = true;
     }
 }

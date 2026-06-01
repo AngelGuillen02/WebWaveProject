@@ -1,14 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
-using SistemaVisionTech.Features.Compras.Dtos;
 using SistemaVisionTech.Features.Compras.Dtos.Compras;
 using SistemaVisionTech.Features.Compras.Dtos.Pagos;
 using SistemaVisionTech.Features.Compras.Enums;
-using SistemaVisionTech.Features.Compras.Interfeces;
+using SistemaVisionTech.Features.Compras.Interfaces;
 using SistemaVisionTech.Features.Inventario.Enums;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
-using Entities = SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Features.Compras.Services
 {
@@ -24,7 +22,7 @@ namespace SistemaVisionTech.Features.Compras.Services
 
         public async Task<Result<IEnumerable<CompraDto>>> ObtenerComprasAsync()
         {
-            var compras = await _context.Compras
+            List<CompraDto> compras = await _context.Compras
                 .AsNoTracking()
                 .Include(c => c.Proveedor)
                 .Include(c => c.EstadoCompra)
@@ -41,7 +39,7 @@ namespace SistemaVisionTech.Features.Compras.Services
 
         public async Task<Result<CompraDto>> ObtenerCompraPorIdAsync(int compraId)
         {
-            var compra = await _context.Compras
+            Compra? compra = await _context.Compras
                 .AsNoTracking()
                 .Include(c => c.Proveedor)
                 .Include(c => c.EstadoCompra)
@@ -78,23 +76,23 @@ namespace SistemaVisionTech.Features.Compras.Services
                 return Result<CompraDto>.Fail(
                     "No se puede repetir el mismo producto en los detalles.", isValidation: true);
 
-            var proveedorExiste = await _context.Proveedores
+            bool proveedorExiste = await _context.Proveedores
                 .AnyAsync(p => p.ProveedorId == dto.ProveedorId);
 
             if (!proveedorExiste)
                 return Result<CompraDto>.Fail(
                     $"El proveedor con Id {dto.ProveedorId} no existe.");
 
-            var productosIds = dto.Detalles
+            List<int>? productosIds = dto.Detalles
                 .Select(d => d.ProductoId)
                 .ToList();
 
-            var productosExistentes = await _context.Productos
+            List<int>? productosExistentes = await _context.Productos
                 .Where(p => productosIds.Contains(p.ProductoId))
                 .Select(p => p.ProductoId)
                 .ToListAsync();
 
-            var productosNoEncontrados = productosIds
+            List<int>? productosNoEncontrados = productosIds
                 .Except(productosExistentes)
                 .ToList();
 
@@ -103,7 +101,7 @@ namespace SistemaVisionTech.Features.Compras.Services
                     $"Los siguientes productos no existen: " +
                     $"{string.Join(", ", productosNoEncontrados)}.");
 
-            var detallesEntidad = dto.Detalles.Select(d => new ComprasDetalles
+            List<ComprasDetalles>? detallesEntidad = dto.Detalles.Select(d => new ComprasDetalles
             {
                 ProductoId = d.ProductoId,
                 Cantidad = d.Cantidad,
@@ -111,7 +109,7 @@ namespace SistemaVisionTech.Features.Compras.Services
                 Total = d.PrecioUnitario * d.Cantidad
             }).ToList();
 
-            var compra = new Entities.Compras
+            Compra compra = new()
             {
                 ProveedorId = dto.ProveedorId,
                 FechaCompra = DateTime.UtcNow,
@@ -136,11 +134,9 @@ namespace SistemaVisionTech.Features.Compras.Services
             }
         }
 
-        // ─── RECIBIR COMPRA ──────────────────────────────────────────────
-
         public async Task<Result<CompraDto>> RecibirCompraAsync(int compraId)
         {
-            var compra = await _context.Compras
+            Compra? compra = await _context.Compras
                 .Include(c => c.Detalles)
                 .FirstOrDefaultAsync(c => c.CompraId == compraId);
 
@@ -152,11 +148,11 @@ namespace SistemaVisionTech.Features.Compras.Services
                 return Result<CompraDto>.Fail(
                     "Solo se pueden recibir compras en estado Pendiente.");
 
-            var productosIds = compra.Detalles
+            List<int>? productosIds = compra.Detalles
                 .Select(d => d.ProductoId)
                 .ToList();
 
-            var inventarios = await _context.Inventario
+            List<Inventarios>? inventarios = await _context.Inventario
                 .Where(i => productosIds.Contains(i.ProductoId))
                 .ToListAsync();
 
@@ -166,13 +162,13 @@ namespace SistemaVisionTech.Features.Compras.Services
             {
                 foreach (var detalle in compra.Detalles)
                 {
-                    var inv = inventarios
+                    Inventarios? inv = inventarios
                         .FirstOrDefault(i => i.ProductoId == detalle.ProductoId);
 
                     bool isNew = false;
                     if (inv is null)
                     {
-                        inv = new Entities.Inventario
+                        inv = new Inventarios
                         {
                             ProductoId = detalle.ProductoId,
                             Cantidad = 0,
@@ -184,14 +180,13 @@ namespace SistemaVisionTech.Features.Compras.Services
 
                     inv.Cantidad += detalle.Cantidad;
 
-                    var historial = new HistorialMovimientoInventario
+                    HistorialMovimientoInventario historial = new()
                     {
                         Cantidad = detalle.Cantidad,
                         TipoMovimiento = TipoMovimientoEnum.ENTRADA.ToString(),
                         FechaMovimiento = DateTime.UtcNow
                     };
 
-                    // Si es nuevo, usamos navegación. Si ya existe, usamos su ID.
                     if (isNew)
                         historial.Inventario = inv;
                     else
@@ -214,11 +209,10 @@ namespace SistemaVisionTech.Features.Compras.Services
             }
         }
 
-        // ─── ANULAR COMPRA ───────────────────────────────────────────────
 
         public async Task<Result<CompraDto>> AnularCompraAsync(int compraId)
         {
-            var compra = await _context.Compras
+            Compra? compra = await _context.Compras
                 .Include(c => c.Detalles)
                 .FirstOrDefaultAsync(c => c.CompraId == compraId);
 
@@ -230,14 +224,13 @@ namespace SistemaVisionTech.Features.Compras.Services
                 return Result<CompraDto>.Fail(
                     "La compra ya se encuentra anulada.");
 
-            // Solo revertir stock si la compra ya fue recibida
             if (compra.EstadoCompraId == (int)EstadoCompraEnum.Recibida)
             {
-                var productosIds = compra.Detalles
+                List<int>? productosIds = compra.Detalles
                     .Select(d => d.ProductoId)
                     .ToList();
 
-                var inventarios = await _context.Inventario
+                List<Inventarios>? inventarios = await _context.Inventario
                     .Where(i => productosIds.Contains(i.ProductoId))
                     .ToListAsync();
 
@@ -247,13 +240,12 @@ namespace SistemaVisionTech.Features.Compras.Services
                 {
                     foreach (var detalle in compra.Detalles)
                     {
-                        var inv = inventarios
+                        Inventarios? inv = inventarios
                             .FirstOrDefault(i => i.ProductoId == detalle.ProductoId);
 
                         if (inv is null || inv.Cantidad < detalle.Cantidad)
                         {
-                            var disponible = inv?.Cantidad ?? 0;
-                            // En caso de validación fallida, hacer rollback e informar
+                            int disponible = inv?.Cantidad ?? 0;
                             await transaction.RollbackAsync();
                             return Result<CompraDto>.Fail(
                                 $"No se puede anular la compra. " +
@@ -287,14 +279,11 @@ namespace SistemaVisionTech.Features.Compras.Services
                 }
             }
 
-            // Si no estaba recibida, solo cambiamos estado sin afectar inventario
             compra.EstadoCompraId = (int)EstadoCompraEnum.Anulada;
             await _context.SaveChangesAsync();
 
             return await ObtenerCompraPorIdAsync(compraId);
         }
-
-        // ─── REGISTRAR PAGO ──────────────────────────────────────────────
 
         public async Task<Result<PagoCompraDto>> RegistrarPagoAsync(CrearPagoCompraDto dto)
         {
@@ -302,7 +291,7 @@ namespace SistemaVisionTech.Features.Compras.Services
                 return Result<PagoCompraDto>.Fail(
                     "El monto del pago debe ser mayor a cero.", isValidation: true);
 
-            var compra = await _context.Compras
+            Compra? compra = await _context.Compras
                 .Include(c => c.Pagos)
                 .FirstOrDefaultAsync(c => c.CompraId == dto.CompraId);
 
@@ -314,8 +303,8 @@ namespace SistemaVisionTech.Features.Compras.Services
                 return Result<PagoCompraDto>.Fail(
                     "No se puede registrar pago a una compra anulada.");
 
-            var totalPagado = compra.Pagos.Sum(p => p.Monto);
-            var pendientePago = compra.Total - totalPagado;
+            decimal totalPagado = compra.Pagos.Sum(p => p.Monto);
+            decimal pendientePago = compra.Total - totalPagado;
 
             if (dto.Monto > pendientePago)
                 return Result<PagoCompraDto>.Fail(
@@ -323,14 +312,14 @@ namespace SistemaVisionTech.Features.Compras.Services
                     $"Pendiente: {pendientePago:C}, " +
                     $"Monto enviado: {dto.Monto:C}.");
 
-            var metodoPago = await _context.MetodosPago
+            MetodosPago? metodoPago = await _context.MetodosPago
                 .FirstOrDefaultAsync(m => m.MetodoPagoId == dto.MetodoPagoId);
 
             if (metodoPago is null)
                 return Result<PagoCompraDto>.Fail(
                     $"El método de pago con Id {dto.MetodoPagoId} no existe.");
 
-            var pago = new PagosCompra
+            PagosCompra pago = new()
             {
                 CompraId = dto.CompraId,
                 MetodoPagoId = dto.MetodoPagoId,
@@ -340,8 +329,6 @@ namespace SistemaVisionTech.Features.Compras.Services
 
             _context.PagosCompra.Add(pago);
             await _context.SaveChangesAsync();
-
-
 
             return Result<PagoCompraDto>.Ok(new PagoCompraDto
             {
@@ -353,7 +340,7 @@ namespace SistemaVisionTech.Features.Compras.Services
             });
         }
 
-        private static CompraDto MapearCompraResponse(Entities.Compras c)
+        private static CompraDto MapearCompraResponse(Compra c)
         {
             return new CompraDto
             {

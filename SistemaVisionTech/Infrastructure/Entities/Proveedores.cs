@@ -9,7 +9,7 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public string Email { get; set; } = string.Empty;
         public string Contacto { get; set; } = string.Empty;
         public string RTN { get; set; } = string.Empty;
-        public ICollection<Compras> Compras { get; set; } = [];
+        public ICollection<Compra> Compras { get; set; } = [];
         public bool Activo { get; set; } = true;
     }
 }

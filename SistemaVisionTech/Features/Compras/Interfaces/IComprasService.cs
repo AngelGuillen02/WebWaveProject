@@ -1,9 +1,8 @@
 using SistemaVisionTech.Common;
-using SistemaVisionTech.Features.Compras.Dtos;
 using SistemaVisionTech.Features.Compras.Dtos.Compras;
 using SistemaVisionTech.Features.Compras.Dtos.Pagos;
 
-namespace SistemaVisionTech.Features.Compras.Interfeces
+namespace SistemaVisionTech.Features.Compras.Interfaces
 {
     public interface IComprasService
     {
