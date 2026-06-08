@@ -56,8 +56,6 @@ namespace SistemaVisionTech.Features.Compras.Services
             return Result<CompraDto>.Ok(MapearCompraResponse(compra));
         }
 
-        // ─── CREAR COMPRA ────────────────────────────────────────────────
-
         public async Task<Result<CompraDto>> CrearCompraAsync(CrearCompraDto dto)
         {
             if (dto.Detalles is null || dto.Detalles.Count == 0)

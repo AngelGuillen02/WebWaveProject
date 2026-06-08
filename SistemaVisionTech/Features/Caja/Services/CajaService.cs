@@ -95,7 +95,7 @@ namespace SistemaVisionTech.Features.Caja.Services
             if (cajaAbierta is null)
                 return Result<EstadoCajaResponseDto>.Fail("No hay caja abierta para esta sucursal.");
 
-            var ventasDelDia = await _context.PagosVenta
+            List<PagosVenta> ventasDelDia = await _context.PagosVenta
                 .Where(p => p.Venta.FechaVenta.Date == DateTime.UtcNow.Date
                          && p.Venta.Activo)
                 .Include(p => p.MetodoPago)

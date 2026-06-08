@@ -18,7 +18,7 @@ namespace SistemaVisionTech.Features.Productos.Services
 
         public async Task<Result<List<ProductoResponseDto>>> ListarAsync()
         {
-            var productos = await _context.Productos
+            List<ProductoResponseDto> productos = await _context.Productos
                 .Select(p => MapToDto(p))
                 .ToListAsync();
 
@@ -39,7 +39,7 @@ namespace SistemaVisionTech.Features.Productos.Services
         {
             if (!string.IsNullOrEmpty(dto.CodigoBarras))
             {
-                var existeCodigoBarras = await _context.Productos
+                bool existeCodigoBarras = await _context.Productos
                     .AnyAsync(p => p.CodigoBarras == dto.CodigoBarras);
 
                 if (existeCodigoBarras)

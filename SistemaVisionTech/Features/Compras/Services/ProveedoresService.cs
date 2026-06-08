@@ -18,7 +18,7 @@ namespace SistemaVisionTech.Features.Compras.Services
 
         public async Task<Result<List<ProveedorResponseDto>>> ListarAsync()
         {
-            var proveedores = await _context.Proveedores
+            List<ProveedorResponseDto> proveedores = await _context.Proveedores
                 .Select(p => MapToDto(p))
                 .ToListAsync();
 
@@ -27,7 +27,7 @@ namespace SistemaVisionTech.Features.Compras.Services
 
         public async Task<Result<ProveedorResponseDto>> ObtenerPorIdAsync(int id)
         {
-            var proveedor = await _context.Proveedores.FindAsync(id);
+            Proveedores? proveedor = await _context.Proveedores.FindAsync(id);
 
             if (proveedor is null)
                 return Result<ProveedorResponseDto>.Fail("El proveedor no existe.");
@@ -39,12 +39,12 @@ namespace SistemaVisionTech.Features.Compras.Services
         {
             if (!string.IsNullOrEmpty(dto.RTN))
             {
-                var existeRtn = await _context.Proveedores.AnyAsync(p => p.RTN == dto.RTN);
+                bool existeRtn = await _context.Proveedores.AnyAsync(p => p.RTN == dto.RTN);
                 if (existeRtn)
                     return Result<ProveedorResponseDto>.Fail("Ya existe un proveedor con ese RTN.");
             }
 
-            var proveedor = new Proveedores
+            Proveedores proveedor = new ()
             {
                 Nombre = dto.Nombre,
                 Direccion = dto.Direccion,
@@ -63,14 +63,14 @@ namespace SistemaVisionTech.Features.Compras.Services
 
         public async Task<Result<ProveedorResponseDto>> EditarAsync(int id, ProveedorCreacionDto dto)
         {
-            var proveedor = await _context.Proveedores.FindAsync(id);
+            Proveedores? proveedor = await _context.Proveedores.FindAsync(id);
 
             if (proveedor is null)
                 return Result<ProveedorResponseDto>.Fail("El proveedor no existe.");
 
             if (!string.IsNullOrEmpty(dto.RTN) && proveedor.RTN != dto.RTN)
             {
-                var existeRtn = await _context.Proveedores.AnyAsync(p => p.RTN == dto.RTN);
+                bool existeRtn = await _context.Proveedores.AnyAsync(p => p.RTN == dto.RTN);
                 if (existeRtn)
                     return Result<ProveedorResponseDto>.Fail("Ya existe otro proveedor con ese RTN.");
             }
@@ -89,14 +89,14 @@ namespace SistemaVisionTech.Features.Compras.Services
 
         public async Task<Result<bool>> EliminarAsync(int id)
         {
-            var proveedor = await _context.Proveedores
+            Proveedores? proveedor = await _context.Proveedores
                 .Include(p => p.Compras)
                 .FirstOrDefaultAsync(p => p.ProveedorId == id);
 
             if (proveedor is null)
                 return Result<bool>.Fail("El proveedor no existe.");
 
-            if (proveedor.Compras.Any())
+            if (proveedor.Compras.Count != 0)
                 return Result<bool>.Fail("No se puede eliminar un proveedor que tiene compras asociadas.");
 
             proveedor.Activo = false;
