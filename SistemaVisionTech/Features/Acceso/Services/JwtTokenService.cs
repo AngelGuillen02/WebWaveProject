@@ -15,7 +15,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             _configuration = configuration;
         }
 
-        public LoginTokenResult GenerarToken(int usuarioId, string nombre, string email, string perfil)
+        public LoginTokenResult GenerarToken(int usuarioId, string nombre, string email, int perfilId, string perfilNombre)
         {
             string jwtKey = _configuration["Jwt:Key"]!;
             string issuer = _configuration["Jwt:Issuer"]!;
@@ -31,7 +31,9 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(JwtRegisteredClaimNames.Name,  nombre),
                 new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, perfil)
+                new Claim(ClaimTypes.Role, perfilNombre),
+                new Claim("PerfilId", perfilId.ToString())  
+
             ];
 
             DateTime expiracion = DateTime.UtcNow.AddMinutes(expires);
