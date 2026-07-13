@@ -83,7 +83,7 @@ namespace SistemaVisionTech.Features.Clientes.Services
                 return Result<bool>.Fail("El cliente no existe.");
 
             bool tieneVentasActivas = cliente.Ventas
-                .Any(v => v.EstadoVentaId != 3); 
+                .Any(v => v.EstadoVentaId != 3);
 
             if (tieneVentasActivas)
                 return Result<bool>.Fail("No se puede eliminar un cliente que tiene ventas activas.");

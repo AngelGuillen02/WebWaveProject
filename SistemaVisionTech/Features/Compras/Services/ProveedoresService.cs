@@ -44,7 +44,7 @@ namespace SistemaVisionTech.Features.Compras.Services
                     return Result<ProveedorResponseDto>.Fail("Ya existe un proveedor con ese RTN.");
             }
 
-            Proveedores proveedor = new ()
+            Proveedores proveedor = new()
             {
                 Nombre = dto.Nombre,
                 Direccion = dto.Direccion,

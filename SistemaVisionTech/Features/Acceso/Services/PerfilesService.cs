@@ -10,10 +10,12 @@ namespace SistemaVisionTech.Features.Acceso.Services
     public class PerfilesService : IPerfilesService
     {
         private readonly WebWaveDbContext _context;
+        private readonly IPermisosCacheService _permisosCache;
 
-        public PerfilesService(WebWaveDbContext context)
+        public PerfilesService(WebWaveDbContext context, IPermisosCacheService permisosCache)
         {
             _context = context;
+            _permisosCache = permisosCache;
         }
 
         public async Task<Result<IEnumerable<PerfilesDto>>> ObtenerPerfilesAsync()
@@ -164,6 +166,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             await _context.SaveChangesAsync();
 
+            _permisosCache.InvalidarPerfil(perfilId); 
+
             return await ObtenerPerfilPorIdAsync(perfilId);
         }
 
@@ -185,6 +189,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
             perfil.Activo = false;
             _context.Perfiles.Update(perfil);
             await _context.SaveChangesAsync();
+
+            _permisosCache.InvalidarPerfil(perfilId); 
 
             return Result.Ok();
         }

@@ -88,7 +88,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             return await ObtenerSucursalPorIdAsync(sucursal.SucursalId);
         }
 
-        public async Task<Result<SucursalesDto>> ActualizarSucursalAsync( int sucursalId, SucursalesActualizacionDto dto)
+        public async Task<Result<SucursalesDto>> ActualizarSucursalAsync(int sucursalId, SucursalesActualizacionDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<SucursalesDto>.Fail(

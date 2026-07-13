@@ -429,9 +429,318 @@ TOTAL:                   147 casos (100%)
 
 # 4. CASOS DE PRUEBA
 
-## 4.1 FASE 1 - CATÁLOGOS BASE
+## 4.1 PREPARACIÓN DEL FLUJO SECUENCIAL
 
-### 4.1.1 PROVEEDORES
+Este plan ha sido reorganizado para ejecutarse de principio a fin siguiendo el ciclo de negocio real del sistema. La ejecución debe respetar el orden propuesto a continuación para asegurar que cada caso encuentre los recursos creados por pruebas previas.
+
+### 4.1.1 Principios de ejecución
+- No debe ejecutarse un GET antes de que el recurso haya sido creado mediante POST.
+- Cada prueba de actualización o eliminación debe ejecutarse solo después de la creación del recurso correspondiente.
+- Las compras, ventas, pagos, trazabilidad, caja y facturación requieren datos base y transacciones anteriores.
+- Las pruebas de performance deben ejecutarse únicamente después de que el flujo funcional haya quedado validado.
+
+### 4.1.2 Mapa de dependencias
+```mermaid
+flowchart TD
+    A[Autenticación y JWT] --> B[Empresas y Sucursales]
+    B --> C[Catálogos base: Proveedores, Clientes, Productos]
+    C --> D[Inventario base]
+    C --> E[Trazabilidad: Series y Lotes]
+    D --> F[Compras base]
+    E --> F
+    F --> G[Métodos de pago]
+    G --> H[Ventas base]
+    H --> I[Cierre de caja]
+    H --> J[Facturación SAR]
+    I --> K[Performance y stress]
+```
+
+### 4.1.3 Pruebas complementarias recomendadas
+Para cerrar dependencias críticas que no estaban cubiertas de forma explícita en el plan original, se recomienda incorporar estas pruebas como preparación previa del flujo operativo:
+- TC-BASE-001: Crear producto base con stock inicial para inventario y ventas.
+- TC-BASE-002: Crear cliente base para ventas y pagos.
+- TC-BASE-003: Crear sucursal base para compras, ventas, caja y SAR.
+- TC-BASE-004: Crear configuración inicial de caja para operaciones de cierre.
+- TC-BASE-005: Crear configuración SAR activa para la sucursal de pruebas.
+
+> Estas pruebas pueden ejecutarse como preparación de datos previas al flujo funcional y deben incorporarse antes de compras, ventas, caja y SAR.
+
+## 4.2 MÓDULO BASE - AUTENTICACIÓN Y SEGURIDAD
+
+### TC-AUTH-001: Login Exitoso
+```markdown
+ID:           AUTH-001
+Nombre:       Login Exitoso - Credenciales Válidas
+Descripción:  Validar autenticación y generación de JWT
+Precondiciones:
+  - Usuario con credenciales válidas existe
+  - Endpoint /api/auth/login disponible
+
+Datos de Prueba:
+  POST /api/auth/login
+  {
+    "usuario": "admin",
+    "password": "Admin123!@#"
+  }
+
+Pasos:
+  1. POST con credenciales válidas
+  2. Verificar respuesta
+  3. Guardar token para próximas pruebas
+
+Resultado Esperado:
+  - Status: 200 OK
+  - Response:
+    {
+      "success": true,
+      "data": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "usuarioId": 1,
+        "nombre": "Administrador",
+        "rol": "Admin"
+      }
+    }
+  - Token tiene validez >= 1 hora
+  - Token incluye claims: sub (usuarioId), role
+
+Prioridad:   CRÍTICA
+Tipo:        Funcional
+Status:      Pendiente
+```
+
+### TC-AUTH-002: Login Fallido - Credenciales Inválidas
+```markdown
+ID:           AUTH-002
+Nombre:       Login Fallido - Contraseña Incorrecta
+Datos de Prueba:
+  {
+    "email": "admin",
+    "contraseña": "WrongPassword"
+  }
+
+Resultado Esperado:
+  - Status: 401 Unauthorized
+  - Error: "Credenciales inválidas"
+
+Prioridad:   CRÍTICA
+Tipo:        Negativa
+```
+
+### TC-AUTH-003: Roles y Permisos - Admin
+```markdown
+ID:           AUTH-003
+Nombre:       Validar Rol Admin - Acceso Total
+Precondiciones:
+  - Usuario admin autenticado
+
+Datos de Prueba:
+  GET /api/proveedores (admin)
+  POST /api/proveedores (admin)
+  DELETE /api/proveedores/1 (admin)
+
+Resultado Esperado:
+  - Status: 200 OK para todos (admin tiene todos permisos)
+
+Prioridad:   CRÍTICA
+Tipo:        Seguridad
+```
+
+### TC-AUTH-004: Roles y Permisos - Usuario Consulta
+```markdown
+ID:           AUTH-004
+Nombre:       Validar Rol Consulta - Acceso Limitado
+Precondiciones:
+  - Usuario "consultor" autenticado (rol: Consulta)
+
+Datos de Prueba:
+  GET /api/proveedores (consultor - permitido)
+  POST /api/proveedores (consultor - NO permitido)
+
+Resultado Esperado:
+  - GET: 200 OK (lectura permitida)
+  - POST: 403 Forbidden (escritura denegada)
+
+Prioridad:   ALTA
+Tipo:        Seguridad
+```
+
+### TC-AUTH-005: Roles y Permisos - Usuario Operador
+```markdown
+ID:           AUTH-005
+Nombre:       Validar Rol Operador - Permisos Específicos
+Descripción:  Validar que operador puede: crear, editar pero NO eliminar
+Datos de Prueba:
+  POST /api/ventas (operador - permitido)
+  PUT /api/ventas/1 (operador - permitido)
+  DELETE /api/proveedores/1 (operador - NO permitido)
+
+Resultado Esperado:
+  - POST/PUT: 200/201 OK
+  - DELETE: 403 Forbidden
+
+Prioridad:   ALTA
+Tipo:        Seguridad
+```
+
+### TC-AUTH-006: Token JWT Válido
+```markdown
+ID:           AUTH-006
+Nombre:       Token JWT Válido - Acceso Permitido
+Datos de Prueba:
+  GET /api/proveedores
+  Authorization: Bearer [token_válido_vigente]
+
+Resultado Esperado:
+  - Status: 200 OK
+  - Respuesta con datos
+
+Prioridad:   CRÍTICA
+Tipo:        Seguridad
+```
+
+### TC-AUTH-007: Token JWT Expirado
+```markdown
+ID:           AUTH-007
+Nombre:       Token JWT Expirado - Acceso Denegado
+Precondiciones:
+  - Token generado hace > 1 hora (expirado)
+
+Resultado Esperado:
+  - Status: 401 Unauthorized
+  - Error: "Token expirado"
+
+Prioridad:   CRÍTICA
+Tipo:        Seguridad
+```
+
+### TC-AUTH-008: Sin Token JWT
+```markdown
+ID:           AUTH-008
+Nombre:       Sin Autenticación - Acceso Denegado
+Datos de Prueba:
+  GET /api/proveedores (sin Authorization header)
+
+Resultado Esperado:
+  - Status: 401 Unauthorized
+  - Error: "Token no proporcionado"
+
+Prioridad:   CRÍTICA
+Tipo:        Seguridad
+```
+
+---
+
+
+
+## 4.3 MÓDULO 1 - EMPRESAS Y SUCURSALES
+
+### TC-EMP-001: Listar Empresas - Éxito
+```markdown
+ID:           EMP-001
+Nombre:       Listar Empresas - Datos Válidos
+Datos de Prueba:
+  GET /api/empresas
+
+Resultado Esperado:
+  - Status: 200 OK
+  - Array empresas con: EmpresaId, Nombre, RTN, Direccion, Activo
+  - Solo activas (Activo=true)
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-EMP-003: Crear Empresa - Éxito
+```markdown
+ID:           EMP-003
+Nombre:       Crear Empresa - Válida
+Datos de Prueba:
+  POST /api/empresas
+  {
+    "nombre": "Empresa Test SRL",
+    "rtn": "0801198888888",
+    "direccion": "Tegucigalpa"
+  }
+
+Resultado Esperado:
+  - Status: 201 Created
+  - EmpresaId asignado
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-EMP-011: RTN Empresa Único
+```markdown
+ID:           EMP-011
+Nombre:       RTN Empresa Debe Ser Único
+Datos de Prueba:
+  Crear 2 empresas con mismo RTN
+
+Resultado Esperado:
+  - Primera: 201 Created
+  - Segunda: 409 Conflict
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-SUC-001: Listar Sucursales - Éxito
+```markdown
+ID:           SUC-001
+Nombre:       Listar Sucursales por Empresa
+Datos de Prueba:
+  GET /api/sucursales?empresaId=1
+
+Resultado Esperado:
+  - Status: 200 OK
+  - Array sucursales de empresa 1
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-SUC-003: Crear Sucursal - Válida
+```markdown
+ID:           SUC-003
+Nombre:       Crear Sucursal - Datos Válidos
+Datos de Prueba:
+  POST /api/sucursales
+  {
+    "empresaId": 1,
+    "nombre": "Sucursal Centro",
+    "ciudad": "Tegucigalpa"
+  }
+
+Resultado Esperado:
+  - Status: 201 Created
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-SUC-011: Relación Empresa-Sucursal
+```markdown
+ID:           SUC-011
+Nombre:       Sucursal Debe Pertenecer a Empresa
+Datos de Prueba:
+  Crear sucursal con empresaId=999 (no existe)
+
+Resultado Esperado:
+  - Status: 409 Conflict
+  - Error: "La empresa no existe"
+
+Prioridad:   ALTA
+Tipo:        Integración
+```
+
+---
+
+
+
+## 4.4 FASE 1 - CATÁLOGOS BASE
+
+### 4.4.1 PROVEEDORES
 
 #### TC-FP-001: Listar Proveedores - Éxito
 ```markdown
@@ -792,7 +1101,7 @@ Tipo:        Funcional
 Status:      Pendiente
 ```
 
-### 4.1.2 CLIENTES
+### 4.4.2 CLIENTES
 
 #### TC-FC-001 a TC-FC-015: CRUD Clientes
 **Estructura idéntica a Proveedores, adaptada para Clientes:**
@@ -806,7 +1115,7 @@ Nombre:       Listar Clientes - Éxito
 [Similar a FP-001, cambiar Proveedores → Clientes]
 
 ID:           FC-012
-Nombre:       Cliente Tipo Natural - Crear
+Nombre:       Crear Cliente Tipo Natural - Crear
 Descripción:  Validar creación de cliente tipo Natural
 Datos de Prueba:
 {
@@ -841,12 +1150,12 @@ Descripción:  Validar que permite RTN duplicados (no requiere validación)
 
 ID:           FC-011
 Nombre:       Eliminar Cliente - Con Ventas Activas
-Descripción:  Validar que rechaza eliminación si tiene ventas
+Descripción:  Validar que rechaza Q si tiene ventas
 Precondiciones:
   - Cliente ID=1 tiene venta con estado != Cancelada
 ```
 
-### 4.1.3 PRODUCTOS
+### 4.4.3 PRODUCTOS
 
 #### TC-FPR-001 a TC-FPR-017: CRUD Productos
 **Estructura similar a anteriores, enfocado en:**
@@ -900,9 +1209,70 @@ Datos de Prueba:
 
 ---
 
-## 4.2 FASE 2 - TRAZABILIDAD
 
-### 4.2.1 SERIES DE PRODUCTO
+
+## 4.5 MÓDULO 2 - INVENTARIO BASE
+
+### TC-INV-001: Consultar Stock Producto
+```markdown
+ID:           INV-001
+Nombre:       Consultar Stock en Tiempo Real
+Precondiciones:
+  - Producto ID=5 con stock inicial=100
+
+Datos de Prueba:
+  GET /api/inventario/producto/5
+
+Pasos:
+  1. GET estado de stock
+  2. Verificar cantidad
+
+Resultado Esperado:
+  - Status: 200 OK
+  - Stock actual: 100
+  - Campo: StockDisponible, StockReservado, StockComprometido
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-INV-003: Listado Productos Disponibles
+```markdown
+ID:           INV-003
+Nombre:       Listar Productos con Stock Disponible
+Datos de Prueba:
+  GET /api/inventario/disponibles?cantidad=10
+
+Resultado Esperado:
+  - Array solo de productos con stock >= 10
+  - Incluye stock actual
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-INV-005: Historial Movimientos Inventario
+```markdown
+ID:           INV-005
+Nombre:       Consultar Historial de Movimientos
+Datos de Prueba:
+  GET /api/inventario/historial?productoId=5&desde=2026-06-01
+
+Resultado Esperado:
+  - Array movimientos ordenados por fecha DESC
+  - Incluye: Fecha, Tipo (Entrada/Salida), Cantidad, Motivo, OrigenTipo, OrigenId
+
+Prioridad:   MEDIA
+Tipo:        Funcional
+```
+
+---
+
+
+
+## 4.6 FASE 2 - TRAZABILIDAD
+
+### 4.6.1 SERIES DE PRODUCTO
 
 #### TC-FS-001 a TC-FS-011: Series de Producto
 
@@ -972,7 +1342,7 @@ Precondiciones:
   - Venta se procesa con este serie
 
 Datos de Prueba:
-  1. GET /api/trazabilidad/series/1 → Estado="Disponible"
+  1. GET /api/trazabilidad/series/1 → Eadost="Disponible"
   2. Procesar venta con serie
   3. GET /api/trazabilidad/series/1 → Estado="Vendido"
 
@@ -992,7 +1362,7 @@ Tipo:        Integración
 Status:      Pendiente
 ```
 
-### 4.2.2 LOTES DE PRODUCTO
+### 4.6.2 LOTES DE PRODUCTO
 
 #### TC-FL-001 a TC-FL-012: Lotes de Producto
 
@@ -1049,7 +1419,7 @@ Resultado Esperado:
 
 Prioridad:   MEDIA
 Tipo:        Funcional
-Status:      Pendiente
+Status:      Pasada
 
 ---
 
@@ -1070,7 +1440,7 @@ Tipo:        Negativa
 Status:      Pendiente
 ```
 
-### 4.2.3 HISTORIAL MOVIMIENTO INVENTARIO
+### 4.6.3 HISTORIAL MOVIMIENTO INVENTARIO
 
 #### TC-FH-001 a TC-FH-003: Origen Movimiento
 
@@ -1120,7 +1490,109 @@ Status:      Pendiente
 
 ---
 
-## 4.3 FASE 3 - MÉTODOS DE PAGO
+
+
+## 4.7 MÓDULO 3 - COMPRAS BASE
+
+### TC-COM-001: Crear Compra - Éxito
+```markdown
+ID:           COM-001
+Nombre:       Crear Compra - Datos Válidos
+Precondiciones:
+  - Proveedor ID=1 existe
+  - Producto ID=1 existe
+  - Usuario autenticado
+
+Datos de Prueba:
+  POST /api/compras
+  {
+    "proveedorId": 1,
+    "sucursalId": 1,
+    "detalles": [
+      {
+        "productoId": 1,
+        "cantidad": 10,
+        "precioUnitario": 100.00
+      }
+    ]
+  }
+
+Pasos:
+  1. POST crear compra
+  2. Guardar CompraId
+
+Resultado Esperado:
+  - Status: 201 Created
+  - CompraId asignado
+  - Estado inicial: "Pendiente"
+  - Total: 1000.00
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-COM-004: Estados Compra - Flujo Completo
+```markdown
+ID:           COM-004
+Nombre:       Estados Compra - Transición Válida
+Precondiciones:
+  - Compra ID=1 en estado "Pendiente"
+
+Pasos:
+  1. GET /api/compras/1 → Estado="Pendiente"
+  2. PUT /api/compras/1/confirmar → Estado="Confirmada"
+  3. PUT /api/compras/1/recibir → Estado="Recibida"
+  4. PUT /api/compras/1/completar → Estado="Completada"
+
+Resultado Esperado:
+  - Transiciones sucesivas exitosas (200 OK)
+  - Estados: Pendiente → Confirmada → Recibida → Completada
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-COM-009: Recepción Compra Actualiza Stock
+```markdown
+ID:           COM-009
+Nombre:       Recepción de Compra Actualiza Inventario
+Precondiciones:
+  - Compra con 10 unidades de Producto A
+  - Stock inicial Producto A: 100
+
+Pasos:
+  1. GET /api/inventario/producto/A → Stock=100
+  2. PUT /api/compras/{id}/recibir (completar recepción)
+  3. GET /api/inventario/producto/A → Stock=110
+
+Resultado Esperado:
+  - Stock incrementó de 100 a 110
+  - HistorialMovimientoInventario registró entrada
+
+Prioridad:   ALTA
+Tipo:        Integración
+```
+
+### TC-COM-011: Crear Compra - Cantidad Negativa
+```markdown
+ID:           COM-011
+Nombre:       Validación Cantidad en Compra
+Datos de Prueba:
+  { "cantidad": -5 }
+
+Resultado Esperado:
+  - Status: 400 Bad Request
+  - Error: "Cantidad debe ser > 0"
+
+Prioridad:   MEDIA
+Tipo:        Negativa
+```
+
+---
+
+
+
+## 4.8 FASE 3 - MÉTODOS DE PAGO
 
 #### TC-FM-001 a TC-FM-008: Pagos Múltiples
 
@@ -1248,7 +1720,112 @@ Status:      Pendiente
 
 ---
 
-## 4.4 FASE 4 - CIERRE DE CAJA
+
+
+## 4.9 MÓDULO 4 - VENTAS BASE
+
+### TC-VEN-001: Crear Venta - Éxito
+```markdown
+ID:           VEN-001
+Nombre:       Crear Venta - Datos Válidos
+Precondiciones:
+  - Cliente ID=1 existe
+  - Producto ID=1 con stock >= 10
+  - Usuario autenticado
+
+Datos de Prueba:
+  POST /api/ventas
+  {
+    "clienteId": 1,
+    "sucursalId": 1,
+    "detalles": [
+      {
+        "productoId": 1,
+        "cantidad": 5,
+        "precioUnitario": 100.00
+      }
+    ]
+  }
+
+Pasos:
+  1. POST crear venta
+  2. Guardar VentaId
+
+Resultado Esperado:
+  - Status: 201 Created
+  - VentaId asignado
+  - Estado: "Confirmada" (o "Pendiente")
+  - Total: 500.00
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-VEN-004: Estados Venta - Flujo Completo
+```markdown
+ID:           VEN-004
+Nombre:       Estados Venta - Transición Válida
+Pasos:
+  1. Estado inicial: "Confirmada"
+  2. Cuando se paga total: "Pagada"
+  3. Cuando se cancela: "Cancelada"
+
+Resultado Esperado:
+  - Transiciones exitosas según condiciones
+
+Prioridad:   ALTA
+Tipo:        Funcional
+```
+
+### TC-VEN-009: Venta Deduce Stock
+```markdown
+ID:           VEN-009
+Nombre:       Venta Deduce Stock del Inventario
+Precondiciones:
+  - Producto A con stock=50
+  - Venta de 10 unidades de Producto A
+
+Pasos:
+  1. GET /api/inventario/producto/A → Stock=50
+  2. POST /api/ventas con 10 unidades
+  3. GET /api/inventario/producto/A → Stock=40
+
+Resultado Esperado:
+  - Stock decrementó de 50 a 40
+  - HistorialMovimientoInventario registró salida
+
+Prioridad:   ALTA
+Tipo:        Integración
+```
+
+### TC-VEN-011: Crear Venta - Stock Insuficiente
+```markdown
+ID:           VEN-011
+Nombre:       Venta Rechazada - Stock Insuficiente
+Precondiciones:
+  - Producto X con stock=5
+
+Datos de Prueba:
+  POST /api/ventas
+  {
+    "detalles": [
+      { "productoId": X, "cantidad": 10 }
+    ]
+  }
+
+Resultado Esperado:
+  - Status: 409 Conflict
+  - Error: "Stock insuficiente para Producto X. Disponible: 5, Solicitado: 10"
+
+Prioridad:   ALTA
+Tipo:        Negativa
+```
+
+---
+
+
+
+## 4.10 FASE 4 - CIERRE DE CAJA
 
 #### TC-CJ-001 a TC-CJ-010: Cierre de Caja
 
@@ -1425,7 +2002,9 @@ Status:      Pendiente
 
 ---
 
-## 4.5 FASE 5 - FACTURACIÓN SAR
+
+
+## 4.11 FASE 5 - FACTURACIÓN SAR
 
 #### TC-SR-001 a TC-SR-016: Facturación Fiscal
 
@@ -1698,532 +2277,9 @@ Status:      Pendiente
 
 ---
 
-## 4.6 MÓDULO BASE - AUTENTICACIÓN Y SEGURIDAD
 
-### TC-AUTH-001: Login Exitoso
-```markdown
-ID:           AUTH-001
-Nombre:       Login Exitoso - Credenciales Válidas
-Descripción:  Validar autenticación y generación de JWT
-Precondiciones:
-  - Usuario con credenciales válidas existe
-  - Endpoint /api/auth/login disponible
 
-Datos de Prueba:
-  POST /api/auth/login
-  {
-    "usuario": "admin",
-    "password": "Admin123!@#"
-  }
-
-Pasos:
-  1. POST con credenciales válidas
-  2. Verificar respuesta
-  3. Guardar token para próximas pruebas
-
-Resultado Esperado:
-  - Status: 200 OK
-  - Response:
-    {
-      "success": true,
-      "data": {
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-        "usuarioId": 1,
-        "nombre": "Administrador",
-        "rol": "Admin"
-      }
-    }
-  - Token tiene validez >= 1 hora
-  - Token incluye claims: sub (usuarioId), role
-
-Prioridad:   CRÍTICA
-Tipo:        Funcional
-Status:      Pendiente
-```
-
-### TC-AUTH-002: Login Fallido - Credenciales Inválidas
-```markdown
-ID:           AUTH-002
-Nombre:       Login Fallido - Contraseña Incorrecta
-Datos de Prueba:
-  {
-    "usuario": "admin",
-    "password": "WrongPassword"
-  }
-
-Resultado Esperado:
-  - Status: 401 Unauthorized
-  - Error: "Credenciales inválidas"
-
-Prioridad:   CRÍTICA
-Tipo:        Negativa
-```
-
-### TC-AUTH-003: Roles y Permisos - Admin
-```markdown
-ID:           AUTH-003
-Nombre:       Validar Rol Admin - Acceso Total
-Precondiciones:
-  - Usuario admin autenticado
-
-Datos de Prueba:
-  GET /api/proveedores (admin)
-  POST /api/proveedores (admin)
-  DELETE /api/proveedores/1 (admin)
-
-Resultado Esperado:
-  - Status: 200 OK para todos (admin tiene todos permisos)
-
-Prioridad:   CRÍTICA
-Tipo:        Seguridad
-```
-
-### TC-AUTH-004: Roles y Permisos - Usuario Consulta
-```markdown
-ID:           AUTH-004
-Nombre:       Validar Rol Consulta - Acceso Limitado
-Precondiciones:
-  - Usuario "consultor" autenticado (rol: Consulta)
-
-Datos de Prueba:
-  GET /api/proveedores (consultor - permitido)
-  POST /api/proveedores (consultor - NO permitido)
-
-Resultado Esperado:
-  - GET: 200 OK (lectura permitida)
-  - POST: 403 Forbidden (escritura denegada)
-
-Prioridad:   ALTA
-Tipo:        Seguridad
-```
-
-### TC-AUTH-005: Roles y Permisos - Usuario Operador
-```markdown
-ID:           AUTH-005
-Nombre:       Validar Rol Operador - Permisos Específicos
-Descripción:  Validar que operador puede: crear, editar pero NO eliminar
-Datos de Prueba:
-  POST /api/ventas (operador - permitido)
-  PUT /api/ventas/1 (operador - permitido)
-  DELETE /api/proveedores/1 (operador - NO permitido)
-
-Resultado Esperado:
-  - POST/PUT: 200/201 OK
-  - DELETE: 403 Forbidden
-
-Prioridad:   ALTA
-Tipo:        Seguridad
-```
-
-### TC-AUTH-006: Token JWT Válido
-```markdown
-ID:           AUTH-006
-Nombre:       Token JWT Válido - Acceso Permitido
-Datos de Prueba:
-  GET /api/proveedores
-  Authorization: Bearer [token_válido_vigente]
-
-Resultado Esperado:
-  - Status: 200 OK
-  - Respuesta con datos
-
-Prioridad:   CRÍTICA
-Tipo:        Seguridad
-```
-
-### TC-AUTH-007: Token JWT Expirado
-```markdown
-ID:           AUTH-007
-Nombre:       Token JWT Expirado - Acceso Denegado
-Precondiciones:
-  - Token generado hace > 1 hora (expirado)
-
-Resultado Esperado:
-  - Status: 401 Unauthorized
-  - Error: "Token expirado"
-
-Prioridad:   CRÍTICA
-Tipo:        Seguridad
-```
-
-### TC-AUTH-008: Sin Token JWT
-```markdown
-ID:           AUTH-008
-Nombre:       Sin Autenticación - Acceso Denegado
-Datos de Prueba:
-  GET /api/proveedores (sin Authorization header)
-
-Resultado Esperado:
-  - Status: 401 Unauthorized
-  - Error: "Token no proporcionado"
-
-Prioridad:   CRÍTICA
-Tipo:        Seguridad
-```
-
----
-
-## 4.7 MÓDULO 1 - EMPRESAS Y SUCURSALES
-
-### TC-EMP-001: Listar Empresas - Éxito
-```markdown
-ID:           EMP-001
-Nombre:       Listar Empresas - Datos Válidos
-Datos de Prueba:
-  GET /api/empresas
-
-Resultado Esperado:
-  - Status: 200 OK
-  - Array empresas con: EmpresaId, Nombre, RTN, Direccion, Activo
-  - Solo activas (Activo=true)
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-EMP-003: Crear Empresa - Éxito
-```markdown
-ID:           EMP-003
-Nombre:       Crear Empresa - Válida
-Datos de Prueba:
-  POST /api/empresas
-  {
-    "nombre": "Empresa Test SRL",
-    "rtn": "0801198888888",
-    "direccion": "Tegucigalpa"
-  }
-
-Resultado Esperado:
-  - Status: 201 Created
-  - EmpresaId asignado
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-EMP-011: RTN Empresa Único
-```markdown
-ID:           EMP-011
-Nombre:       RTN Empresa Debe Ser Único
-Datos de Prueba:
-  Crear 2 empresas con mismo RTN
-
-Resultado Esperado:
-  - Primera: 201 Created
-  - Segunda: 409 Conflict
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-SUC-001: Listar Sucursales - Éxito
-```markdown
-ID:           SUC-001
-Nombre:       Listar Sucursales por Empresa
-Datos de Prueba:
-  GET /api/sucursales?empresaId=1
-
-Resultado Esperado:
-  - Status: 200 OK
-  - Array sucursales de empresa 1
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-SUC-003: Crear Sucursal - Válida
-```markdown
-ID:           SUC-003
-Nombre:       Crear Sucursal - Datos Válidos
-Datos de Prueba:
-  POST /api/sucursales
-  {
-    "empresaId": 1,
-    "nombre": "Sucursal Centro",
-    "ciudad": "Tegucigalpa"
-  }
-
-Resultado Esperado:
-  - Status: 201 Created
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-SUC-011: Relación Empresa-Sucursal
-```markdown
-ID:           SUC-011
-Nombre:       Sucursal Debe Pertenecer a Empresa
-Datos de Prueba:
-  Crear sucursal con empresaId=999 (no existe)
-
-Resultado Esperado:
-  - Status: 409 Conflict
-  - Error: "La empresa no existe"
-
-Prioridad:   ALTA
-Tipo:        Integración
-```
-
----
-
-## 4.8 MÓDULO 2 - INVENTARIO BASE
-
-### TC-INV-001: Consultar Stock Producto
-```markdown
-ID:           INV-001
-Nombre:       Consultar Stock en Tiempo Real
-Precondiciones:
-  - Producto ID=5 con stock inicial=100
-
-Datos de Prueba:
-  GET /api/inventario/producto/5
-
-Pasos:
-  1. GET estado de stock
-  2. Verificar cantidad
-
-Resultado Esperado:
-  - Status: 200 OK
-  - Stock actual: 100
-  - Campo: StockDisponible, StockReservado, StockComprometido
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-INV-003: Listado Productos Disponibles
-```markdown
-ID:           INV-003
-Nombre:       Listar Productos con Stock Disponible
-Datos de Prueba:
-  GET /api/inventario/disponibles?cantidad=10
-
-Resultado Esperado:
-  - Array solo de productos con stock >= 10
-  - Incluye stock actual
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-INV-005: Historial Movimientos Inventario
-```markdown
-ID:           INV-005
-Nombre:       Consultar Historial de Movimientos
-Datos de Prueba:
-  GET /api/inventario/historial?productoId=5&desde=2026-06-01
-
-Resultado Esperado:
-  - Array movimientos ordenados por fecha DESC
-  - Incluye: Fecha, Tipo (Entrada/Salida), Cantidad, Motivo, OrigenTipo, OrigenId
-
-Prioridad:   MEDIA
-Tipo:        Funcional
-```
-
----
-
-## 4.9 MÓDULO 3 - COMPRAS BASE
-
-### TC-COM-001: Crear Compra - Éxito
-```markdown
-ID:           COM-001
-Nombre:       Crear Compra - Datos Válidos
-Precondiciones:
-  - Proveedor ID=1 existe
-  - Producto ID=1 existe
-  - Usuario autenticado
-
-Datos de Prueba:
-  POST /api/compras
-  {
-    "proveedorId": 1,
-    "sucursalId": 1,
-    "detalles": [
-      {
-        "productoId": 1,
-        "cantidad": 10,
-        "precioUnitario": 100.00
-      }
-    ]
-  }
-
-Pasos:
-  1. POST crear compra
-  2. Guardar CompraId
-
-Resultado Esperado:
-  - Status: 201 Created
-  - CompraId asignado
-  - Estado inicial: "Pendiente"
-  - Total: 1000.00
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-COM-004: Estados Compra - Flujo Completo
-```markdown
-ID:           COM-004
-Nombre:       Estados Compra - Transición Válida
-Precondiciones:
-  - Compra ID=1 en estado "Pendiente"
-
-Pasos:
-  1. GET /api/compras/1 → Estado="Pendiente"
-  2. PUT /api/compras/1/confirmar → Estado="Confirmada"
-  3. PUT /api/compras/1/recibir → Estado="Recibida"
-  4. PUT /api/compras/1/completar → Estado="Completada"
-
-Resultado Esperado:
-  - Transiciones sucesivas exitosas (200 OK)
-  - Estados: Pendiente → Confirmada → Recibida → Completada
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-COM-009: Recepción Compra Actualiza Stock
-```markdown
-ID:           COM-009
-Nombre:       Recepción de Compra Actualiza Inventario
-Precondiciones:
-  - Compra con 10 unidades de Producto A
-  - Stock inicial Producto A: 100
-
-Pasos:
-  1. GET /api/inventario/producto/A → Stock=100
-  2. PUT /api/compras/{id}/recibir (completar recepción)
-  3. GET /api/inventario/producto/A → Stock=110
-
-Resultado Esperado:
-  - Stock incrementó de 100 a 110
-  - HistorialMovimientoInventario registró entrada
-
-Prioridad:   ALTA
-Tipo:        Integración
-```
-
-### TC-COM-011: Crear Compra - Cantidad Negativa
-```markdown
-ID:           COM-011
-Nombre:       Validación Cantidad en Compra
-Datos de Prueba:
-  { "cantidad": -5 }
-
-Resultado Esperado:
-  - Status: 400 Bad Request
-  - Error: "Cantidad debe ser > 0"
-
-Prioridad:   MEDIA
-Tipo:        Negativa
-```
-
----
-
-## 4.10 MÓDULO 4 - VENTAS BASE
-
-### TC-VEN-001: Crear Venta - Éxito
-```markdown
-ID:           VEN-001
-Nombre:       Crear Venta - Datos Válidos
-Precondiciones:
-  - Cliente ID=1 existe
-  - Producto ID=1 con stock >= 10
-  - Usuario autenticado
-
-Datos de Prueba:
-  POST /api/ventas
-  {
-    "clienteId": 1,
-    "sucursalId": 1,
-    "detalles": [
-      {
-        "productoId": 1,
-        "cantidad": 5,
-        "precioUnitario": 100.00
-      }
-    ]
-  }
-
-Pasos:
-  1. POST crear venta
-  2. Guardar VentaId
-
-Resultado Esperado:
-  - Status: 201 Created
-  - VentaId asignado
-  - Estado: "Confirmada" (o "Pendiente")
-  - Total: 500.00
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-VEN-004: Estados Venta - Flujo Completo
-```markdown
-ID:           VEN-004
-Nombre:       Estados Venta - Transición Válida
-Pasos:
-  1. Estado inicial: "Confirmada"
-  2. Cuando se paga total: "Pagada"
-  3. Cuando se cancela: "Cancelada"
-
-Resultado Esperado:
-  - Transiciones exitosas según condiciones
-
-Prioridad:   ALTA
-Tipo:        Funcional
-```
-
-### TC-VEN-009: Venta Deduce Stock
-```markdown
-ID:           VEN-009
-Nombre:       Venta Deduce Stock del Inventario
-Precondiciones:
-  - Producto A con stock=50
-  - Venta de 10 unidades de Producto A
-
-Pasos:
-  1. GET /api/inventario/producto/A → Stock=50
-  2. POST /api/ventas con 10 unidades
-  3. GET /api/inventario/producto/A → Stock=40
-
-Resultado Esperado:
-  - Stock decrementó de 50 a 40
-  - HistorialMovimientoInventario registró salida
-
-Prioridad:   ALTA
-Tipo:        Integración
-```
-
-### TC-VEN-011: Crear Venta - Stock Insuficiente
-```markdown
-ID:           VEN-011
-Nombre:       Venta Rechazada - Stock Insuficiente
-Precondiciones:
-  - Producto X con stock=5
-
-Datos de Prueba:
-  POST /api/ventas
-  {
-    "detalles": [
-      { "productoId": X, "cantidad": 10 }
-    ]
-  }
-
-Resultado Esperado:
-  - Status: 409 Conflict
-  - Error: "Stock insuficiente para Producto X. Disponible: 5, Solicitado: 10"
-
-Prioridad:   ALTA
-Tipo:        Negativa
-```
-
----
-
-## 4.11 PERFORMANCE Y STRESS TESTING
+## 4.12 PERFORMANCE Y STRESS TESTING
 
 ### Objetivo General
 Validar que el API SistemaVisionTech puede manejar cargas extremas (10,000+ TPS) sin degradación crítica de rendimiento, pérdida de datos, o errores de concurrencia.
@@ -2556,6 +2612,8 @@ Tipo:        Performance/Database
 ```
 
 ---
+
+
 
 # 5. PRUEBAS NEGATIVAS
 

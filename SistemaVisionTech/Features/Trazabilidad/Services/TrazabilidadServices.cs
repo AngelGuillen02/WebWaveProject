@@ -4,7 +4,6 @@ using SistemaVisionTech.Features.Trazabilidad.Dtos;
 using SistemaVisionTech.Features.Trazabilidad.Interfaces;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
-using Entities = SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Features.Trazabilidad.Services
 {
@@ -48,15 +47,25 @@ namespace SistemaVisionTech.Features.Trazabilidad.Services
             if (existeSerie)
                 return Result<SerieProductoResponseDto>.Fail("Ya existe una serie con ese número.");
 
+            if (dto.CompraDetalleId.HasValue && dto.CompraDetalleId.Value > 0)
+            {
+                bool existeCompraDetalle = await _context.ComprasDetalles
+                    .AnyAsync(cd => cd.CompraDetalleId == dto.CompraDetalleId.Value);
+
+                if (!existeCompraDetalle)
+                    return Result<SerieProductoResponseDto>.Fail(
+                        $"No existe el detalle de compra {dto.CompraDetalleId}.");
+            }
+
+
             SeriesProducto serie = new()
             {
                 ProductoId = dto.ProductoId,
                 NumeroSerie = dto.NumeroSerie,
-                CompraDetalleId = dto.CompraDetalleId,
+                CompraDetalleId = dto.CompraDetalleId > 0? dto.CompraDetalleId : null,
                 Estado = "Disponible",
                 Activo = true
             };
-
             _context.SeriesProducto.Add(serie);
             await _context.SaveChangesAsync();
 
@@ -118,6 +127,9 @@ namespace SistemaVisionTech.Features.Trazabilidad.Services
 
         public async Task<Result<LoteProductoResponseDto>> CrearAsync(LoteProductoCreacionDto dto)
         {
+            if (dto.Cantidad <= 0)
+                return Result<LoteProductoResponseDto>.Fail("La cantidad debe ser mayor que cero.");
+
             bool productoExiste = await _context.Productos.AnyAsync(p => p.ProductoId == dto.ProductoId);
             if (!productoExiste)
                 return Result<LoteProductoResponseDto>.Fail("El producto no existe.");

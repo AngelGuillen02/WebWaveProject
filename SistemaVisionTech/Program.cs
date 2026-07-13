@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using SistemaVisionTech.Features.Acceso.Authorization;
 using SistemaVisionTech.Features.Acceso.Interfaces;
 using SistemaVisionTech.Features.Acceso.Services;
 using SistemaVisionTech.Features.Caja.Interfaces;
@@ -26,8 +28,6 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<WebWaveDbContext>(options =>
-    options.UseSqlServer(connectionString));
 
 var jwtKey = builder.Configuration["Jwt:Key"]!;
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
@@ -92,11 +92,22 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
-
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IPermisosCacheService, PermisosCacheService>();
+builder.Services.AddScoped<IAuthorizationHandler, PermisoAuthorizationHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.DefaultPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .AddRequirements(new PermisoRequirement())
+        .Build();
+});
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 builder.Services.AddScoped<IPerfilesService, PerfilesService>();
+builder.Services.AddDbContextFactory<WebWaveDbContext>(options => options.UseSqlServer(connectionString));
 builder.Services.AddScoped<IPermisosService, PermisosService>();
 builder.Services.AddScoped<IEmpresasService, EmpresasService>();
 builder.Services.AddScoped<ISucursalesService, SucursalesService>();
@@ -111,6 +122,9 @@ builder.Services.AddScoped<ILotesProductoService, LotesProductoService>();
 builder.Services.AddScoped<ICajaService, CajaService>();
 builder.Services.AddScoped<ISARService, SARService>();
 
+builder.Services.AddScoped<WebWaveDbContext>(sp =>
+    sp.GetRequiredService<IDbContextFactory<WebWaveDbContext>>().CreateDbContext());
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -119,7 +133,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "SistemaVisionTech API v1");
-        c.RoutePrefix = string.Empty; 
+        c.RoutePrefix = string.Empty;
     });
 }
 

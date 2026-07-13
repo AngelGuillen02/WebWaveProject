@@ -22,7 +22,7 @@ namespace SistemaVisionTech.Controllers
         public async Task<IActionResult> AbrirCaja([FromBody] AbrirCajaDto dto)
         {
             int usuarioId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-            return HandleCreatedResult( await _svc.AbrirCajaAsync(dto, usuarioId), nameof(ObtenerEstadoActual), r => new { id = r.Id });
+            return HandleCreatedResult(await _svc.AbrirCajaAsync(dto, usuarioId), nameof(ObtenerEstadoActual), r => new { id = r.Id });
         }
 
         [HttpPost("{id}/cerrar")]

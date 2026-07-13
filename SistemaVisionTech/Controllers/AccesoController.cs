@@ -23,7 +23,7 @@ namespace SistemaVisionTech.Controllers
         private readonly IEmpresasService _empresasService;
         private readonly ISucursalesService _sucursalesService;
 
-        public AccesoController(IAuthService authService,IUsuariosService usuariosService,IPerfilesService perfilesService,IPermisosService permisosService,IEmpresasService empresasService, ISucursalesService sucursalesService)
+        public AccesoController(IAuthService authService, IUsuariosService usuariosService, IPerfilesService perfilesService, IPermisosService permisosService, IEmpresasService empresasService, ISucursalesService sucursalesService)
         {
             _authService = authService;
             _usuariosService = usuariosService;
@@ -65,14 +65,14 @@ namespace SistemaVisionTech.Controllers
 
         [AllowAnonymous]
         [HttpPost("Usuarios")]
-        public async Task<IActionResult> CrearUsuario( [FromBody] UsuariosCreacionDto dto)
+        public async Task<IActionResult> CrearUsuario([FromBody] UsuariosCreacionDto dto)
         {
             Result<UsuariosDto> resultado = await _usuariosService.CrearUsuarioAsync(dto);
             return HandleCreatedResult(resultado, nameof(ObtenerUsuarioPorId), data => new { id = data.UsuarioId });
         }
 
         [HttpPut("Usuarios/{id:int}")]
-        public async Task<IActionResult> ActualizarUsuario( int id, [FromBody] UsuariosActualizacionDto dto)
+        public async Task<IActionResult> ActualizarUsuario(int id, [FromBody] UsuariosActualizacionDto dto)
         {
             Result<UsuariosDto> resultado = await _usuariosService.ActualizarUsuarioAsync(id, dto);
             return HandleResult(resultado);
@@ -106,14 +106,14 @@ namespace SistemaVisionTech.Controllers
 
         [AllowAnonymous]
         [HttpPost("Perfiles")]
-        public async Task<IActionResult> CrearPerfil( [FromBody] PerfilesCreacionDto dto)
+        public async Task<IActionResult> CrearPerfil([FromBody] PerfilesCreacionDto dto)
         {
             Result<PerfilesDto> resultado = await _perfilesService.CrearPerfilAsync(dto);
             return HandleCreatedResult(resultado, nameof(ObtenerPerfilPorId), data => new { id = data.PerfilId });
         }
 
         [HttpPut("Perfiles/{id:int}")]
-        public async Task<IActionResult> ActualizarPerfil( int id, [FromBody] PerfilesActualizacionDto dto)
+        public async Task<IActionResult> ActualizarPerfil(int id, [FromBody] PerfilesActualizacionDto dto)
         {
             Result<PerfilesDto> resultado = await _perfilesService.ActualizarPerfilAsync(id, dto);
             return HandleResult(resultado);
@@ -134,14 +134,14 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpPost("Permisos")]
-        public async Task<IActionResult> CrearPermiso( [FromBody] PermisosCreacionDto dto)
+        public async Task<IActionResult> CrearPermiso([FromBody] PermisosCreacionDto dto)
         {
             Result<PermisosDto> resultado = await _permisosService.CrearPermisoAsync(dto);
             return HandleCreatedResult(resultado, nameof(ObtenerPerfilPorId), data => new { id = data.PermisoId });
         }
 
         [HttpPut("Permisos/{id:int}")]
-        public async Task<IActionResult> ActualizarPermiso( int id, [FromBody] PermisosActualizacionDto dto)
+        public async Task<IActionResult> ActualizarPermiso(int id, [FromBody] PermisosActualizacionDto dto)
         {
             Result<PermisosDto> resultado = await _permisosService.ActualizarPermisoAsync(id, dto);
             return HandleResult(resultado);
@@ -174,14 +174,14 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpPost("Empresas")]
-        public async Task<IActionResult> CrearEmpresa( [FromBody] EmpresasCreacionDto dto)
+        public async Task<IActionResult> CrearEmpresa([FromBody] EmpresasCreacionDto dto)
         {
             Result<EmpresasDto> resultado = await _empresasService.CrearEmpresaAsync(dto);
             return HandleCreatedResult(resultado, nameof(ObtenerEmpresaPorId), data => new { id = data.EmpresaId });
         }
 
         [HttpPut("Empresas/{id:int}")]
-        public async Task<IActionResult> ActualizarEmpresa( int id, [FromBody] EmpresasActualizacionDto dto)
+        public async Task<IActionResult> ActualizarEmpresa(int id, [FromBody] EmpresasActualizacionDto dto)
         {
             Result<EmpresasDto> resultado = await _empresasService.ActualizarEmpresaAsync(id, dto);
             return HandleResult(resultado);
@@ -213,14 +213,14 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpPost("Sucursales")]
-        public async Task<IActionResult> CrearSucursal( [FromBody] SucursalesCreacionDto dto)
+        public async Task<IActionResult> CrearSucursal([FromBody] SucursalesCreacionDto dto)
         {
             Result<SucursalesDto> resultado = await _sucursalesService.CrearSucursalAsync(dto);
             return HandleCreatedResult(resultado, nameof(ObtenerSucursalPorId), data => new { id = data.SucursalId });
         }
 
         [HttpPut("Sucursales/{id:int}")]
-        public async Task<IActionResult> ActualizarSucursal( int id, [FromBody] SucursalesActualizacionDto dto)
+        public async Task<IActionResult> ActualizarSucursal(int id, [FromBody] SucursalesActualizacionDto dto)
         {
             Result<SucursalesDto> resultado = await _sucursalesService.ActualizarSucursalAsync(id, dto);
             return HandleResult(resultado);

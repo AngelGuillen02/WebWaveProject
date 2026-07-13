@@ -6,7 +6,6 @@ using SistemaVisionTech.Features.Ventas.Enums;
 using SistemaVisionTech.Features.Ventas.Interfaces;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
-using Entities = SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Features.Ventas.Services
 {
@@ -133,7 +132,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
 
             decimal totalVenta = detallesEntidad.Sum(d => d.Total);
 
-            Venta venta = new() 
+            Venta venta = new()
             {
                 ClienteId = dto.ClienteId,
                 FechaVenta = DateTime.UtcNow,
@@ -285,7 +284,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 return Result<PagoVentaDto>.Fail(
                     $"El método de pago con Id {dto.MetodoPagoId} no existe.");
 
-            PagosVenta pago = new ()
+            PagosVenta pago = new()
             {
                 VentaId = dto.VentaId,
                 MetodoPagoId = dto.MetodoPagoId,

@@ -37,7 +37,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
             return Result<IEnumerable<InventarioDto>>.Ok(inventario);
         }
 
-        public async Task<Result<InventarioDto>> ObtenerInventarioPorProductoAsync( int productoId)
+        public async Task<Result<InventarioDto>> ObtenerInventarioPorProductoAsync(int productoId)
         {
             Inventarios? registro = await _context.Inventario
                 .AsNoTracking()
@@ -60,7 +60,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
         }
 
 
-        public async Task<Result<MovimientoDto>> RegistrarMovimientoAsync( CrearMovimientoInventarioDto dto)
+        public async Task<Result<MovimientoDto>> RegistrarMovimientoAsync(CrearMovimientoInventarioDto dto)
         {
             if (dto.Cantidad <= 0)
                 return Result<MovimientoDto>.Fail(

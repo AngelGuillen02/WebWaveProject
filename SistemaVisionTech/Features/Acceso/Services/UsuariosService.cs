@@ -87,6 +87,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 PerfilId = dto.PerfilId
             };
 
+            Console.WriteLine(dto.PerfilId);
+
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
 

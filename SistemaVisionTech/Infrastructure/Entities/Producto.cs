@@ -12,5 +12,7 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public string TipoISV { get; set; } = "ISV15";
         public ICollection<Inventarios> Inventarios { get; set; } = [];
         public bool Activo { get; set; } = true;
+
+        public ICollection<ComprasDetalles> ComprasDetalles { get; set; } = new List<ComprasDetalles>();
     }
 }

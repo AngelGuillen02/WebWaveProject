@@ -16,6 +16,8 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.Cantidad).HasColumnName("Cantidad").HasColumnType("INT").IsRequired();
             builder.Property(x => x.PrecioUnitario).HasColumnName("PrecioUnitario").HasColumnType("DECIMAL(18,2)").IsRequired();
             builder.Property(x => x.Total).HasColumnName("Total").HasColumnType("DECIMAL(18,2)").IsRequired();
+            builder.HasOne(d => d.Compra).WithMany(c => c.Detalles).HasForeignKey(d => d.CompraId);
+            builder.HasOne(d => d.Producto).WithMany(p => p.ComprasDetalles).HasForeignKey(d => d.ProductoId).OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

@@ -43,7 +43,7 @@ namespace SistemaVisionTech.Controllers
             Result<CompraDto> resultado = await _comprasService.CrearCompraAsync(dto);
             if (resultado.Success && resultado.Data != null)
             {
-                return CreatedAtAction( nameof(ObtenerCompraPorId), new { id = resultado.Data.CompraId }, resultado.Data);
+                return CreatedAtAction(nameof(ObtenerCompraPorId), new { id = resultado.Data.CompraId }, resultado.Data);
             }
 
             if (resultado.IsValidationError)
@@ -67,7 +67,7 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpPost("Pago")]
-        public async Task<IActionResult> RegistrarPago( [FromBody] CrearPagoCompraDto dto)
+        public async Task<IActionResult> RegistrarPago([FromBody] CrearPagoCompraDto dto)
         {
             Result<PagoCompraDto> resultado = await _comprasService.RegistrarPagoAsync(dto);
 

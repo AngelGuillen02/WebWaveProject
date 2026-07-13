@@ -15,7 +15,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             _configuration = configuration;
         }
 
-        public LoginTokenResult GenerarToken( int usuarioId, string nombre, string email, string perfil)
+        public LoginTokenResult GenerarToken(int usuarioId, string nombre, string email, string perfil)
         {
             string jwtKey = _configuration["Jwt:Key"]!;
             string issuer = _configuration["Jwt:Issuer"]!;

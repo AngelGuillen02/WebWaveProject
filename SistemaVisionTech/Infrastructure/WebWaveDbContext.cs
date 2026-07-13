@@ -52,7 +52,7 @@ namespace SistemaVisionTech.Infrastructure
             modelBuilder.Entity<Empresas>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<Sucursales>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<Producto>().HasQueryFilter(e => e.Activo);
-            modelBuilder.Entity<Clientes>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Cliente>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<Proveedores>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<MetodosPago>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<EstadosVenta>().HasQueryFilter(e => e.Activo);

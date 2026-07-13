@@ -59,7 +59,7 @@ namespace SistemaVisionTech.Features.SAR.Services
                 .Include(v => v.Detalles)
                 .ThenInclude(vd => vd.Producto)
                 .Include(v => v.Cliente)
-                .FirstOrDefaultAsync(v => v.VentaId ==ventaId);
+                .FirstOrDefaultAsync(v => v.VentaId == ventaId);
 
             if (venta is null)
                 return Result<FacturaEmitidaResponseDto>.Fail("La venta no existe.");

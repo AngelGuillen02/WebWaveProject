@@ -4,9 +4,9 @@ using SistemaVisionTech.Infrastructure.Entities;
 
 namespace SistemaVisionTech.Infrastructure.Maps
 {
-    public class ClientesMap : IEntityTypeConfiguration<Clientes>
+    public class ClientesMap : IEntityTypeConfiguration<Cliente>
     {
-        public void Configure(EntityTypeBuilder<Clientes> builder)
+        public void Configure(EntityTypeBuilder<Cliente> builder)
         {
             builder.ToTable("Clientes", "dbo");
             builder.HasKey(x => x.ClienteId);
@@ -15,6 +15,7 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.Direccion).HasColumnName("Direccion").HasColumnType("VARCHAR(255)");
             builder.Property(x => x.Telefono).HasColumnName("Telefono").HasColumnType("VARCHAR(50)");
             builder.Property(x => x.Email).HasColumnName("Email").HasColumnType("VARCHAR(255)");
+            builder.Property(x => x.RTN).HasColumnName("RTN");
         }
     }
 }

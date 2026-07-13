@@ -42,6 +42,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 usuario.UsuarioId,
                 usuario.Nombre,
                 usuario.Email,
+                usuario.PerfilId,
                 usuario.Perfil.Nombre);
 
             return Result<LoginResponseDto>.Ok(new LoginResponseDto
