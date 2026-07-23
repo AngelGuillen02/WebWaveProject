@@ -9,6 +9,6 @@
         public DateTime FechaMovimiento { get; set; }
         public string? OrigenTipo { get; set; } // Compra, Venta, Ajuste, Devolucion
         public int? OrigenId { get; set; }
-        public Inventarios Inventario { get; set; } = new Inventarios();
+        public Inventarios? Inventario { get; set; }
     }
 }

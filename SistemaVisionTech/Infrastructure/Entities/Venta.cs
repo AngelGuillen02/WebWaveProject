@@ -7,8 +7,8 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public DateTime FechaVenta { get; set; }
         public decimal Total { get; set; }
         public int EstadoVentaId { get; set; }
-        public Cliente Cliente { get; set; } = new Cliente();
-        public EstadosVenta EstadoVenta { get; set; } = new EstadosVenta();
+        public Cliente? Cliente { get; set; }
+        public EstadosVenta? EstadoVenta { get; set; }
         public ICollection<VentasDetalles> Detalles { get; set; } = [];
         public ICollection<PagosVenta> Pagos { get; set; } = [];
         public bool Activo { get; set; } = true;

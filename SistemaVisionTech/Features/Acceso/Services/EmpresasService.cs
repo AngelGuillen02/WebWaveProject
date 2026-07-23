@@ -79,7 +79,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result<EmpresasDto>.Fail("El nombre de la empresa es obligatorio.", isValidation: true);
 
             bool existe = await _context.Empresas
-                .AnyAsync(e => e.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase));
+                .AnyAsync(e => e.Nombre.ToUpper() == dto.Nombre.ToUpper());
 
             if (existe)
                 return Result<EmpresasDto>.Fail($"Ya existe una empresa con el nombre '{dto.Nombre}'.");
@@ -111,7 +111,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result<EmpresasDto>.Fail($"La empresa con Id {empresaId} no existe.");
 
             bool nombreDuplicado = await _context.Empresas
-                .AnyAsync(e => e.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase) && e.EmpresaId != empresaId);
+                .AnyAsync(e => e.Nombre.ToUpper() == dto.Nombre.ToUpper() && e.EmpresaId != empresaId);
 
             if (nombreDuplicado)
                 return Result<EmpresasDto>.Fail($"Ya existe otra empresa con el nombre '{dto.Nombre}'.");

@@ -19,7 +19,6 @@ namespace SistemaVisionTech.Controllers
             _inventarioService = inventarioService;
         }
 
-
         [HttpGet]
         public async Task<IActionResult> ObtenerInventario()
         {

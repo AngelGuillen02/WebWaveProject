@@ -36,7 +36,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result<PermisosDto>.Fail("El nombre del permiso es obligatorio.", isValidation: true);
 
             bool existe = await _context.Permisos
-                .AnyAsync(p => p.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase));
+                .AnyAsync(p => p.Nombre.ToUpper() == dto.Nombre.ToUpper());
 
             if (existe)
                 return Result<PermisosDto>.Fail($"Ya existe un permiso con el nombre '{dto.Nombre}'.");
@@ -64,7 +64,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result<PermisosDto>.Fail($"El permiso con Id {permisoId} no existe.");
 
             bool nombreDuplicado = await _context.Permisos
-                .AnyAsync(p => p.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase) && p.PermisoId != permisoId);
+                .AnyAsync(p => p.Nombre.ToUpper() == dto.Nombre.ToUpper() && p.PermisoId != permisoId);
 
             if (nombreDuplicado)
                 return Result<PermisosDto>.Fail($"Ya existe otro permiso con el nombre '{dto.Nombre}'.");

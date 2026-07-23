@@ -8,7 +8,7 @@
         public int Cantidad { get; set; }
         public decimal Precio { get; set; }
         public decimal Total { get; set; }
-        public Venta Venta { get; set; } = new Venta();
-        public Producto Producto { get; set; } = new Producto();
+        public Venta? Venta { get; set; }
+        public Producto? Producto { get; set; }
     }
 }

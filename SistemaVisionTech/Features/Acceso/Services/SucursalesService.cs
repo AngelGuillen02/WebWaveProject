@@ -67,7 +67,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     $"La empresa con Id {dto.EmpresaId} no existe.");
 
             bool nombreDuplicado = await _context.Sucursales
-                .AnyAsync(s => s.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase)
+                .AnyAsync(s => s.Nombre.ToUpper() == dto.Nombre.ToUpper()
                             && s.EmpresaId == dto.EmpresaId);
 
             if (nombreDuplicado)
@@ -102,7 +102,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     $"La sucursal con Id {sucursalId} no existe.");
 
             bool nombreDuplicado = await _context.Sucursales
-                .AnyAsync(s => s.Nombre.Equals(dto.Nombre, StringComparison.CurrentCultureIgnoreCase)
+                .AnyAsync(s => s.Nombre.ToUpper() == dto.Nombre.ToUpper()
                             && s.EmpresaId == sucursal.EmpresaId
                             && s.SucursalId != sucursalId);
 

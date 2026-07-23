@@ -7,7 +7,7 @@ namespace SistemaVisionTech.Infrastructure.Entities
         public int MetodoPagoId { get; set; }
         public decimal Monto { get; set; }
         public DateTime FechaPago { get; set; } = DateTime.UtcNow;
-        public Venta Venta { get; set; } = new Venta();
-        public MetodosPago MetodoPago { get; set; } = new MetodosPago();
+        public Venta? Venta { get; set; }
+        public MetodosPago? MetodoPago { get; set; }
     }
 }

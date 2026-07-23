@@ -14,6 +14,8 @@ using SistemaVisionTech.Features.Compras.Interfaces;
 using SistemaVisionTech.Features.Compras.Services;
 using SistemaVisionTech.Features.Inventario.Interfaces;
 using SistemaVisionTech.Features.Inventario.Service;
+using SistemaVisionTech.Features.Navegacion.Interfaces;
+using SistemaVisionTech.Features.Navegacion.Services;
 using SistemaVisionTech.Features.Productos.Interfaces;
 using SistemaVisionTech.Features.Productos.Services;
 using SistemaVisionTech.Features.SAR.Interfaces;
@@ -121,6 +123,7 @@ builder.Services.AddScoped<ISeriesProductoService, SeriesProductoService>();
 builder.Services.AddScoped<ILotesProductoService, LotesProductoService>();
 builder.Services.AddScoped<ICajaService, CajaService>();
 builder.Services.AddScoped<ISARService, SARService>();
+builder.Services.AddScoped<INavegacionService, NavegacionService>();
 
 builder.Services.AddScoped<WebWaveDbContext>(sp =>
     sp.GetRequiredService<IDbContextFactory<WebWaveDbContext>>().CreateDbContext());

@@ -42,6 +42,9 @@ namespace SistemaVisionTech.Infrastructure
         public DbSet<ConfiguracionSAR> ConfiguracionSAR { get; set; }
         public DbSet<FacturasEmitidas> FacturasEmitidas { get; set; }
 
+        public DbSet<NavNodo> NavNodos { get; set; }
+        public DbSet<NavRestriccion> NavRestricciones { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -64,6 +67,7 @@ namespace SistemaVisionTech.Infrastructure
             modelBuilder.Entity<CierresCaja>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<ConfiguracionSAR>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<FacturasEmitidas>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<NavNodo>().HasQueryFilter(e => e.Activo);
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(WebWaveDbContext).Assembly);
         }
