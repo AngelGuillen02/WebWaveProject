@@ -7,7 +7,7 @@ namespace SistemaVisionTech.Features.Compras.Dtos
         public string Telefono { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Contacto { get; set; } = string.Empty;
-        public string RTN { get; set; } = string.Empty;
+        public string? RTN { get; set; }
     }
 
     public class ProveedorResponseDto
