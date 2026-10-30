@@ -16,12 +16,14 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.HasOne(x => x.Nodo)
                 .WithMany(x => x.Restricciones)
                 .HasForeignKey(x => x.NodoId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
 
             builder.HasOne(x => x.Perfil)
                 .WithMany()
                 .HasForeignKey(x => x.PerfilId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
         }
     }
 }

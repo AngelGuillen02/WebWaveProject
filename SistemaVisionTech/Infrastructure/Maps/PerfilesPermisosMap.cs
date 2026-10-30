@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SistemaVisionTech.Infrastructure.Entities;
 
@@ -18,9 +18,9 @@ namespace SistemaVisionTech.Infrastructure.Maps
 
             builder.Property(x => x.PermisoId).HasColumnName("PermisoId").HasColumnType("INT").IsRequired();
 
-            builder.HasOne(x => x.Perfil).WithMany(x => x.Permisos).HasForeignKey(x => x.PerfilId);
+            builder.HasOne(x => x.Perfil).WithMany(x => x.Permisos).HasForeignKey(x => x.PerfilId).IsRequired(false);
 
-            builder.HasOne(x => x.Permiso).WithMany(x => x.Perfiles).HasForeignKey(x => x.PermisoId);
+            builder.HasOne(x => x.Permiso).WithMany(x => x.Perfiles).HasForeignKey(x => x.PermisoId).IsRequired(false);
 
             builder.HasIndex(x => new { x.PerfilId, x.PermisoId }).IsUnique();
         }

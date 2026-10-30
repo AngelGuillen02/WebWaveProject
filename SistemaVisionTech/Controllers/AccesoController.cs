@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Acceso.Dtos.Auth;
@@ -41,30 +42,37 @@ namespace SistemaVisionTech.Controllers
         {
             try
             {
-                var usuario = await context.Usuarios.AsNoTracking().FirstOrDefaultAsync();
-                int totalUsuarios = await context.Usuarios.AsNoTracking().CountAsync();
+                bool conectado = await context.Database.CanConnectAsync();
+                if (!conectado)
+                {
+                    return StatusCode(503, new
+                    {
+                        estado = "Degradado",
+                        conectado = false,
+                        mensaje = "No es posible establecer conexión con la base de datos."
+                    });
+                }
+
                 return Ok(new
                 {
-                    estado = "Éxito",
+                    estado = "Saludable",
                     conectado = true,
-                    mensaje = "Conexión a Supabase establecida correctamente.",
-                    totalUsuarios,
-                    primerUsuarioEmail = usuario?.Email
+                    mensaje = "Servicio y base de datos operativos."
                 });
             }
-            catch (Exception ex)
+            catch
             {
-                return StatusCode(500, new
+                return StatusCode(503, new
                 {
-                    estado = "Error de conexión",
+                    estado = "Error de servicio",
                     conectado = false,
-                    error = ex.Message,
-                    detalle = ex.InnerException?.Message
+                    mensaje = "Fallo en la prueba de disponibilidad de la base de datos."
                 });
             }
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("LoginPolicy")]
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {

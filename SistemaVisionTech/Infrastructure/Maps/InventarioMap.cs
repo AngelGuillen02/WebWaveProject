@@ -14,6 +14,11 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.ProductoId).HasColumnName("ProductoId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.Cantidad).HasColumnName("Cantidad").HasColumnType("INT").IsRequired();
             builder.Property(x => x.FechaIngreso).HasColumnName("FechaIngreso").IsRequired();
+
+            builder.HasOne(x => x.Producto)
+                .WithMany(p => p.Inventarios)
+                .HasForeignKey(x => x.ProductoId)
+                .IsRequired(false);
         }
     }
 }
