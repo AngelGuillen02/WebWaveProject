@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Acceso.Dtos.Auth;
 using SistemaVisionTech.Features.Acceso.Dtos.Empresas;
@@ -8,6 +9,7 @@ using SistemaVisionTech.Features.Acceso.Dtos.Permisos;
 using SistemaVisionTech.Features.Acceso.Dtos.Sucursales;
 using SistemaVisionTech.Features.Acceso.Dtos.Usuarios;
 using SistemaVisionTech.Features.Acceso.Interfaces;
+using SistemaVisionTech.Infrastructure;
 
 namespace SistemaVisionTech.Controllers
 {
@@ -31,6 +33,35 @@ namespace SistemaVisionTech.Controllers
             _permisosService = permisosService;
             _empresasService = empresasService;
             _sucursalesService = sucursalesService;
+        }
+
+        [AllowAnonymous]
+        [HttpGet("TestConexion")]
+        public async Task<IActionResult> TestConexion([FromServices] WebWaveDbContext context)
+        {
+            try
+            {
+                var usuario = await context.Usuarios.AsNoTracking().FirstOrDefaultAsync();
+                int totalUsuarios = await context.Usuarios.AsNoTracking().CountAsync();
+                return Ok(new
+                {
+                    estado = "Éxito",
+                    conectado = true,
+                    mensaje = "Conexión a Supabase establecida correctamente.",
+                    totalUsuarios,
+                    primerUsuarioEmail = usuario?.Email
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    estado = "Error de conexión",
+                    conectado = false,
+                    error = ex.Message,
+                    detalle = ex.InnerException?.Message
+                });
+            }
         }
 
         [AllowAnonymous]
@@ -153,7 +184,6 @@ namespace SistemaVisionTech.Controllers
             Result resultado = await _permisosService.EliminarPermisoAsync(id);
             return HandleResult(resultado);
         }
-
 
         [HttpGet("Empresas")]
         public async Task<IActionResult> ObtenerEmpresas()

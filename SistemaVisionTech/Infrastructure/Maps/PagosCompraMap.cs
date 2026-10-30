@@ -14,7 +14,7 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.CompraId).HasColumnName("CompraId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.MetodoPagoId).HasColumnName("MetodoPagoId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.Monto).HasColumnName("Monto").HasColumnType("DECIMAL(18,2)").IsRequired();
-            builder.Property(x => x.FechaPago).HasColumnName("FechaPago").HasColumnType("DATETIME").IsRequired();
+            builder.Property(x => x.FechaPago).HasColumnName("FechaPago").IsRequired();
         }
     }
 }

@@ -12,7 +12,7 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.HasKey(x => x.CompraId);
             builder.Property(x => x.CompraId).HasColumnName("CompraId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.ProveedorId).HasColumnName("ProveedorId").HasColumnType("INT").IsRequired();
-            builder.Property(x => x.FechaCompra).HasColumnName("FechaCompra").HasColumnType("DATETIME").IsRequired();
+            builder.Property(x => x.FechaCompra).HasColumnName("FechaCompra").IsRequired();
             builder.Property(x => x.Total).HasColumnName("Total").HasColumnType("DECIMAL(18,2)").IsRequired();
             builder.Property(x => x.EstadoCompraId).HasColumnName("EstadoCompraId").HasColumnType("INT").IsRequired();
             builder.HasOne(c => c.Proveedor).WithMany(p => p.Compras).HasForeignKey(c => c.ProveedorId).OnDelete(DeleteBehavior.Restrict);

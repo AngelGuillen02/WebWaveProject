@@ -12,9 +12,10 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.HasKey(x => x.VentaId);
             builder.Property(x => x.VentaId).HasColumnName("VentaId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.ClienteId).HasColumnName("ClienteId").HasColumnType("INT").IsRequired();
-            builder.Property(x => x.FechaVenta).HasColumnName("FechaVenta").HasColumnType("DATETIME").IsRequired();
+            builder.Property(x => x.FechaVenta).HasColumnName("FechaVenta").IsRequired();
             builder.Property(x => x.Total).HasColumnName("Total").HasColumnType("DECIMAL(18,2)").IsRequired();
             builder.Property(x => x.EstadoVentaId).HasColumnName("EstadoVentaId").HasColumnType("INT").IsRequired();
+            builder.Ignore(x => x.Rtn);
         }
     }
 }

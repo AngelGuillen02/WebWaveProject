@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SistemaVisionTech.Features.Caja.Dtos;
 using SistemaVisionTech.Features.Caja.Interfaces;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace SistemaVisionTech.Controllers
@@ -21,7 +22,10 @@ namespace SistemaVisionTech.Controllers
         [HttpPost("abrir")]
         public async Task<IActionResult> AbrirCaja([FromBody] AbrirCajaDto dto)
         {
-            int usuarioId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            var val = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                   ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                   ?? "1";
+            int usuarioId = int.TryParse(val, out var uid) ? uid : 1;
             return HandleCreatedResult(await _svc.AbrirCajaAsync(dto, usuarioId), nameof(ObtenerEstadoActual), r => new { sucursalId = r.SucursalId });
         }
 

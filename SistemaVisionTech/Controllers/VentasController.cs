@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SistemaVisionTech.Common;
+using SistemaVisionTech.Features.SAR.Dtos;
+using SistemaVisionTech.Features.SAR.Interfaces;
 using SistemaVisionTech.Features.Ventas.Dtos;
 using SistemaVisionTech.Features.Ventas.Interfaces;
 
@@ -12,12 +14,13 @@ namespace SistemaVisionTech.Controllers
     public class VentasController : BaseApiController
     {
         private readonly IVentasService _ventasService;
+        private readonly ISARService _sarService;
 
-        public VentasController(IVentasService ventasService)
+        public VentasController(IVentasService ventasService, ISARService sarService)
         {
             _ventasService = ventasService;
+            _sarService = sarService;
         }
-
 
         [HttpGet]
         public async Task<IActionResult> ObtenerVentas()
@@ -81,6 +84,20 @@ namespace SistemaVisionTech.Controllers
                 return BadRequest(new { mensaje = resultado.Error });
 
             return Conflict(new { mensaje = resultado.Error });
+        }
+
+        [HttpPost("{id:int}/Facturar")]
+        public async Task<IActionResult> FacturarVenta(int id, [FromQuery] int sucursalId = 1)
+        {
+            Result<FacturaEmitidaResponseDto> resultado = await _sarService.EmitirFacturaAsync(id, sucursalId);
+            return HandleResult(resultado);
+        }
+
+        [HttpGet("{id:int}/Factura")]
+        public async Task<IActionResult> ObtenerFactura(int id)
+        {
+            Result<FacturaEmitidaResponseDto> resultado = await _sarService.ObtenerFacturaAsync(id);
+            return HandleResult(resultado);
         }
     }
 }

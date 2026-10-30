@@ -15,6 +15,8 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.Direccion).HasColumnName("Direccion").HasColumnType("VARCHAR(255)");
             builder.Property(x => x.Telefono).HasColumnName("Telefono").HasColumnType("VARCHAR(50)");
             builder.Property(x => x.Email).HasColumnName("Email").HasColumnType("VARCHAR(255)");
+            builder.Property(x => x.Contacto).HasColumnName("Contacto").HasColumnType("VARCHAR(255)");
+            builder.Property(x => x.RTN).HasColumnName("RTN").HasColumnType("VARCHAR(50)");
         }
     }
 }

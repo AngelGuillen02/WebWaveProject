@@ -13,7 +13,7 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.InventarioId).HasColumnName("InventarioId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.ProductoId).HasColumnName("ProductoId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.Cantidad).HasColumnName("Cantidad").HasColumnType("INT").IsRequired();
-            builder.Property(x => x.FechaIngreso).HasColumnName("FechaIngreso").HasColumnType("DATETIME").IsRequired();
+            builder.Property(x => x.FechaIngreso).HasColumnName("FechaIngreso").IsRequired();
         }
     }
 }

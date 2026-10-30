@@ -27,9 +27,16 @@ using SistemaVisionTech.Features.Ventas.Services;
 using SistemaVisionTech.Infrastructure;
 using System.Text;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+var supabaseConn = builder.Configuration.GetConnectionString("SupabaseConnection");
+if (!string.IsNullOrWhiteSpace(supabaseConn) && !supabaseConn.Contains("[TU_CONTRASEÑA]") && !supabaseConn.Contains("[TU_REF]"))
+{
+    connectionString = supabaseConn;
+}
 
 var jwtKey = builder.Configuration["Jwt:Key"]!;
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
@@ -53,13 +60,23 @@ builder.Services
         };
     });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAngular", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(
             new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
-
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -94,6 +111,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IPermisosCacheService, PermisosCacheService>();
@@ -105,11 +123,29 @@ builder.Services.AddAuthorization(options =>
         .AddRequirements(new PermisoRequirement())
         .Build();
 });
+
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 builder.Services.AddScoped<IPerfilesService, PerfilesService>();
-builder.Services.AddDbContextFactory<WebWaveDbContext>(options => options.UseSqlServer(connectionString));
+
+builder.Services.AddDbContextFactory<WebWaveDbContext>(options =>
+{
+    if (!string.IsNullOrEmpty(connectionString) &&
+        (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
+         connectionString.Contains("Port=", StringComparison.OrdinalIgnoreCase) ||
+         connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase) ||
+         connectionString.Contains("User Id=postgres", StringComparison.OrdinalIgnoreCase) ||
+         connectionString.Contains("postgres", StringComparison.OrdinalIgnoreCase)))
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        options.UseSqlServer(connectionString);
+    }
+});
+
 builder.Services.AddScoped<IPermisosService, PermisosService>();
 builder.Services.AddScoped<IEmpresasService, EmpresasService>();
 builder.Services.AddScoped<ISucursalesService, SucursalesService>();
@@ -141,7 +177,70 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("AllowAngular");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<WebWaveDbContext>();
+        await db.Database.ExecuteSqlRawAsync(@"
+            ALTER TABLE dbo.""Proveedores"" ADD COLUMN IF NOT EXISTS ""Contacto"" VARCHAR(255) NULL;
+            ALTER TABLE dbo.""Proveedores"" ADD COLUMN IF NOT EXISTS ""RTN"" VARCHAR(50) NULL;
+
+            CREATE TABLE IF NOT EXISTS dbo.""CierresCaja"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""SucursalId"" INT NOT NULL,
+                ""UsuarioId"" INT NOT NULL,
+                ""FechaApertura"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                ""FechaCierre"" TIMESTAMP WITHOUT TIME ZONE NULL,
+                ""MontoApertura"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""MontoEfectivoFinal"" NUMERIC(18,2) NULL,
+                ""TotalVentasEfectivo"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""TotalVentasTarjeta"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""TotalVentasOtros"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""Diferencia"" NUMERIC(18,2) NULL,
+                ""Estado"" VARCHAR(20) NOT NULL DEFAULT 'Abierto',
+                ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
+            );
+
+            CREATE TABLE IF NOT EXISTS dbo.""ConfiguracionSAR"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""SucursalId"" INT NOT NULL,
+                ""RTN"" VARCHAR(20) NOT NULL,
+                ""CAI"" VARCHAR(50) NOT NULL,
+                ""RangoDesde"" VARCHAR(20) NOT NULL,
+                ""RangoHasta"" VARCHAR(20) NOT NULL,
+                ""FechaLimiteEmision"" DATE NOT NULL,
+                ""CorrelativoActual"" INT NOT NULL DEFAULT 0,
+                ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
+            );
+            CREATE TABLE IF NOT EXISTS dbo.""FacturasEmitidas"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""VentaId"" INT NOT NULL,
+                ""SucursalId"" INT NOT NULL,
+                ""NumeroFactura"" VARCHAR(30) NOT NULL,
+                ""CAI"" VARCHAR(50) NOT NULL,
+                ""FechaEmision"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                ""RTNCliente"" VARCHAR(20) NULL,
+                ""NombreCliente"" VARCHAR(200) NOT NULL,
+                ""MontoExento"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""MontoGravado15"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""MontoGravado18"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""ISV15"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""ISV18"" NUMERIC(18,2) NOT NULL DEFAULT 0,
+                ""Total"" NUMERIC(18,2) NOT NULL,
+                ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
+            );
+        ");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[DB INIT WARNING]: {ex.Message}");
+    }
+}
+
 app.Run();
