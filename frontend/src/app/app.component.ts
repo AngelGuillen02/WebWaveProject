@@ -335,7 +335,19 @@ export class AppComponent {
   };
 
   // Pestañas secundarias de Configuración
-  subTabConfiguracion: 'general' | 'facturas' | 'seguridad' = 'general';
+  subTabConfiguracion: 'general' | 'facturas' | 'seguridad' | 'auditoria' = 'general';
+  
+  // Cambio de contraseña
+  seguridadPassword = {
+    passwordActual: '',
+    nuevaPassword: '',
+    confirmarPassword: ''
+  };
+  guardandoPassword = false;
+
+  // Bitácora global de auditoría (Solo Administrador)
+  logsAuditoriaList: any[] = [];
+  cargandoAuditoria = false;
   guardandoConfiguracion = false;
   companyConfig = {
     nombre: localStorage.getItem('vt_company_nombre') || '3tech Distribuidora S. De R.L de C.V.',
@@ -2400,7 +2412,66 @@ export class AppComponent {
   }
 
 
-  guardarConfiguracionEmpresa() {
+
+  actualizarPasswordSeguridad() {
+    if (!this.seguridadPassword.nuevaPassword || !this.seguridadPassword.confirmarPassword) {
+      this.notificarAdvertencia('Campos Requeridos', 'Por favor ingresa y confirma la nueva contraseña.');
+      return;
+    }
+    if (this.seguridadPassword.nuevaPassword !== this.seguridadPassword.confirmarPassword) {
+      this.notificarAdvertencia('Contraseñas no coinciden', 'La confirmación no coincide con la nueva contraseña.');
+      return;
+    }
+    if (this.seguridadPassword.nuevaPassword.length < 4) {
+      this.notificarAdvertencia('Contraseña muy corta', 'La contraseña debe tener al menos 4 caracteres.');
+      return;
+    }
+
+    // Buscar el ID del usuario actual en la lista o usar 1
+    const usuarioActual = this.usuarios.find(u => u.email?.toLowerCase() === this.currentUser.email?.toLowerCase()) || this.usuarios[0] || { usuarioId: 1 };
+    const usuarioId = usuarioActual.usuarioId || 1;
+
+    this.guardandoPassword = true;
+    const payload = {
+      nombre: this.currentUser.name || 'Angel Guillen',
+      email: this.currentUser.email || 'admin@visiontech.com',
+      contraseña: this.seguridadPassword.nuevaPassword,
+      perfilId: usuarioActual.perfilId || 1
+    };
+
+    this.http.put(`${this.api}/Acceso/Usuarios/${usuarioId}`, payload, this.getHeaders()).subscribe({
+      next: () => {
+        this.guardandoPassword = false;
+        this.seguridadPassword = { passwordActual: '', nuevaPassword: '', confirmarPassword: '' };
+        this.notificarExito('Contraseña Actualizada', 'Tu contraseña ha sido actualizada y encriptada correctamente. Podrás iniciar sesión con tu nueva clave.');
+      },
+      error: (err) => {
+        this.guardandoPassword = false;
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error al Actualizar Contraseña', err.error?.mensaje || 'No se pudo actualizar la contraseña.');
+        }
+      }
+    });
+  }
+
+  loadAuditoriaLogs() {
+    if (!this.isAdmin) return;
+    this.cargandoAuditoria = true;
+    this.http.get<any[]>(`${this.api}/Auditoria`, this.getHeaders()).subscribe({
+      next: (data) => {
+        this.logsAuditoriaList = Array.isArray(data) ? data : [];
+        this.cargandoAuditoria = false;
+      },
+      error: (err) => {
+        this.cargandoAuditoria = false;
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error en Bitácora', err.error?.mensaje || 'No se pudo cargar la bitácora de auditoría.');
+        }
+      }
+    });
+  }
+
+    guardarConfiguracionEmpresa() {
     this.guardandoConfiguracion = true;
     localStorage.setItem('vt_company_nombre', this.companyConfig.nombre);
     localStorage.setItem('vt_company_gerente_nombre', this.companyConfig.nombreGerente);

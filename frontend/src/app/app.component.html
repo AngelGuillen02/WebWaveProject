@@ -350,7 +350,7 @@
                   <td>
                     <span *ngIf="venta.esCotizacion" class="badge-cotizacion" style="margin-bottom:3px;">COTIZACIÓN</span>
                     <span *ngIf="!venta.esCotizacion" class="badge-factura" style="margin-bottom:3px;">FACTURA SAR</span>
-                    <div style="font-size:11px; font-weight:700;" [style.color]="venta.esCotizacion ? '#7e22ce' : '#0369a1'">
+                    <div style="font-size:11px; font-weight:700;" [style.color]="venta.esCotizacion ? '#0284c7' : '#1e3a8a'">
                       {{ venta.esCotizacion ? (venta.numeroCotizacion || ('COT-' + venta.ventaId)) : (venta.numeroFactura || 'Borrador') }}
                     </div>
                   </td>
@@ -398,7 +398,7 @@
                       <button *ngIf="venta.numeroFactura" class="btn-action primary" (click)="verFactura(venta)" title="Ver factura oficial">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
                       </button>
-                      <button *ngIf="!venta.numeroFactura" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
+                      <button *ngIf="!venta.numeroFactura && venta.estadoVenta !== 'Anulada'" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
                         + Facturar CAI
                       </button>
                       <button *ngIf="venta.estadoVenta === 'Pendiente'" class="btn-action success" (click)="confirmarVenta(venta.ventaId)" title="Confirmar Venta">
@@ -443,7 +443,7 @@
                 <button class="outline-button" (click)="volverAListadoFacturas()" style="padding:6px 12px; font-size:11px; font-weight:700;">
                   <lucide-icon [img]="icons.ClipboardList" [size]="14"></lucide-icon> Ver Listado
                 </button>
-                <button class="btn-generar" [disabled]="generandoFactura || facturaEmitida" (click)="generarFacturaFiscal()" [style.background]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#0ea5e9'">
+                <button class="btn-generar" [disabled]="generandoFactura || facturaEmitida" (click)="generarFacturaFiscal()" [style.background]="facturaForm.tipoDocumento === 'Cotizacion' ? '#0284c7' : '#1e3a8a'">
                   <lucide-icon [img]="icons.Check" [size]="15"></lucide-icon>
                   {{ generandoFactura ? 'Generando…' : (facturaForm.tipoDocumento === 'Cotizacion' ? 'Generar cotización' : 'Generar factura') }}
                 </button>
@@ -482,9 +482,9 @@
                 <label>{{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Última Cotización' : 'Última Factura' }}</label>
                 <b>{{ ultimaFacturaDisplay }}</b>
               </div>
-              <div class="meta-cell highlight" [style.background]="facturaForm.tipoDocumento === 'Cotizacion' ? '#faf5ff' : '#eff6ff'" [style.borderColor]="facturaForm.tipoDocumento === 'Cotizacion' ? '#e9d5ff' : '#bfdbfe'">
+              <div class="meta-cell highlight" [style.background]="facturaForm.tipoDocumento === 'Cotizacion' ? '#f0f9ff' : '#eff6ff'" [style.borderColor]="facturaForm.tipoDocumento === 'Cotizacion' ? '#bae6fd' : '#bfdbfe'">
                 <label>{{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Nueva Cotización' : 'Nueva Factura' }}</label>
-                <b [style.color]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#1e3a8a'">{{ nuevaFacturaDisplay }}</b>
+                <b [style.color]="facturaForm.tipoDocumento === 'Cotizacion' ? '#0284c7' : '#1e3a8a'">{{ nuevaFacturaDisplay }}</b>
               </div>
               <div class="meta-cell">
                 <label>Método de Pago</label>
@@ -596,12 +596,12 @@
           <div class="factura-preview-column">
             <div class="factura-paper-sheet" id="invoice-preview-area">
               <!-- Encabezado con número de documento y logo -->
-              <div class="preview-brand-row" [style.borderBottomColor]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#0ea5e9'">
+              <div class="preview-brand-row" [style.borderBottomColor]="facturaForm.tipoDocumento === 'Cotizacion' ? '#0284c7' : '#1e3a8a'">
                 <div>
                   <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.05em;">
                     {{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Número de Cotización' : 'Número de factura' }}
                   </div>
-                  <div style="font-size:18px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:2px;" [style.color]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#0ea5e9'">
+                  <div style="font-size:18px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:2px;" [style.color]="facturaForm.tipoDocumento === 'Cotizacion' ? '#0284c7' : '#1e3a8a'">
                     {{ facturaEmitida ? ((facturaForm.tipoDocumento === 'Cotizacion' ? facturaEmitidaData?.numeroCotizacion : facturaEmitidaData?.numeroFactura) || nuevaFacturaDisplay) : nuevaFacturaDisplay }}
                   </div>
                   <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
@@ -623,10 +623,10 @@
                 <div><b>Fecha Límite de Emisión:</b> {{ sarConfig?.fechaLimiteEmision ? (sarConfig?.fechaLimiteEmision | date:'dd/MM/yyyy') : '31/12/2027' }}</div>
               </div>
 
-              <div *ngIf="facturaForm.tipoDocumento === 'Cotizacion'" class="preview-cai-box" style="background:#faf5ff; border-color:#e9d5ff; color:#581c87;">
-                <div style="font-weight:800; font-size:11.5px; color:#7e22ce;">COTIZACIÓN COMERCIAL / PROFORMA</div>
+              <div *ngIf="facturaForm.tipoDocumento === 'Cotizacion'" class="preview-cai-box" style="background:#f0f9ff; border-color:#bae6fd; color:#0369a1;">
+                <div style="font-weight:800; font-size:11.5px; color:#0284c7;">COTIZACIÓN COMERCIAL / PROFORMA</div>
                 <div><b>Validez de la oferta:</b> 15 días calendario a partir de la fecha de emisión.</div>
-                <div style="font-size:10px; color:#6b21a8; margin-top:3px;">
+                <div style="font-size:10px; color:#0369a1; margin-top:3px;">
                   * Documento informativo sin valor tributario. No deduce existencias de inventario ni genera correlativo fiscal SAR.
                 </div>
               </div>
@@ -1594,6 +1594,17 @@
               </div>
             </button>
 
+            <!-- Pestaña Bitácora / Auditoría (Solo Administrador) -->
+            <button *ngIf="isAdmin" class="config-tab-btn" [class.active]="subTabConfiguracion === 'auditoria'" (click)="subTabConfiguracion = 'auditoria'; loadAuditoriaLogs()">
+              <div class="config-tab-icon" style="background:#0369a1;">
+                <lucide-icon [img]="icons.History" [size]="18"></lucide-icon>
+              </div>
+              <div>
+                <div class="config-tab-title">Bitácora Global</div>
+                <div class="config-tab-subtitle">Auditoría confidencial</div>
+              </div>
+            </button>
+
             <div class="config-version-box">
               <div class="config-version-title">Factura.hn</div>
               <div class="config-version-sub">
@@ -1730,7 +1741,7 @@
             <ng-container *ngIf="subTabConfiguracion === 'seguridad'">
               <div class="config-card-header">
                 <h3 class="config-card-title">Seguridad y acceso</h3>
-                <p class="config-card-desc">Administre sus credenciales de acceso y opciones de autenticación segura.</p>
+                <p class="config-card-desc">Actualice su clave de acceso cifrada con hash criptográfico BCrypt para iniciar sesión.</p>
               </div>
               <div class="config-card-body">
                 <div>
@@ -1739,17 +1750,69 @@
                 </div>
                 <div>
                   <label class="config-label">Nueva Contraseña</label>
-                  <input type="password" placeholder="••••••••" class="config-input">
+                  <input type="password" [(ngModel)]="seguridadPassword.nuevaPassword" placeholder="Escriba la nueva contraseña" class="config-input">
                 </div>
                 <div>
                   <label class="config-label">Confirmar Contraseña</label>
-                  <input type="password" placeholder="••••••••" class="config-input">
+                  <input type="password" [(ngModel)]="seguridadPassword.confirmarPassword" placeholder="Confirme la nueva contraseña" class="config-input">
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                  <button class="primary-button" (click)="notificarExito('Seguridad', 'Las credenciales se han actualizado.')" style="background: #0284c7; padding: 12px 24px; font-weight: 700;">
-                    <lucide-icon [img]="icons.Lock" [size]="16"></lucide-icon> Actualizar Contraseña
+                  <button class="primary-button" [disabled]="guardandoPassword" (click)="actualizarPasswordSeguridad()" style="background: #0284c7; padding: 12px 24px; font-weight: 700;">
+                    <lucide-icon [img]="icons.Lock" [size]="16"></lucide-icon>
+                    {{ guardandoPassword ? 'Actualizando y Cifrando...' : 'Actualizar Contraseña' }}
                   </button>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- TAB 4: AUDITORÍA Y BITÁCORA GLOBAL (SOLO ADMIN) -->
+            <ng-container *ngIf="subTabConfiguracion === 'auditoria'">
+              <div class="config-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h3 class="config-card-title" style="display: flex; align-items: center; gap: 8px;">
+                    <lucide-icon [img]="icons.History" [size]="18" style="color: #0284c7;"></lucide-icon>
+                    Bitácora Global de Auditoría
+                  </h3>
+                  <p class="config-card-desc">Registro inmutable de modificaciones en productos, precios, y cotizaciones.</p>
+                </div>
+                <button class="btn-action" (click)="loadAuditoriaLogs()" title="Refrescar">
+                  <lucide-icon [img]="icons.RotateCcw" [size]="14"></lucide-icon> Actualizar
+                </button>
+              </div>
+              <div class="config-card-body">
+                <div *ngIf="cargandoAuditoria" style="text-align: center; padding: 30px; color: #64748b;">
+                  <p>Consultando registros de auditoría...</p>
+                </div>
+
+                <div *ngIf="!cargandoAuditoria && !logsAuditoriaList.length" style="text-align: center; padding: 40px; color: #94a3b8;">
+                  <lucide-icon [img]="icons.History" [size]="36" style="margin-bottom: 8px; opacity: 0.5;"></lucide-icon>
+                  <p style="font-size: 13px; font-weight: 600; color: #475569;">No hay registros de auditoría guardados aún</p>
+                </div>
+
+                <div *ngIf="!cargandoAuditoria && logsAuditoriaList.length" style="display: flex; flex-direction: column; gap: 14px;">
+                  <div *ngFor="let item of logsAuditoriaList" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); border-left: 4px solid #0284c7;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="status" [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : '#f0fdf4'" [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : '#15803d'" style="font-weight: 800; font-size: 10px;">
+                          {{ item.tipo }}
+                        </span>
+                        <b style="color: #0f172a; font-size: 12.5px;">{{ item.referencia }}</b>
+                        <span style="font-size: 11px; color: #64748b;">&bull; Usuario: <b>{{ item.usuario }}</b></span>
+                      </div>
+                      <span style="font-size: 11px; color: #94a3b8;">{{ item.fecha | date:'dd/MM/yyyy, h:mm a' }}</span>
+                    </div>
+
+                    <div *ngIf="item.valorAnterior !== '-' || item.valorNuevo !== '-'" style="display: flex; gap: 14px; align-items: center; margin: 6px 0; background: #f8fafc; padding: 6px 10px; border-radius: 6px; font-size: 11px;">
+                      <div><span style="color: #64748b;">Anterior:</span> <b style="color: #e11d48; text-decoration: line-through;">{{ item.valorAnterior }}</b></div>
+                      <div style="color: #94a3b8;">&rarr;</div>
+                      <div><span style="color: #64748b;">Nuevo:</span> <b style="color: #059669;">{{ item.valorNuevo }}</b></div>
+                    </div>
+
+                    <div style="font-size: 11.5px; color: #475569; white-space: pre-wrap; line-height: 1.4; background: #fcfcfc; padding: 6px 8px; border-radius: 4px; border: 1px solid #f1f5f9;">
+                      {{ item.detalle }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </ng-container>
@@ -2548,7 +2611,7 @@
   <div class="modal-box" style="max-width: 680px;">
     <div class="modal-header">
       <div style="display:flex; align-items:center; gap:8px;">
-        <lucide-icon [img]="icons.Pencil" [size]="18" style="color:#7e22ce;"></lucide-icon>
+        <lucide-icon [img]="icons.Pencil" [size]="18" style="color:#0284c7;"></lucide-icon>
         <h3>Editar Cotización: {{ cotizacionEditando?.numeroCotizacion || ('#COT-' + cotizacionEditando?.ventaId) }}</h3>
       </div>
       <button class="modal-close" (click)="showEditarCotizacionModal = false">
@@ -2620,7 +2683,7 @@
     </div>
     <div class="modal-footer">
       <button class="outline-button" (click)="showEditarCotizacionModal = false">Cancelar</button>
-      <button class="primary-button" style="margin:0; padding:10px 18px; background:#7e22ce;" [disabled]="guardandoEdicionCotizacion" (click)="guardarEdicionCotizacion()">
+      <button class="primary-button" style="margin:0; padding:10px 18px; background:#0284c7;" [disabled]="guardandoEdicionCotizacion" (click)="guardarEdicionCotizacion()">
         {{ guardandoEdicionCotizacion ? 'Guardando en auditoría...' : 'Guardar Modificaciones' }}
       </button>
     </div>
@@ -2691,7 +2754,7 @@
   <div class="modal-box" style="max-width:680px;">
     <div class="modal-header">
       <div style="display:flex; align-items:center; gap:8px;">
-        <lucide-icon [img]="icons.FileText" [size]="18" style="color:#7e22ce;"></lucide-icon>
+        <lucide-icon [img]="icons.FileText" [size]="18" style="color:#0284c7;"></lucide-icon>
         <h3>Cotización / Proforma Comercial</h3>
       </div>
       <button class="modal-close" (click)="showVerCotizacionModal = false">
@@ -2699,14 +2762,14 @@
       </button>
     </div>
     <div class="modal-body" style="padding:16px 20px;">
-      <div class="factura-paper-sheet" id="cotizacion-modal-print-area" style="box-shadow:none; border:1px solid #e9d5ff; padding:24px 22px;">
+      <div class="factura-paper-sheet" id="cotizacion-modal-print-area" style="box-shadow:none; border:1px solid #bae6fd; padding:24px 22px;">
         <!-- Encabezado con número de documento y logo -->
-        <div class="preview-brand-row" style="border-bottom-color:#7e22ce;">
+        <div class="preview-brand-row" style="border-bottom-color:#0284c7;">
           <div>
             <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.05em;">
               Número de Cotización
             </div>
-            <div style="font-size:18px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:2px; color:#7e22ce;">
+            <div style="font-size:18px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:2px; color:#0284c7;">
               {{ cotizacionSeleccionada?.numeroCotizacion || ('COT-' + cotizacionSeleccionada?.ventaId) }}
             </div>
             <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
@@ -2721,10 +2784,10 @@
         </div>
 
         <!-- Aviso Proforma -->
-        <div class="preview-cai-box" style="background:#faf5ff; border-color:#e9d5ff; color:#581c87;">
-          <div style="font-weight:800; font-size:11.5px; color:#7e22ce;">COTIZACIÓN COMERCIAL / PROFORMA</div>
+        <div class="preview-cai-box" style="background:#f0f9ff; border-color:#bae6fd; color:#0369a1;">
+          <div style="font-weight:800; font-size:11.5px; color:#0284c7;">COTIZACIÓN COMERCIAL / PROFORMA</div>
           <div><b>Validez de la oferta:</b> 15 días calendario a partir de su emisión.</div>
-          <div style="font-size:10px; color:#6b21a8; margin-top:3px;">
+          <div style="font-size:10px; color:#0369a1; margin-top:3px;">
             * Documento informativo sin valor tributario. No deduce existencias de inventario ni genera correlativo fiscal SAR.
           </div>
         </div>
@@ -2784,7 +2847,7 @@
               <span>ISV Estimado (15%):</span>
               <span>L. {{ ((cotizacionSeleccionada?.total || 0) - ((cotizacionSeleccionada?.total || 0) / 1.15)) | number:'1.2-2' }}</span>
             </div>
-            <div class="preview-summary-total" style="border-top-color:#7e22ce; color:#7e22ce;">
+            <div class="preview-summary-total" style="border-top-color:#0284c7; color:#0284c7;">
               <span>Total Cotizado:</span>
               <span>L. {{ (cotizacionSeleccionada?.total || 0) | number:'1.2-2' }}</span>
             </div>
@@ -2792,24 +2855,24 @@
         </div>
 
         <!-- Total en Letras -->
-        <div class="preview-footer-words" style="background:#faf5ff; border-color:#e9d5ff;">
+        <div class="preview-footer-words" style="background:#f0f9ff; border-color:#bae6fd;">
           <div style="font-weight:700; color:#0f172a; margin-bottom:2px;">Total en Letras:</div>
-          <div style="color:#7e22ce; font-weight:600; text-transform:uppercase;">
+          <div style="color:#0284c7; font-weight:600; text-transform:uppercase;">
             {{ convertirNumeroALetras(cotizacionSeleccionada?.total || 0) }}
           </div>
         </div>
 
-        <div style="text-align:center; font-size:9.5px; color:#6b21a8; font-weight:700; margin-top:14px; border-top:1px dashed #e9d5ff; padding-top:8px;">
+        <div style="text-align:center; font-size:9.5px; color:#0369a1; font-weight:700; margin-top:14px; border-top:1px dashed #bae6fd; padding-top:8px;">
           DOCUMENTO PROFORMA / COTIZACIÓN COMERCIAL &bull; NO CONSTITUYE FACTURA FISCAL SAR
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="outline-button" (click)="showVerCotizacionModal = false">Cerrar</button>
-      <button class="btn-action" style="padding:9px 16px; font-weight:700; color:#7e22ce; border-color:#e9d5ff;" (click)="descargarCotizacionModalPDF()">
+      <button class="btn-action" style="padding:9px 16px; font-weight:700; color:#0284c7; border-color:#bae6fd;" (click)="descargarCotizacionModalPDF()">
         <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Descargar PDF
       </button>
-      <button class="primary-button" style="margin:0; padding:10px 18px; background:#7e22ce;" (click)="imprimirCotizacionModal()">
+      <button class="primary-button" style="margin:0; padding:10px 18px; background:#0284c7;" (click)="imprimirCotizacionModal()">
         <lucide-icon [img]="icons.Printer" [size]="14"></lucide-icon> Imprimir Cotización
       </button>
     </div>

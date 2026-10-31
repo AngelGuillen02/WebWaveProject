@@ -117,14 +117,14 @@
 }
 
 /* ESTILOS DE COTIZACIONES Y AUDITORÍA */
-.badge-cotizacion{background:#f3e8ff;color:#7e22ce;border:1px solid #e9d5ff;padding:3px 7px;border-radius:4px;font-size:10px;font-weight:700;display:inline-block}
-.badge-factura{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:3px 7px;border-radius:4px;font-size:10px;font-weight:700;display:inline-block}
-.btn-action.purple{background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe}
-.btn-action.purple:hover{background:#ede9fe}
+.badge-cotizacion{background:#f0f9ff;color:#0284c7;border:1px solid #bae6fd;padding:3px 7px;border-radius:4px;font-size:10px;font-weight:700;display:inline-block}
+.badge-factura{background:#eff6ff;color:#1e3a8a;border:1px solid #bfdbfe;padding:3px 7px;border-radius:4px;font-size:10px;font-weight:700;display:inline-block}
+.btn-action.purple{background:#f0f9ff;color:#0284c7;border-color:#bae6fd}
+.btn-action.purple:hover{background:#e0f2fe}
 .doc-type-selector{display:inline-flex;background:#e2e8f0;border-radius:8px;padding:3px;gap:2px}
 .doc-type-btn{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:none;color:#475569;transition:.15s}
 .doc-type-btn.active{background:#fff;color:#0f172a;box-shadow:0 1px 3px rgba(0,0,0,.1)}
-.doc-type-btn.cotizacion.active{color:#7e22ce}
+.doc-type-btn.cotizacion.active{color:#0284c7}
 .audit-timeline{display:grid;gap:14px;position:relative}
 .audit-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;border-left:4px solid #6366f1}
 .audit-card.creacion{border-left-color:#10b981}

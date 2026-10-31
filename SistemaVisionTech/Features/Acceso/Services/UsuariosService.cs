@@ -129,6 +129,11 @@ namespace SistemaVisionTech.Features.Acceso.Services
             usuario.Email = dto.Email.Trim().ToLower();
             usuario.PerfilId = dto.PerfilId;
 
+            if (!string.IsNullOrWhiteSpace(dto.Contraseña))
+            {
+                usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(dto.Contraseña.Trim());
+            }
+
             await _context.SaveChangesAsync();
 
             return await ObtenerUsuarioPorIdAsync(usuarioId);

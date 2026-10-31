@@ -112,6 +112,9 @@ namespace SistemaVisionTech.Features.SAR.Services
             if (venta is null)
                 return Result<FacturaEmitidaResponseDto>.Fail("La venta solicitada no existe.");
 
+            if (venta.EstadoVentaId == (int)SistemaVisionTech.Features.Ventas.Enums.EstadoVentaEnum.Anulada)
+                return Result<FacturaEmitidaResponseDto>.Fail("El documento se encuentra anulado y no admite emisión fiscal ni asignación de CAI.");
+
             ConfiguracionSAR? config = await _context.ConfiguracionSAR
                 .FirstOrDefaultAsync(c => c.SucursalId == sucursalId && c.Activo);
 
