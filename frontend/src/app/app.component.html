@@ -2558,6 +2558,31 @@
           </select>
         </div>
       </div>
+
+      <!-- VISUALIZACIÓN DINÁMICA DE MÓDULOS Y PANTALLAS CON ACCESO -->
+      <div style="margin-top: 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <div style="font-size: 12px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+            <lucide-icon [img]="icons.Shield" [size]="15" style="color: #0284c7;"></lucide-icon>
+            Pantallas y Módulos a los que tendrá acceso:
+          </div>
+          <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: 600;">
+            {{ getModulosAccesoPorPerfil(nuevoUsuarioForm.perfilId).length }} pantallas permitidas
+          </span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px;">
+          <div *ngFor="let mod of getModulosAccesoPorPerfil(nuevoUsuarioForm.perfilId)" 
+               style="display: flex; align-items: center; gap: 8px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px;">
+            <lucide-icon [img]="iconFor(mod.icon)" [size]="15" style="color: #0284c7; flex-shrink: 0;"></lucide-icon>
+            <div style="overflow: hidden;">
+              <div style="font-size: 12px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ mod.nombre }}</div>
+              <div style="font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" [title]="mod.descripcion">{{ mod.descripcion }}</div>
+            </div>
+            <lucide-icon [img]="icons.Check" [size]="13" style="color: #10b981; margin-left: auto; flex-shrink: 0;"></lucide-icon>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="outline-button" (click)="showNuevoUsuarioModal = false">Cancelar</button>

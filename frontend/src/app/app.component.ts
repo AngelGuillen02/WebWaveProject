@@ -113,6 +113,7 @@ interface UsuarioItem {
 interface PerfilItem {
   perfilId: number;
   nombre: string;
+  permisos?: string[];
 }
 
 interface VentaItem {
@@ -238,6 +239,58 @@ export class AppComponent {
 
     // Rol general por defecto
     return ['Resumen', 'Facturas', 'Clientes', 'Productos'].includes(modulo);
+  }
+
+  getModulosAccesoPorPerfil(perfilId: number): { nombre: string; icon: string; descripcion: string }[] {
+    const id = Number(perfilId);
+    const perfil = this.perfiles.find(p => p.perfilId === id);
+    const nombreRol = (perfil ? perfil.nombre : '').toLowerCase();
+
+    if (id === 1 || nombreRol.includes('admin')) {
+      return [
+        { nombre: 'Resumen', icon: 'Home', descripcion: 'Panel general y métricas clave' },
+        { nombre: 'Facturas', icon: 'FileText', descripcion: 'Facturación SAR y Cotizaciones' },
+        { nombre: 'Compras', icon: 'Truck', descripcion: 'Gestión de órdenes de compra' },
+        { nombre: 'Inventario', icon: 'Boxes', descripcion: 'Control de existencias y kardex' },
+        { nombre: 'Productos', icon: 'Package', descripcion: 'Catálogo de productos y precios' },
+        { nombre: 'Clientes', icon: 'Users', descripcion: 'Directorio de clientes y RTN' },
+        { nombre: 'Proveedores', icon: 'Store', descripcion: 'Directorio de casas proveedoras' },
+        { nombre: 'Caja', icon: 'CircleDollarSign', descripcion: 'Aperturas y cierres de caja' },
+        { nombre: 'Reportes', icon: 'FileBarChart', descripcion: 'Libro de ventas SAR, caja y auditoría' },
+        { nombre: 'Usuarios', icon: 'Shield', descripcion: 'Administración de usuarios y roles' },
+        { nombre: 'Configuración', icon: 'Settings', descripcion: 'Parámetros fiscales y del sistema' }
+      ];
+    } else if (nombreRol.includes('factura') || nombreRol.includes('venta')) {
+      return [
+        { nombre: 'Resumen', icon: 'Home', descripcion: 'Panel general de ventas diarias' },
+        { nombre: 'Facturas', icon: 'FileText', descripcion: 'Emisión de facturas y cotizaciones' },
+        { nombre: 'Clientes', icon: 'Users', descripcion: 'Consulta y creación de clientes' },
+        { nombre: 'Productos', icon: 'Package', descripcion: 'Consulta de precios y catálogo' }
+      ];
+    } else if (nombreRol.includes('caj') || nombreRol.includes('caja')) {
+      return [
+        { nombre: 'Resumen', icon: 'Home', descripcion: 'Panel general operativo' },
+        { nombre: 'Facturas', icon: 'FileText', descripcion: 'Cobro y emisión de facturas' },
+        { nombre: 'Caja', icon: 'CircleDollarSign', descripcion: 'Arqueo, apertura y cierre de caja' },
+        { nombre: 'Clientes', icon: 'Users', descripcion: 'Consulta y registro de clientes' },
+        { nombre: 'Productos', icon: 'Package', descripcion: 'Consulta de catálogo y disponibilidad' }
+      ];
+    } else if (nombreRol.includes('almacen') || nombreRol.includes('inventario') || nombreRol.includes('bodega')) {
+      return [
+        { nombre: 'Resumen', icon: 'Home', descripcion: 'Panel de control de almacén' },
+        { nombre: 'Inventario', icon: 'Boxes', descripcion: 'Movimientos de kardex y existencias' },
+        { nombre: 'Productos', icon: 'Package', descripcion: 'Gestión de catálogo de productos' },
+        { nombre: 'Compras', icon: 'Truck', descripcion: 'Recepción y registro de compras' },
+        { nombre: 'Proveedores', icon: 'Store', descripcion: 'Directorio de proveedores' }
+      ];
+    }
+
+    return [
+      { nombre: 'Resumen', icon: 'Home', descripcion: 'Panel informativo' },
+      { nombre: 'Facturas', icon: 'FileText', descripcion: 'Facturación estándar' },
+      { nombre: 'Clientes', icon: 'Users', descripcion: 'Directorio de clientes' },
+      { nombre: 'Productos', icon: 'Package', descripcion: 'Consulta de productos' }
+    ];
   }
 
   // Colecciones de Datos del API
