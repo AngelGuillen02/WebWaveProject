@@ -34,7 +34,33 @@ namespace SistemaVisionTech.Controllers
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Editar(int id, [FromBody] ProductoCreacionDto dto)
-            => HandleResult(await _svc.EditarAsync(id, dto));
+        {
+            string usuario = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Administrador";
+            return HandleResult(await _svc.EditarAsync(id, dto, usuario));
+        }
+
+        [HttpGet("{id}/Historial")]
+        public async Task<IActionResult> ObtenerHistorial(int id)
+        {
+            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
+            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
+
+            bool esAdmin = string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                           perfilIdClaim == "1";
+
+            if (!esAdmin)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    mensaje = "Acceso denegado: Únicamente los usuarios con rol de Administrador pueden consultar la bitácora confidencial de auditoría de productos."
+                });
+            }
+
+            return HandleResult(await _svc.ObtenerHistorialAsync(id));
+        }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)

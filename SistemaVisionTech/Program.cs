@@ -310,6 +310,39 @@ using (var scope = app.Services.CreateScope())
                 ""Total"" NUMERIC(18,2) NOT NULL,
                 ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
             );
+
+            ALTER TABLE dbo.""Ventas"" ADD COLUMN IF NOT EXISTS ""EsCotizacion"" BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE dbo.""Ventas"" ADD COLUMN IF NOT EXISTS ""NumeroCotizacion"" VARCHAR(50) NULL;
+
+            INSERT INTO dbo.""EstadosVenta"" (""EstadoId"", ""Nombre"", ""Activo"")
+            VALUES (4, 'Cotizacion', TRUE)
+            ON CONFLICT (""EstadoId"") DO NOTHING;
+
+            CREATE TABLE IF NOT EXISTS dbo.""CotizacionesHistorial"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""VentaId"" INT NOT NULL REFERENCES dbo.""Ventas""(""VentaId"") ON DELETE CASCADE,
+                ""NumeroCotizacion"" VARCHAR(50) NULL,
+                ""Usuario"" VARCHAR(100) NOT NULL,
+                ""FechaModificacion"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                ""Accion"" VARCHAR(50) NOT NULL,
+                ""DetalleCambios"" TEXT NOT NULL,
+                ""TotalAnterior"" NUMERIC(18,2) NULL,
+                ""TotalNuevo"" NUMERIC(18,2) NOT NULL,
+                ""Motivo"" VARCHAR(255) NULL,
+                ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
+            );
+
+            CREATE TABLE IF NOT EXISTS dbo.""ProductosHistorial"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""ProductoId"" INT NOT NULL REFERENCES dbo.""Productos""(""ProductoId"") ON DELETE CASCADE,
+                ""Usuario"" VARCHAR(100) NOT NULL,
+                ""FechaModificacion"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                ""Accion"" VARCHAR(50) NOT NULL,
+                ""DetalleCambios"" TEXT NOT NULL,
+                ""PrecioAnterior"" NUMERIC(18,2) NULL,
+                ""PrecioNuevo"" NUMERIC(18,2) NOT NULL,
+                ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
+            );
         ");
     }
     catch (Exception ex)

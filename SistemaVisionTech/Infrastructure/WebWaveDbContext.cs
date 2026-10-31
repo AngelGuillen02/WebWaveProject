@@ -41,6 +41,8 @@ namespace SistemaVisionTech.Infrastructure
         public DbSet<CierresCaja> CierresCaja { get; set; }
         public DbSet<ConfiguracionSAR> ConfiguracionSAR { get; set; }
         public DbSet<FacturasEmitidas> FacturasEmitidas { get; set; }
+        public DbSet<CotizacionesHistorial> CotizacionesHistorial { get; set; }
+        public DbSet<ProductosHistorial> ProductosHistorial { get; set; }
 
         public DbSet<NavNodo> NavNodos { get; set; }
         public DbSet<NavRestriccion> NavRestricciones { get; set; }
@@ -67,6 +69,8 @@ namespace SistemaVisionTech.Infrastructure
             modelBuilder.Entity<CierresCaja>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<ConfiguracionSAR>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<FacturasEmitidas>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<CotizacionesHistorial>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<ProductosHistorial>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<NavNodo>().HasQueryFilter(e => e.Activo);
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(WebWaveDbContext).Assembly);

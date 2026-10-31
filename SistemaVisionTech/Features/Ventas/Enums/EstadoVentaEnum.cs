@@ -1,9 +1,10 @@
-﻿namespace SistemaVisionTech.Features.Ventas.Enums
+namespace SistemaVisionTech.Features.Ventas.Enums
 {
     public enum EstadoVentaEnum
     {
         Pendiente = 1,
         Confirmada = 2,
-        Anulada = 3
+        Anulada = 3,
+        Cotizacion = 4
     }
 }

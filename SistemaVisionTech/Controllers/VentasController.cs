@@ -5,6 +5,7 @@ using SistemaVisionTech.Features.SAR.Dtos;
 using SistemaVisionTech.Features.SAR.Interfaces;
 using SistemaVisionTech.Features.Ventas.Dtos;
 using SistemaVisionTech.Features.Ventas.Interfaces;
+using System.Security.Claims;
 
 namespace SistemaVisionTech.Controllers
 {
@@ -20,6 +21,13 @@ namespace SistemaVisionTech.Controllers
         {
             _ventasService = ventasService;
             _sarService = sarService;
+        }
+
+        private string ObtenerNombreUsuarioActual()
+        {
+            return User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Usuario";
         }
 
         [HttpGet]
@@ -43,6 +51,11 @@ namespace SistemaVisionTech.Controllers
         [HttpPost]
         public async Task<IActionResult> CrearVenta([FromBody] CrearVentaDto dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.UsuarioNombre))
+            {
+                dto.UsuarioNombre = ObtenerNombreUsuarioActual();
+            }
+
             Result<VentasDto> resultado = await _ventasService.CrearVentaAsync(dto);
             if (resultado.Success && resultado.Data != null)
             {
@@ -56,6 +69,29 @@ namespace SistemaVisionTech.Controllers
                 return BadRequest(new { mensaje = resultado.Error });
 
             return Conflict(new { mensaje = resultado.Error });
+        }
+
+        [HttpPut("{id:int}/Cotizacion")]
+        public async Task<IActionResult> ActualizarCotizacion(int id, [FromBody] ActualizarCotizacionDto dto)
+        {
+            string usuario = ObtenerNombreUsuarioActual();
+            Result<VentasDto> resultado = await _ventasService.ActualizarCotizacionAsync(id, dto, usuario);
+            return HandleResult(resultado);
+        }
+
+        [HttpGet("{id:int}/Cotizacion/Historial")]
+        public async Task<IActionResult> ObtenerHistorialCotizacion(int id)
+        {
+            Result<IEnumerable<CotizacionHistorialDto>> resultado = await _ventasService.ObtenerHistorialCotizacionAsync(id);
+            return HandleResult(resultado);
+        }
+
+        [HttpPost("{id:int}/FacturarCotizacion")]
+        public async Task<IActionResult> FacturarCotizacion(int id, [FromQuery] int sucursalId = 1, [FromQuery] int metodoPagoId = 1)
+        {
+            string usuario = ObtenerNombreUsuarioActual();
+            Result<VentasDto> resultado = await _ventasService.FacturarCotizacionAsync(id, sucursalId, metodoPagoId, usuario);
+            return HandleResult(resultado);
         }
 
         [HttpPut("{id:int}/Confirmar")]

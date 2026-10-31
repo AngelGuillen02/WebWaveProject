@@ -70,31 +70,29 @@
     <nav>
       <p class="nav-heading">MENÚ PRINCIPAL</p>
       <ng-container *ngFor="let item of nav">
-        <button *ngIf="item.label !== 'Usuarios' || isAdmin" [class.active]="active === item.label" (click)="setActive(item.label)">
+        <button *ngIf="puedeVerModulo(item.label)" [class.active]="active === item.label" (click)="setActive(item.label)">
           <lucide-icon [img]="iconFor(item.icon)" [size]="18"></lucide-icon>
           <span>{{ item.label }}</span>
-          <i *ngIf="item.label === 'Ventas' && ventas.length" class="nav-badge">{{ ventas.length }}</i>
+          <i *ngIf="item.label === 'Facturas' && ventas.length" class="nav-badge">{{ ventas.length }}</i>
           <i *ngIf="item.label === 'Compras' && compras.length" class="nav-badge">{{ compras.length }}</i>
           <i *ngIf="item.label === 'Inventario' && inventory.length" class="nav-badge">{{ inventory.length }}</i>
         </button>
       </ng-container>
 
-      <!-- CONFIGURACIÓN FISCAL: SOLO ADMINISTRADORES -->
-      <p class="nav-heading bottom-heading">CONFIGURACIÓN FISCAL</p>
-      <button *ngIf="isAdmin" (click)="abrirSARConfig()" title="Configuración de CAI y rangos SAR">
-        <lucide-icon [img]="icons.Settings" [size]="18"></lucide-icon>
-        <span>Configurar CAI (SAR)</span>
-      </button>
-      <div *ngIf="!isAdmin" style="display:flex; align-items:center; gap:8px; padding:10px 12px; font-size:11px; color:#8e9994; background:#f4f6f4; border-radius:7px; margin-top:4px;">
-        <lucide-icon [img]="icons.Lock" [size]="14"></lucide-icon>
-        <span>CAI SAR: Solo Admin</span>
-      </div>
+      <!-- CONFIGURACIÓN FISCAL: SOLO ADMINISTRADORES (TOTALMENTE OCULTO PARA NO ADMINS) -->
+      <ng-container *ngIf="isAdmin">
+        <p class="nav-heading bottom-heading">CONFIGURACIÓN FISCAL</p>
+        <button (click)="abrirSARConfig()" title="Configuración de CAI y rangos SAR">
+          <lucide-icon [img]="icons.Settings" [size]="18"></lucide-icon>
+          <span>Configurar CAI (SAR)</span>
+        </button>
+      </ng-container>
     </nav>
     <div class="side-footer">
       <div class="avatar">{{ currentUser.initials }}</div>
       <div>
         <b>{{ currentUser.name }}</b>
-        <small>{{ currentUser.role }}</small>
+        <small>En línea</small>
       </div>
       <button (click)="logout()" title="Cerrar sesión">
         <lucide-icon [img]="icons.LogOut" [size]="17"></lucide-icon>
@@ -132,25 +130,55 @@
           <p class="eyebrow">{{ active === 'Resumen' ? 'PANEL OPERATIVO' : 'GESTIÓN DE ' + active.toUpperCase() }}</p>
           <h2>{{ active === 'Resumen' ? 'Bienvenido, ' + currentUser.name + '.' : active }}</h2>
           <p class="subheading">
-            {{ active === 'Facturación' ? 'Emite facturas fiscales SAR en tiempo real con previsualización en vivo y desglose de impuestos.' : (active === 'Resumen' ? 'Este es el resumen de tu negocio en tiempo real.' : 'Consulta, registra y factura tus operaciones.') }}
+            {{ active === 'Facturas' ? 'Emite y gestiona facturas fiscales SAR y cotizaciones con control de correlativos y previsualización en vivo.' : (active === 'Resumen' ? 'Este es el resumen de tu negocio en tiempo real.' : 'Consulta, registra y factura tus operaciones.') }}
           </p>
         </div>
         <div style="display:flex; gap:10px;">
-          <button *ngIf="active === 'Facturación'" class="outline-button" (click)="resetearNuevaFactura()">
-            <lucide-icon [img]="icons.Plus" [size]="15"></lucide-icon> Nueva Factura
-          </button>
-          <button *ngIf="active === 'Ventas' && isAdmin" class="outline-button" (click)="abrirSARConfig()">
-            <lucide-icon [img]="icons.Settings" [size]="16"></lucide-icon> Configuración SAR
-          </button>
-          <button *ngIf="active === 'Ventas'" class="primary-small" (click)="setActive('Facturación')">
-            + Nueva Factura en Vivo
-          </button>
+          <ng-container *ngIf="active === 'Facturas'">
+            <button *ngIf="subTabFacturas === 'listado'" class="primary-small" (click)="abrirCrearFactura()">
+              <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon> + Nueva Factura
+            </button>
+            <button *ngIf="subTabFacturas === 'crear'" class="outline-button" (click)="volverAListadoFacturas()">
+              <lucide-icon [img]="icons.ClipboardList" [size]="14"></lucide-icon> Ver Listado de Facturas
+            </button>
+            <button *ngIf="subTabFacturas === 'crear'" class="primary-small" (click)="resetearNuevaFactura()">
+              <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon> Nueva Factura en Blanco
+            </button>
+            <button *ngIf="isAdmin" class="outline-button" (click)="abrirSARConfig()">
+              <lucide-icon [img]="icons.Settings" [size]="15"></lucide-icon> Configuración SAR
+            </button>
+          </ng-container>
         </div>
       </div>
 
       <!-- ========================================================================= -->
       <!-- VISTA 1: RESUMEN                                                          -->
       <!-- ========================================================================= -->
+      <!-- ALERTA PREVENTIVA CAI EN DASHBOARD -->
+      <div *ngIf="active === 'Resumen' && alertaCAI" class="cai-alert-banner" style="margin-bottom: 22px; padding: 16px 20px; border-radius: 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.04);" [style.background]="alertaCAI.tipo === 'danger' ? '#fef2f2' : '#fffbeb'" [style.border]="alertaCAI.tipo === 'danger' ? '1.5px solid #fca5a5' : '1.5px solid #fde68a'">
+        <div style="display: flex; gap: 14px; align-items: flex-start;">
+          <div [style.color]="alertaCAI.tipo === 'danger' ? '#dc2626' : '#d97706'" style="padding-top: 2px;">
+            <lucide-icon [img]="icons.AlertTriangle" [size]="24"></lucide-icon>
+          </div>
+          <div>
+            <div style="font-weight: 800; font-size: 13.5px; letter-spacing: 0.2px;" [style.color]="alertaCAI.tipo === 'danger' ? '#991b1b' : '#92400e'">
+              {{ alertaCAI.titulo }}
+            </div>
+            <div style="font-size: 12px; margin-top: 4px; font-weight: 600;" [style.color]="alertaCAI.tipo === 'danger' ? '#b91c1c' : '#b45309'">
+              {{ alertaCAI.mensaje }}
+            </div>
+            <div style="font-size: 11px; margin-top: 4px; opacity: 0.9;" [style.color]="alertaCAI.tipo === 'danger' ? '#7f1d1d' : '#78350f'">
+              {{ alertaCAI.detalle }}
+            </div>
+          </div>
+        </div>
+        <div *ngIf="isAdmin" style="flex-shrink: 0;">
+          <button class="outline-button" (click)="abrirSARConfig()" [style.borderColor]="alertaCAI.tipo === 'danger' ? '#f87171' : '#fcd34d'" [style.color]="alertaCAI.tipo === 'danger' ? '#991b1b' : '#92400e'" style="background: white; font-weight: 700; font-size: 11px; padding: 7px 14px;">
+            <lucide-icon [img]="icons.Settings" [size]="14"></lucide-icon> Renovar / Ajustar CAI
+          </button>
+        </div>
+      </div>
+
       <section *ngIf="active === 'Resumen'" class="stats-grid">
         <article *ngFor="let stat of stats" class="stat-card">
           <div class="stat-top">
@@ -171,7 +199,7 @@
               <h3>Ventas y Facturas Recientes</h3>
               <p>Últimas transacciones registradas</p>
             </div>
-            <button class="text-button" (click)="setActive('Ventas')">Ver todas <span>→</span></button>
+            <button class="text-button" (click)="setActive('Facturas')">Ver todas <span>→</span></button>
           </div>
           <div class="table-wrap">
             <table>
@@ -196,7 +224,7 @@
                   <td><span class="status">{{ v.estadoVenta }}</span></td>
                 </tr>
                 <tr *ngIf="!ventas.length">
-                  <td colspan="5" class="empty">Aún no hay ventas registradas. ¡Haz clic en Facturación para emitir la primera!</td>
+                  <td colspan="5" class="empty">Aún no hay ventas registradas. ¡Haz clic en Facturas para emitir la primera!</td>
                 </tr>
               </tbody>
             </table>
@@ -210,9 +238,6 @@
               <p>Parámetros autorizados</p>
             </div>
             <button *ngIf="isAdmin" class="text-button" (click)="abrirSARConfig()">Editar <span>⚙</span></button>
-            <span *ngIf="!isAdmin" class="muted" style="font-size:10px; display:inline-flex; align-items:center; gap:4px;">
-              <lucide-icon [img]="icons.Lock" [size]="12"></lucide-icon> Solo Admin
-            </span>
           </div>
           <div style="display:grid; gap:12px; font-size:11px;">
             <div style="background:#f7f9f8; padding:12px; border-radius:8px; border:1px solid #e2e8e5;">
@@ -241,409 +266,488 @@
       </section>
 
       <!-- ========================================================================= -->
-      <!-- VISTA 2: FACTURACIÓN EN VIVO (SPLIT-SCREEN CON PREVISUALIZACIÓN)          -->
+      <!-- VISTA UNIFICADA: FACTURAS (HISTORIAL + FACTURACIÓN EN VIVO)               -->
       <!-- ========================================================================= -->
-      <section *ngIf="active === 'Facturación'" class="factura-workspace">
-        <!-- COLUMNA IZQUIERDA: FORMULARIO INTERACTIVO -->
-        <div class="factura-form-card">
-          <div class="factura-top-bar">
+      <ng-container *ngIf="active === 'Facturas'">
+        <!-- ALERTA PREVENTIVA CAI EN FACTURAS -->
+        <div *ngIf="alertaCAI" class="cai-alert-banner" style="margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);" [style.background]="alertaCAI.tipo === 'danger' ? '#fef2f2' : '#fffbeb'" [style.border]="alertaCAI.tipo === 'danger' ? '1px solid #fecaca' : '1px solid #fde68a'">
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <div [style.color]="alertaCAI.tipo === 'danger' ? '#dc2626' : '#d97706'" style="padding-top: 2px;">
+              <lucide-icon [img]="icons.AlertTriangle" [size]="22"></lucide-icon>
+            </div>
             <div>
-              <h3>Crear Factura</h3>
-              <div style="font-size:11px; color:#6b7280; margin-top:2px;">
-                Fecha: {{ facturaForm.fecha | date:'dd/MM/yyyy' }} &bull; Tipo: <b>Factura Fiscal</b>
+              <div style="font-weight: 800; font-size: 13px; letter-spacing: 0.2px;" [style.color]="alertaCAI.tipo === 'danger' ? '#991b1b' : '#92400e'">
+                {{ alertaCAI.titulo }}
+              </div>
+              <div style="font-size: 11.5px; margin-top: 3px;" [style.color]="alertaCAI.tipo === 'danger' ? '#b91c1c' : '#b45309'">
+                {{ alertaCAI.mensaje }}
+              </div>
+              <div style="font-size: 10.5px; margin-top: 3px; opacity: 0.9;" [style.color]="alertaCAI.tipo === 'danger' ? '#7f1d1d' : '#78350f'">
+                {{ alertaCAI.detalle }}
               </div>
             </div>
-            <div style="display:flex; gap:8px;">
-              <button class="btn-generar" [disabled]="generandoFactura || facturaEmitida" (click)="generarFacturaFiscal()">
-                <lucide-icon [img]="icons.Check" [size]="15"></lucide-icon>
-                {{ generandoFactura ? 'Generando…' : 'Generar factura' }}
-              </button>
-              <button class="btn-nueva" (click)="resetearNuevaFactura()">
-                <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon>
-                Nueva Factura
-              </button>
-            </div>
           </div>
-
-          <!-- Selección de Cliente -->
-          <div class="form-group">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <label>Cliente:</label>
-              <div style="display:flex; gap:10px; align-items:center;">
-                <span style="font-size:11px; color:#6b7280;">RTN: <b>{{ clienteSeleccionado?.rtn || '00000000000000' }}</b></span>
-                <a style="font-size:11px; color:#0284c7; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</a>
-              </div>
-            </div>
-            <select [(ngModel)]="facturaForm.clienteId">
-              <option *ngFor="let c of clientes" [value]="c.clienteId">
-                {{ c.nombre }} (RTN: {{ c.rtn || 'Consumidor Final' }})
-              </option>
-            </select>
-          </div>
-
-          <!-- Fecha de Emisión -->
-          <div class="form-group">
-            <label>Fecha de Emisión:</label>
-            <input type="date" [(ngModel)]="facturaForm.fecha">
-          </div>
-
-          <!-- Bloque de 3 columnas de metadatos SAR -->
-          <div class="meta-tri-box">
-            <div class="meta-cell">
-              <label>Última Factura</label>
-              <b>{{ ultimaFacturaDisplay }}</b>
-            </div>
-            <div class="meta-cell highlight">
-              <label>Nueva Factura</label>
-              <b>{{ facturaEmitida ? (facturaEmitidaData?.numeroFactura || nuevaFacturaDisplay) : nuevaFacturaDisplay }}</b>
-            </div>
-            <div class="meta-cell">
-              <label>Método de Pago</label>
-              <select [(ngModel)]="facturaForm.metodoPagoId" style="width:100%; font-size:11px; padding:3px; border:1px solid #cbd5e1; border-radius:4px; outline:0;">
-                <option [value]="1">Efectivo</option>
-                <option [value]="2">Tarjeta de Crédito / Débito</option>
-                <option [value]="3">Transferencia Bancaria</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Moneda -->
-          <div class="form-group">
-            <label>Moneda de visualización:</label>
-            <input type="text" [(ngModel)]="facturaForm.moneda" readonly>
-          </div>
-
-          <!-- Notas a la factura (colapsables) -->
-          <div>
-            <button type="button" class="text-button" (click)="facturaForm.mostrarNotas = !facturaForm.mostrarNotas" style="font-size:11px;">
-              <lucide-icon [img]="icons.ChevronDown" [size]="14"></lucide-icon>
-              {{ facturaForm.mostrarNotas ? 'Ocultar notas a la factura' : 'Agregar notas a la factura' }}
+          <div *ngIf="isAdmin" style="flex-shrink: 0;">
+            <button class="outline-button" (click)="abrirSARConfig()" [style.borderColor]="alertaCAI.tipo === 'danger' ? '#f87171' : '#fcd34d'" [style.color]="alertaCAI.tipo === 'danger' ? '#991b1b' : '#92400e'" style="background: white; font-weight: 700; font-size: 11px; padding: 6px 12px;">
+              <lucide-icon [img]="icons.Settings" [size]="13"></lucide-icon> Renovar CAI
             </button>
-            <div *ngIf="facturaForm.mostrarNotas" style="margin-top:8px;">
-              <textarea [(ngModel)]="facturaForm.notas" rows="2" placeholder="Observaciones o notas adicionales para el cliente..." style="width:100%; font-size:11px; padding:8px; border:1px solid #dfe5e1; border-radius:6px; outline:0;"></textarea>
-            </div>
-          </div>
-
-          <!-- LISTA DINÁMICA DE PRODUCTOS / ÍTEMS -->
-          <div style="display:grid; gap:12px;">
-            <div *ngFor="let item of facturaForm.items; let i = index" class="item-card">
-              <div class="item-card-header">
-                <span>Producto #{{ i + 1 }}</span>
-                <button *ngIf="facturaForm.items.length > 1" type="button" class="btn-trash" (click)="eliminarItemFactura(i)" title="Eliminar ítem">
-                  <lucide-icon [img]="icons.Trash2" [size]="13"></lucide-icon>
-                </button>
-              </div>
-
-              <div class="form-group">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <label>Producto:</label>
-                  <a style="font-size:10px; color:#187352; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoProducto()">+ Crear nuevo</a>
-                </div>
-                <select [(ngModel)]="item.productoId" (change)="onProductoCambio(item)">
-                  <option *ngFor="let p of products" [value]="p.productoId">
-                    {{ p.nombre }} - L. {{ p.precioVenta | number:'1.2-2' }} (Stock: {{ p.stock || 0 }})
-                  </option>
-                </select>
-              </div>
-
-              <div style="display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:8px;">
-                <div class="form-group">
-                  <label>Cantidad:</label>
-                  <input type="number" min="1" [(ngModel)]="item.cantidad">
-                </div>
-                <div class="form-group">
-                  <label>Precio Unitario L.:</label>
-                  <input type="number" step="0.01" min="0" [(ngModel)]="item.precio">
-                </div>
-                <div class="form-group">
-                  <label>Descuento L.:</label>
-                  <input type="number" step="0.01" min="0" [(ngModel)]="item.descuento">
-                </div>
-              </div>
-
-              <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:10px; align-items:end;">
-                <div class="form-group">
-                  <label>Tipo de Impuesto:</label>
-                  <select [(ngModel)]="item.tipoISV">
-                    <option value="ISV15">Gravado 15%</option>
-                    <option value="ISV18">Gravado 18%</option>
-                    <option value="EXENTO">Exento</option>
-                  </select>
-                </div>
-                <div style="text-align:right; font-weight:800; font-size:13px; color:var(--deep); padding-bottom:6px;">
-                  Total: L. {{ calcularLineaTotal(item) | number:'1.2-2' }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Botón para agregar más productos -->
-            <button type="button" class="btn-add-item" (click)="agregarItemFactura()">
-              <lucide-icon [img]="icons.Plus" [size]="16"></lucide-icon>
-              Agregar ítem
-            </button>
-          </div>
-
-          <!-- Notas al pie de factura -->
-          <div>
-            <button type="button" class="text-button" (click)="facturaForm.mostrarNotasPie = !facturaForm.mostrarNotasPie" style="font-size:11px;">
-              <lucide-icon [img]="icons.ChevronDown" [size]="14"></lucide-icon>
-              {{ facturaForm.mostrarNotasPie ? 'Ocultar notas al pie' : 'Notas al pie de factura' }}
-            </button>
-            <div *ngIf="facturaForm.mostrarNotasPie" style="margin-top:8px;">
-              <textarea [(ngModel)]="facturaForm.notasPie" rows="2" placeholder="Términos de garantía o agradecimiento al pie de la factura..." style="width:100%; font-size:11px; padding:8px; border:1px solid #dfe5e1; border-radius:6px; outline:0;"></textarea>
-            </div>
-          </div>
-
-          <!-- Barra inferior de estado -->
-          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:14px; font-size:11px; color:#6b7280;">
-            <span>Factura creada: {{ facturaForm.fecha | date:'dd/MM/yyyy' }}</span>
-            <span [class]="facturaEmitida ? 'badge-success' : 'badge-pending'">
-              {{ facturaEmitida ? 'Factura: Emitida' : 'Factura: Pendiente' }}
-            </span>
           </div>
         </div>
 
-        <!-- COLUMNA DERECHA: PREVISUALIZACIÓN DE FACTURA EN TIEMPO REAL -->
-        <div class="factura-preview-column">
-          <div class="factura-paper-sheet" id="invoice-preview-area">
-            <!-- Encabezado con número de factura y logo -->
-            <div class="preview-brand-row">
+        <!-- 1. SUBTAB: LISTADO DE FACTURAS Y COTIZACIONES (VISTA PRINCIPAL) -->
+        <section *ngIf="subTabFacturas === 'listado'" class="panel data-panel">
+          <div class="panel-heading">
+            <div>
+              <h3>Facturas y Ventas Registradas</h3>
+              <p>{{ ventas.length }} facturas y cotizaciones registradas con control fiscal SAR y correlativos</p>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button *ngIf="isAdmin" class="outline-button" (click)="abrirSARConfig()">
+                <lucide-icon [img]="icons.Settings" [size]="14"></lucide-icon> Configurar CAI / Fechas
+              </button>
+              <button class="primary-small" (click)="abrirCrearFactura()">
+                <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon> + Crear Factura
+              </button>
+            </div>
+          </div>
+
+          <!-- Banner Informativo del CAI Actual -->
+          <div style="background:#eef7f3; border:1px solid #c8e7d7; padding:12px 18px; border-radius:8px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <span class="tag-cai" style="margin-right:8px;">CAI ACTIVO</span>
+              <strong style="font-family:'Manrope',sans-serif; font-weight:700; font-size:11px;">{{ sarConfig?.cai || '3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C' }}</strong>
+            </div>
+            <div style="font-size:11px;">
+              <span class="muted">Rango: </span><b>{{ sarConfig?.rangoDesde || '000-001-01-00000001' }}</b> al <b>{{ sarConfig?.rangoHasta || '000-001-01-00005000' }}</b>
+            </div>
+            <div style="font-size:11px;">
+              <span class="muted">Límite Emisión: </span><b>{{ sarConfig?.fechaLimiteEmision ? (sarConfig?.fechaLimiteEmision | date:'dd/MM/yyyy') : '31/12/2027' }}</b>
+            </div>
+            <div>
+              <span [class]="sarConfig?.vigente ? 'badge-vigente' : 'badge-vencido'">
+                {{ sarConfig?.vigente ? 'CAI VIGENTE' : 'REVISAR' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 80px;">ID</th>
+                  <th style="width: 170px;">Tipo / Documento</th>
+                  <th>Cliente</th>
+                  <th style="width: 160px;">Fecha</th>
+                  <th style="width: 170px;">CAI Asignado</th>
+                  <th style="width: 130px;">Total</th>
+                  <th style="width: 110px; text-align: center;">Estado</th>
+                  <th style="width: 260px; text-align: right;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let venta of filteredVentas">
+                  <td><b>#V-{{ venta.ventaId }}</b></td>
+                  <td>
+                    <span *ngIf="venta.esCotizacion" class="badge-cotizacion" style="margin-bottom:3px;">COTIZACIÓN</span>
+                    <span *ngIf="!venta.esCotizacion" class="badge-factura" style="margin-bottom:3px;">FACTURA SAR</span>
+                    <div style="font-size:11px; font-weight:700;" [style.color]="venta.esCotizacion ? '#7e22ce' : '#0369a1'">
+                      {{ venta.esCotizacion ? (venta.numeroCotizacion || ('COT-' + venta.ventaId)) : (venta.numeroFactura || 'Borrador') }}
+                    </div>
+                  </td>
+                  <td>{{ venta.cliente }}</td>
+                  <td class="muted">{{ venta.fechaVenta | date:'dd/MM/yyyy, hh:mm a' }}</td>
+                  <td>
+                    <span *ngIf="venta.esCotizacion" class="muted" style="font-size:10px; font-style:italic;">No aplica (Cotización)</span>
+                    <span *ngIf="!venta.esCotizacion && venta.cai" class="cai-badge" title="{{ venta.cai }}">
+                      {{ venta.cai.substring(0, 15) }}…
+                    </span>
+                    <span *ngIf="!venta.esCotizacion && !venta.cai" class="muted">—</span>
+                  </td>
+                  <td><b>L. {{ (venta.total || 0) | number:'1.2-2' }}</b></td>
+                  <td>
+                    <span *ngIf="venta.esCotizacion" class="badge-cotizacion">
+                      {{ venta.estadoVenta }}
+                    </span>
+                    <span *ngIf="!venta.esCotizacion" class="status" [class.pending]="venta.estadoVenta === 'Pendiente'" [class.anulado]="venta.estadoVenta === 'Anulada'">
+                      {{ venta.estadoVenta }}
+                    </span>
+                  </td>
+                  <td>
+                    <!-- ACCIONES PARA COTIZACIONES (PERMITEN EDICIÓN Y BITÁCORA DE AUDITORÍA) -->
+                    <div *ngIf="venta.esCotizacion" style="display:flex; gap:5px; flex-wrap:wrap;">
+                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización">
+                        <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
+                      </button>
+                      <!-- HISTORIAL DE AUDITORÍA SOLO VISIBLE PARA ADMINISTRADOR -->
+                      <button *ngIf="isAdmin" class="btn-action" (click)="abrirHistorialCotizacion(venta)" title="Ver bitácora de auditoría confidencial">
+                        <lucide-icon [img]="icons.History" [size]="12"></lucide-icon> Historial
+                      </button>
+                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action success" (click)="facturarCotizacionDesdeVentas(venta)" title="Convertir cotización en Factura Fiscal SAR oficial con CAI">
+                        <lucide-icon [img]="icons.Check" [size]="12"></lucide-icon> Facturar (SAR)
+                      </button>
+                      <button class="btn-action" (click)="verCotizacion(venta)" title="Ver / Imprimir cotización">
+                        <lucide-icon [img]="icons.FileText" [size]="12"></lucide-icon> Ver
+                      </button>
+                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Cotización">
+                        <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anular
+                      </button>
+                    </div>
+
+                    <!-- ACCIONES PARA FACTURAS FISCALES SAR (ESTRICTAMENTE INMUTABLES: NO SE PUEDEN EDITAR) -->
+                    <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px;">
+                      <button *ngIf="venta.numeroFactura" class="btn-action primary" (click)="verFactura(venta)" title="Ver factura oficial">
+                        <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
+                      </button>
+                      <button *ngIf="!venta.numeroFactura" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
+                        + Facturar CAI
+                      </button>
+                      <button *ngIf="venta.estadoVenta === 'Pendiente'" class="btn-action success" (click)="confirmarVenta(venta.ventaId)" title="Confirmar Venta">
+                        <lucide-icon [img]="icons.Check" [size]="12"></lucide-icon> Confirmar
+                      </button>
+                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Factura Fiscal">
+                        <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anular
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="!ventas.length">
+                  <td colspan="8" class="empty">No hay facturas ni cotizaciones registradas todavía. ¡Haz clic en "+ Crear Factura" para realizar la primera!</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 2. SUBTAB: CREAR FACTURA / COTIZACIÓN (SPLIT-SCREEN CON PREVISUALIZACIÓN) -->
+        <section *ngIf="subTabFacturas === 'crear'" class="factura-workspace">
+          <!-- COLUMNA IZQUIERDA: FORMULARIO INTERACTIVO -->
+          <div class="factura-form-card">
+            <div class="factura-top-bar">
               <div>
-                <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.05em;">Número de factura</div>
-                <div style="font-size:18px; font-weight:800; color:#0284c7; font-family:'Manrope',sans-serif; margin-top:2px;">
-                  {{ facturaEmitida ? (facturaEmitidaData?.numeroFactura || nuevaFacturaDisplay) : nuevaFacturaDisplay }}
-                </div>
-                <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
-                  Fecha: {{ facturaForm.fecha | date:'MM/dd/yyyy, h:mm:ss a' }}
-                </div>
-              </div>
-              <div style="text-align:right;">
-                <div style="display:inline-flex; align-items:center; gap:6px; background:#eff6ff; padding:6px 12px; border-radius:8px; border:1px solid #bfdbfe;">
-                  <lucide-icon [img]="icons.Store" [size]="18" style="color:#0284c7;"></lucide-icon>
-                  <b style="font-size:11px; color:#1e3a8a; font-family:'Manrope',sans-serif;">VISION TECH</b>
-                </div>
-                <div style="font-size:9px; color:#64748b; margin-top:4px;">Sistema Vision Tech S. de R.L.</div>
-              </div>
-            </div>
-
-            <!-- Caja Fiscal del CAI del SAR -->
-            <div class="preview-cai-box">
-              <div><b>RTN Empresa:</b> {{ sarConfig?.rtn || '08011990123456' }}</div>
-              <div style="word-break:break-all; margin:3px 0;"><b>CAI:</b> {{ sarConfig?.cai || '3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C' }}</div>
-              <div><b>Rango Autorizado:</b> {{ sarConfig?.rangoDesde || '000-001-01-00000001' }} al {{ sarConfig?.rangoHasta || '000-001-01-00005000' }}</div>
-              <div><b>Fecha Límite de Emisión:</b> {{ sarConfig?.fechaLimiteEmision ? (sarConfig?.fechaLimiteEmision | date:'dd/MM/yyyy') : '31/12/2027' }}</div>
-            </div>
-
-            <!-- Información del Cliente -->
-            <div class="preview-client-box">
-              <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Información del Cliente</div>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10.5px;">
-                <div><span style="color:#64748b;">Cliente:</span> <b>{{ clienteSeleccionado?.nombre || 'Consumidor Final' }}</b></div>
-                <div><span style="color:#64748b;">RTN:</span> <b>{{ clienteSeleccionado?.rtn || '0000-0000-00000' }}</b></div>
-                <div><span style="color:#64748b;">Correo:</span> {{ clienteSeleccionado?.email || '—' }}</div>
-                <div><span style="color:#64748b;">Método de Pago:</span> <b>{{ metodoPagoNombre }}</b></div>
-              </div>
-            </div>
-
-            <!-- Detalles de la Factura (Tabla de Ítems en Vivo) -->
-            <div style="margin-bottom:14px;">
-              <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Detalles de la factura</div>
-              <table class="preview-table">
-                <thead>
-                  <tr>
-                    <th>Descripción</th>
-                    <th style="text-align:center;">Cantidad</th>
-                    <th style="text-align:right;">Precio</th>
-                    <th style="text-align:right;">Descuento</th>
-                    <th style="text-align:right;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let item of facturaForm.items">
-                    <td><b>{{ item.nombre || 'Producto sin seleccionar' }}</b></td>
-                    <td style="text-align:center;">{{ item.cantidad }}</td>
-                    <td style="text-align:right;">L. {{ (item.precio || 0) | number:'1.2-2' }}</td>
-                    <td style="text-align:right;">L. {{ (item.descuento || 0) | number:'1.2-2' }}</td>
-                    <td style="text-align:right;"><b>L. {{ calcularLineaTotal(item) | number:'1.2-2' }}</b></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Resumen de la Factura (Cálculos Fiscales SAR) -->
-            <div style="display:flex; justify-content:flex-end;">
-              <div class="preview-summary">
-                <div style="font-weight:700; color:#0f172a; margin-bottom:4px; font-size:11px;">Resumen de la factura</div>
-                <div class="preview-summary-row">
-                  <span>Subtotal:</span>
-                  <span>L. {{ subtotalFactura | number:'1.2-2' }}</span>
-                </div>
-                <div class="preview-summary-row">
-                  <span>Exonerado:</span>
-                  <span>L. 0.00</span>
-                </div>
-                <div class="preview-summary-row">
-                  <span>Exento:</span>
-                  <span>L. {{ exentoFactura | number:'1.2-2' }}</span>
-                </div>
-                <div class="preview-summary-row">
-                  <span>Gravado 15%:</span>
-                  <span>L. {{ gravado15Factura | number:'1.2-2' }}</span>
-                </div>
-                <div class="preview-summary-row">
-                  <span>Gravado 18%:</span>
-                  <span>L. {{ gravado18Factura | number:'1.2-2' }}</span>
-                </div>
-                <div class="preview-summary-row">
-                  <span>ISV 15%:</span>
-                  <span>L. {{ isv15Factura | number:'1.2-2' }}</span>
-                </div>
-                <div class="preview-summary-row">
-                  <span>ISV 18%:</span>
-                  <span>L. {{ isv18Factura | number:'1.2-2' }}</span>
-                </div>
-                <div class="preview-summary-total">
-                  <span>Total:</span>
-                  <span>L. {{ totalFactura | number:'1.2-2' }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Notas al pie y adicionales -->
-            <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:10px; font-size:10px;">
-              <div style="margin-bottom:6px;">
-                <b>Notas al pie de factura:</b><br>
-                <span style="color:#64748b;">{{ facturaForm.notasPie || 'Sin notas al pie de factura' }}</span>
-              </div>
-              <div style="margin-bottom:6px;">
-                <b>Notas:</b><br>
-                <span style="color:#64748b;">{{ facturaForm.notas || 'No hay notas adicionales' }}</span>
-              </div>
-            </div>
-
-            <!-- Total en Letras -->
-            <div class="preview-footer-words">
-              <div style="font-weight:700; color:#0f172a; margin-bottom:2px;">Total en Letras:</div>
-              <div style="color:#1e3a8a; font-weight:600; text-transform:uppercase;">
-                {{ totalEnLetrasFactura }}
-              </div>
-            </div>
-
-            <!-- Pie de factura oficial y botones de impresión -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:10px; color:#64748b;">
-              <span>Factura creada: {{ facturaForm.fecha | date:'MM/dd/yyyy, h:mm:ss a' }}</span>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <button *ngIf="facturaEmitida" class="btn-action primary" (click)="imprimirFacturaEnVivo()" title="Imprimir comprobante oficial">
-                  <lucide-icon [img]="icons.Printer" [size]="12"></lucide-icon> Imprimir
-                </button>
-                <span [class]="facturaEmitida ? 'badge-success' : 'badge-pending'">
-                  {{ facturaEmitida ? 'Factura: Emitida' : 'Factura: Pendiente' }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
-      <!-- VISTA 3: VENTAS Y FACTURAS REGISTRADAS (HISTORIAL)                        -->
-      <!-- ========================================================================= -->
-      <section *ngIf="active === 'Ventas'" class="panel data-panel">
-        <div class="panel-heading">
-          <div>
-            <h3>Ventas y Facturación Fiscal (SAR)</h3>
-            <p>{{ ventas.length }} ventas registradas con control de CAI y rango de facturación</p>
-          </div>
-          <div style="display:flex; gap:10px;">
-            <button *ngIf="isAdmin" class="outline-button" (click)="abrirSARConfig()">
-              <lucide-icon [img]="icons.Settings" [size]="14"></lucide-icon> Configurar CAI / Fechas
-            </button>
-            <button class="primary-small" (click)="setActive('Facturación')">
-              + Nueva Factura en Vivo
-            </button>
-          </div>
-        </div>
-
-        <!-- Banner Informativo del CAI Actual -->
-        <div style="background:#eef7f3; border:1px solid #c8e7d7; padding:12px 18px; border-radius:8px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <div>
-            <span class="tag-cai" style="margin-right:8px;">CAI ACTIVO</span>
-            <strong style="font-family:'Manrope',sans-serif; font-weight:700; font-size:11px;">{{ sarConfig?.cai || '3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C' }}</strong>
-          </div>
-          <div style="font-size:11px;">
-            <span class="muted">Rango: </span><b>{{ sarConfig?.rangoDesde || '000-001-01-00000001' }}</b> al <b>{{ sarConfig?.rangoHasta || '000-001-01-00005000' }}</b>
-          </div>
-          <div style="font-size:11px;">
-            <span class="muted">Límite Emisión: </span><b>{{ sarConfig?.fechaLimiteEmision ? (sarConfig?.fechaLimiteEmision | date:'dd/MM/yyyy') : '31/12/2027' }}</b>
-          </div>
-          <div>
-            <span [class]="sarConfig?.vigente ? 'badge-vigente' : 'badge-vencido'">
-              {{ sarConfig?.vigente ? 'CAI VIGENTE' : 'REVISAR' }}
-            </span>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Cliente</th>
-                <th>Fecha</th>
-                <th>Nº Factura Fiscal</th>
-                <th>CAI Asignado</th>
-                <th>Total Venta</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let venta of filteredVentas">
-                <td><b>#V-{{ venta.ventaId }}</b></td>
-                <td>{{ venta.cliente }}</td>
-                <td class="muted">{{ venta.fechaVenta | date:'dd/MM/yyyy, hh:mm a' }}</td>
-                <td>
-                  <span *ngIf="venta.numeroFactura" class="tag-factura">
-                    {{ venta.numeroFactura }}
-                  </span>
-                  <span *ngIf="!venta.numeroFactura" class="muted">Pendiente</span>
-                </td>
-                <td>
-                  <span *ngIf="venta.cai" class="cai-badge" title="{{ venta.cai }}">
-                    {{ venta.cai.substring(0, 15) }}…
-                  </span>
-                  <span *ngIf="!venta.cai" class="muted">—</span>
-                </td>
-                <td><b>L. {{ (venta.total || 0) | number:'1.2-2' }}</b></td>
-                <td>
-                  <span class="status" [class.pending]="venta.estadoVenta === 'Pendiente'">
-                    {{ venta.estadoVenta }}
-                  </span>
-                </td>
-                <td>
-                  <div style="display:flex; gap:6px;">
-                    <button *ngIf="venta.numeroFactura" class="btn-action primary" (click)="verFactura(venta)" title="Ver factura oficial">
-                      <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <h3>{{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Crear Cotización' : 'Crear Factura' }}</h3>
+                  <div class="doc-type-selector">
+                    <button type="button" class="doc-type-btn" [class.active]="facturaForm.tipoDocumento === 'Factura'" (click)="facturaForm.tipoDocumento = 'Factura'">
+                      Factura Fiscal
                     </button>
-                    <button *ngIf="!venta.numeroFactura" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
-                      + Facturar CAI
-                    </button>
-                    <button *ngIf="venta.estadoVenta === 'Pendiente'" class="btn-action success" (click)="confirmarVenta(venta.ventaId)" title="Confirmar Venta">
-                      <lucide-icon [img]="icons.Check" [size]="12"></lucide-icon> Confirmar
-                    </button>
-                    <button *ngIf="venta.estadoVenta === 'Pendiente'" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Venta">
-                      <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anular
+                    <button type="button" class="doc-type-btn cotizacion" [class.active]="facturaForm.tipoDocumento === 'Cotizacion'" (click)="facturaForm.tipoDocumento = 'Cotizacion'">
+                      Cotización
                     </button>
                   </div>
-                </td>
-              </tr>
-              <tr *ngIf="!ventas.length">
-                <td colspan="8" class="empty">No hay ventas registradas todavía. ¡Haz clic en "+ Nueva Factura en Vivo" para realizar la primera!</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+                </div>
+                <div style="font-size:11px; color:#6b7280; margin-top:2px;">
+                  Fecha: {{ facturaForm.fecha | date:'dd/MM/yyyy' }} &bull; Tipo: <b>{{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Cotización / Proforma (Sin CAI ni impacto en inventario)' : 'Factura Fiscal SAR (Con CAI y rebaja de stock)' }}</b>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="outline-button" (click)="volverAListadoFacturas()" style="padding:6px 12px; font-size:11px; font-weight:700;">
+                  <lucide-icon [img]="icons.ClipboardList" [size]="14"></lucide-icon> Ver Listado
+                </button>
+                <button class="btn-generar" [disabled]="generandoFactura || facturaEmitida" (click)="generarFacturaFiscal()" [style.background]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#0ea5e9'">
+                  <lucide-icon [img]="icons.Check" [size]="15"></lucide-icon>
+                  {{ generandoFactura ? 'Generando…' : (facturaForm.tipoDocumento === 'Cotizacion' ? 'Generar cotización' : 'Generar factura') }}
+                </button>
+                <button class="btn-nueva" (click)="resetearNuevaFactura()">
+                  <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon>
+                  {{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Nueva Cotización' : 'Nueva Factura' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Selección de Cliente -->
+            <div class="form-group">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label>Cliente:</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <span style="font-size:11px; color:#6b7280;">RTN: <b>{{ clienteSeleccionado?.rtn || '00000000000000' }}</b></span>
+                  <a style="font-size:11px; color:#0284c7; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</a>
+                </div>
+              </div>
+              <select [(ngModel)]="facturaForm.clienteId">
+                <option *ngFor="let c of clientes" [value]="c.clienteId">
+                  {{ c.nombre }} (RTN: {{ c.rtn || 'Consumidor Final' }})
+                </option>
+              </select>
+            </div>
+
+            <!-- Fecha de Emisión -->
+            <div class="form-group">
+              <label>Fecha de Emisión:</label>
+              <input type="date" [(ngModel)]="facturaForm.fecha">
+            </div>
+
+            <!-- Bloque de 3 columnas de metadatos SAR / Cotización -->
+            <div class="meta-tri-box">
+              <div class="meta-cell">
+                <label>{{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Última Cotización' : 'Última Factura' }}</label>
+                <b>{{ ultimaFacturaDisplay }}</b>
+              </div>
+              <div class="meta-cell highlight" [style.background]="facturaForm.tipoDocumento === 'Cotizacion' ? '#faf5ff' : '#eff6ff'" [style.borderColor]="facturaForm.tipoDocumento === 'Cotizacion' ? '#e9d5ff' : '#bfdbfe'">
+                <label>{{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Nueva Cotización' : 'Nueva Factura' }}</label>
+                <b [style.color]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#1e3a8a'">{{ nuevaFacturaDisplay }}</b>
+              </div>
+              <div class="meta-cell">
+                <label>Método de Pago</label>
+                <select [(ngModel)]="facturaForm.metodoPagoId" style="width:100%; font-size:11px; padding:3px; border:1px solid #cbd5e1; border-radius:4px; outline:0;">
+                  <option [value]="1">Efectivo</option>
+                  <option [value]="2">Tarjeta de Crédito / Débito</option>
+                  <option [value]="3">Transferencia Bancaria</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Moneda -->
+            <div class="form-group">
+              <label>Moneda de visualización:</label>
+              <input type="text" [(ngModel)]="facturaForm.moneda" readonly>
+            </div>
+
+            <!-- Notas a la factura (colapsables) -->
+            <div>
+              <button type="button" class="text-button" (click)="facturaForm.mostrarNotas = !facturaForm.mostrarNotas" style="font-size:11px;">
+                <lucide-icon [img]="icons.ChevronDown" [size]="14"></lucide-icon>
+                {{ facturaForm.mostrarNotas ? 'Ocultar notas a la factura' : 'Agregar notas a la factura' }}
+              </button>
+              <div *ngIf="facturaForm.mostrarNotas" style="margin-top:8px;">
+                <textarea [(ngModel)]="facturaForm.notas" rows="2" placeholder="Observaciones o notas adicionales para el cliente..." style="width:100%; font-size:11px; padding:8px; border:1px solid #dfe5e1; border-radius:6px; outline:0;"></textarea>
+              </div>
+            </div>
+
+            <!-- LISTA DINÁMICA DE PRODUCTOS / ÍTEMS -->
+            <div style="display:grid; gap:12px;">
+              <div *ngFor="let item of facturaForm.items; let i = index" class="item-card">
+                <div class="item-card-header">
+                  <span>Producto #{{ i + 1 }}</span>
+                  <button *ngIf="facturaForm.items.length > 1" type="button" class="btn-trash" (click)="eliminarItemFactura(i)" title="Eliminar ítem">
+                    <lucide-icon [img]="icons.Trash2" [size]="13"></lucide-icon>
+                  </button>
+                </div>
+
+                <div class="form-group">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label>Producto:</label>
+                    <a style="font-size:10px; color:#187352; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoProducto()">+ Crear nuevo</a>
+                  </div>
+                  <select [(ngModel)]="item.productoId" (change)="onProductoCambio(item)">
+                    <option *ngFor="let p of products" [value]="p.productoId">
+                      {{ p.nombre }} - L. {{ p.precioVenta | number:'1.2-2' }} (Stock: {{ p.stock || 0 }})
+                    </option>
+                  </select>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:8px;">
+                  <div class="form-group">
+                    <label>Cantidad:</label>
+                    <input type="number" min="1" [(ngModel)]="item.cantidad">
+                  </div>
+                  <div class="form-group">
+                    <label>Precio Unitario L.:</label>
+                    <input type="number" step="0.01" min="0" [(ngModel)]="item.precio">
+                  </div>
+                  <div class="form-group">
+                    <label>Descuento L.:</label>
+                    <input type="number" step="0.01" min="0" [(ngModel)]="item.descuento">
+                  </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:10px; align-items:end;">
+                  <div class="form-group">
+                    <label>Tipo de Impuesto:</label>
+                    <select [(ngModel)]="item.tipoISV">
+                      <option value="ISV15">Gravado 15%</option>
+                      <option value="ISV18">Gravado 18%</option>
+                      <option value="EXENTO">Exento</option>
+                    </select>
+                  </div>
+                  <div style="text-align:right; font-weight:800; font-size:13px; color:var(--deep); padding-bottom:6px;">
+                    Total: L. {{ calcularLineaTotal(item) | number:'1.2-2' }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Botón para agregar más productos -->
+              <button type="button" class="btn-add-item" (click)="agregarItemFactura()">
+                <lucide-icon [img]="icons.Plus" [size]="16"></lucide-icon>
+                Agregar ítem
+              </button>
+            </div>
+
+            <!-- Notas al pie de factura -->
+            <div>
+              <button type="button" class="text-button" (click)="facturaForm.mostrarNotasPie = !facturaForm.mostrarNotasPie" style="font-size:11px;">
+                <lucide-icon [img]="icons.ChevronDown" [size]="14"></lucide-icon>
+                {{ facturaForm.mostrarNotasPie ? 'Ocultar notas al pie' : 'Notas al pie de factura' }}
+              </button>
+              <div *ngIf="facturaForm.mostrarNotasPie" style="margin-top:8px;">
+                <textarea [(ngModel)]="facturaForm.notasPie" rows="2" placeholder="Términos de garantía o agradecimiento al pie de la factura..." style="width:100%; font-size:11px; padding:8px; border:1px solid #dfe5e1; border-radius:6px; outline:0;"></textarea>
+              </div>
+            </div>
+
+            <!-- Barra inferior de estado -->
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:14px; font-size:11px; color:#6b7280;">
+              <span>Documento creado: {{ facturaForm.fecha | date:'dd/MM/yyyy' }}</span>
+              <span [class]="facturaEmitida ? 'badge-success' : 'badge-pending'">
+                {{ facturaEmitida ? (facturaForm.tipoDocumento === 'Cotizacion' ? 'Cotización: Generada' : 'Factura: Emitida') : (facturaForm.tipoDocumento === 'Cotizacion' ? 'Cotización: Pendiente' : 'Factura: Pendiente') }}
+              </span>
+            </div>
+          </div>
+
+          <!-- COLUMNA DERECHA: PREVISUALIZACIÓN DE FACTURA / COTIZACIÓN EN TIEMPO REAL -->
+          <div class="factura-preview-column">
+            <div class="factura-paper-sheet" id="invoice-preview-area">
+              <!-- Encabezado con número de documento y logo -->
+              <div class="preview-brand-row" [style.borderBottomColor]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#0ea5e9'">
+                <div>
+                  <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.05em;">
+                    {{ facturaForm.tipoDocumento === 'Cotizacion' ? 'Número de Cotización' : 'Número de factura' }}
+                  </div>
+                  <div style="font-size:18px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:2px;" [style.color]="facturaForm.tipoDocumento === 'Cotizacion' ? '#7e22ce' : '#0ea5e9'">
+                    {{ facturaEmitida ? ((facturaForm.tipoDocumento === 'Cotizacion' ? facturaEmitidaData?.numeroCotizacion : facturaEmitidaData?.numeroFactura) || nuevaFacturaDisplay) : nuevaFacturaDisplay }}
+                  </div>
+                  <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
+                    Fecha: {{ facturaForm.fecha | date:'MM/dd/yyyy, h:mm:ss a' }}
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <img src="assets/logo.png" alt="Vision Tech" style="height:48px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.style.display='none'">
+                  <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
+                  <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
+                </div>
+              </div>
+
+              <!-- Caja Fiscal SAR o Aviso de Cotización Proforma -->
+              <div *ngIf="facturaForm.tipoDocumento === 'Factura'" class="preview-cai-box">
+                <div><b>RTN Empresa:</b> {{ sarConfig?.rtn || '08011990123456' }}</div>
+                <div style="word-break:break-all; margin:3px 0;"><b>CAI:</b> {{ sarConfig?.cai || '3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C' }}</div>
+                <div><b>Rango Autorizado:</b> {{ sarConfig?.rangoDesde || '000-001-01-00000001' }} al {{ sarConfig?.rangoHasta || '000-001-01-00005000' }}</div>
+                <div><b>Fecha Límite de Emisión:</b> {{ sarConfig?.fechaLimiteEmision ? (sarConfig?.fechaLimiteEmision | date:'dd/MM/yyyy') : '31/12/2027' }}</div>
+              </div>
+
+              <div *ngIf="facturaForm.tipoDocumento === 'Cotizacion'" class="preview-cai-box" style="background:#faf5ff; border-color:#e9d5ff; color:#581c87;">
+                <div style="font-weight:800; font-size:11.5px; color:#7e22ce;">COTIZACIÓN COMERCIAL / PROFORMA</div>
+                <div><b>Validez de la oferta:</b> 15 días calendario a partir de la fecha de emisión.</div>
+                <div style="font-size:10px; color:#6b21a8; margin-top:3px;">
+                  * Documento informativo sin valor tributario. No deduce existencias de inventario ni genera correlativo fiscal SAR.
+                </div>
+              </div>
+
+              <!-- Información del Cliente -->
+              <div class="preview-client-box">
+                <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Información del Cliente</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10.5px;">
+                  <div><span style="color:#64748b;">Cliente:</span> <b>{{ clienteSeleccionado?.nombre || 'Consumidor Final' }}</b></div>
+                  <div><span style="color:#64748b;">RTN:</span> <b>{{ clienteSeleccionado?.rtn || '0000-0000-00000' }}</b></div>
+                  <div><span style="color:#64748b;">Correo:</span> {{ clienteSeleccionado?.email || '—' }}</div>
+                  <div><span style="color:#64748b;">Método de Pago:</span> <b>{{ metodoPagoNombre }}</b></div>
+                </div>
+              </div>
+
+              <!-- Detalles de la Factura (Tabla de Ítems en Vivo) -->
+              <div style="margin-bottom:14px;">
+                <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Detalles de la factura</div>
+                <table class="preview-table">
+                  <thead>
+                    <tr>
+                      <th>Descripción</th>
+                      <th style="text-align:center;">Cantidad</th>
+                      <th style="text-align:right;">Precio</th>
+                      <th style="text-align:right;">Descuento</th>
+                      <th style="text-align:right;">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of facturaForm.items">
+                      <td><b>{{ item.nombre || 'Producto sin seleccionar' }}</b></td>
+                      <td style="text-align:center;">{{ item.cantidad }}</td>
+                      <td style="text-align:right;">L. {{ (item.precio || 0) | number:'1.2-2' }}</td>
+                      <td style="text-align:right;">L. {{ (item.descuento || 0) | number:'1.2-2' }}</td>
+                      <td style="text-align:right;"><b>L. {{ calcularLineaTotal(item) | number:'1.2-2' }}</b></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Resumen de la Factura (Cálculos Fiscales SAR) -->
+              <div style="display:flex; justify-content:flex-end;">
+                <div class="preview-summary">
+                  <div style="font-weight:700; color:#0f172a; margin-bottom:4px; font-size:11px;">Resumen de la factura</div>
+                  <div class="preview-summary-row">
+                    <span>Subtotal:</span>
+                    <span>L. {{ subtotalFactura | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="preview-summary-row">
+                    <span>Exonerado:</span>
+                    <span>L. 0.00</span>
+                  </div>
+                  <div class="preview-summary-row">
+                    <span>Exento:</span>
+                    <span>L. {{ exentoFactura | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="preview-summary-row">
+                    <span>Gravado 15%:</span>
+                    <span>L. {{ gravado15Factura | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="preview-summary-row">
+                    <span>Gravado 18%:</span>
+                    <span>L. {{ gravado18Factura | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="preview-summary-row">
+                    <span>ISV 15%:</span>
+                    <span>L. {{ isv15Factura | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="preview-summary-row">
+                    <span>ISV 18%:</span>
+                    <span>L. {{ isv18Factura | number:'1.2-2' }}</span>
+                  </div>
+                  <div class="preview-summary-total">
+                    <span>Total:</span>
+                    <span>L. {{ totalFactura | number:'1.2-2' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Notas al pie y adicionales -->
+              <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:10px; font-size:10px;">
+                <div style="margin-bottom:6px;">
+                  <b>Notas al pie de factura:</b><br>
+                  <span style="color:#64748b;">{{ facturaForm.notasPie || 'Sin notas al pie de factura' }}</span>
+                </div>
+                <div style="margin-bottom:6px;">
+                  <b>Notas:</b><br>
+                  <span style="color:#64748b;">{{ facturaForm.notas || 'No hay notas adicionales' }}</span>
+                </div>
+              </div>
+
+              <!-- Total en Letras -->
+              <div class="preview-footer-words">
+                <div style="font-weight:700; color:#0f172a; margin-bottom:2px;">Total en Letras:</div>
+                <div style="color:#1e3a8a; font-weight:600; text-transform:uppercase;">
+                  {{ totalEnLetrasFactura }}
+                </div>
+              </div>
+
+              <!-- Pie de documento oficial y botones de impresión -->
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:10px; color:#64748b;">
+                <span>Documento: {{ facturaForm.fecha | date:'MM/dd/yyyy, h:mm:ss a' }}</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <button class="btn-action" (click)="descargarFacturaEnVivoPDF()" title="Descargar PDF">
+                    <lucide-icon [img]="icons.Download" [size]="12"></lucide-icon> PDF
+                  </button>
+                  <button class="btn-action primary" (click)="imprimirFacturaEnVivo()" title="Imprimir comprobante">
+                    <lucide-icon [img]="icons.Printer" [size]="12"></lucide-icon> Imprimir
+                  </button>
+                  <button *ngIf="facturaEmitida" class="btn-action success" (click)="volverAListadoFacturas()" title="Ver en el listado general de facturas">
+                    <lucide-icon [img]="icons.ClipboardList" [size]="12"></lucide-icon> Ver en Listado
+                  </button>
+                  <span [class]="facturaEmitida ? 'badge-success' : 'badge-pending'">
+                    {{ facturaForm.tipoDocumento === 'Cotizacion' ? (facturaEmitida ? 'Cotización: Generada' : 'Cotización: Pendiente') : (facturaEmitida ? 'Factura: Emitida' : 'Factura: Pendiente') }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </ng-container>
 
       <!-- ========================================================================= -->
       <!-- VISTA 4: PRODUCTOS                                                        -->
@@ -662,12 +766,12 @@
           <table>
             <thead>
               <tr>
-                <th>Producto</th>
-                <th>Código / Barras</th>
-                <th>Precio Venta</th>
-                <th>Stock Disponible</th>
-                <th>Estado</th>
-                <th>Acciones</th>
+                <th>Producto / Equipo</th>
+                <th style="width: 170px;">Código / Barras</th>
+                <th style="width: 150px;">Precio Venta</th>
+                <th style="width: 160px; text-align: center;">Stock Disponible</th>
+                <th style="width: 120px; text-align: center;">Estado</th>
+                <th style="width: 140px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -685,6 +789,9 @@
                   <div style="display:flex; gap:6px;">
                     <button class="btn-action" (click)="abrirModalEditarProducto(product)" title="Editar producto">
                       <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
+                    </button>
+                    <button *ngIf="isAdmin" class="btn-action" (click)="abrirHistorialProducto(product)" title="Ver bitácora de auditoría confidencial">
+                      <lucide-icon [img]="icons.History" [size]="12"></lucide-icon> Historial
                     </button>
                     <button class="btn-action danger" (click)="eliminarProducto(product.productoId!)" title="Eliminar producto">
                       <lucide-icon [img]="icons.Trash2" [size]="12"></lucide-icon>
@@ -730,25 +837,47 @@
           <table>
             <thead>
               <tr>
-                <th>Producto</th>
-                <th>Stock actual</th>
-                <th>Stock mínimo</th>
-                <th>Estado</th>
+                <th style="width: 140px;">Código / SKU</th>
+                <th>Equipo / Producto</th>
+                <th style="width: 160px;">Precio Venta</th>
+                <th style="width: 150px; text-align: center;">Stock Actual</th>
+                <th style="width: 140px; text-align: center;">Stock Mínimo</th>
+                <th style="width: 140px; text-align: center;">Estado</th>
+                <th style="width: 130px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let item of inventory">
-                <td><b>{{ item.nombreProducto || 'Producto #' + item.productoId }}</b></td>
-                <td><b>{{ item.stock ?? 0 }}</b></td>
-                <td>{{ item.stockMinimo ?? 10 }}</td>
+              <tr *ngFor="let item of filteredInventory">
                 <td>
-                  <span class="status" [class.pending]="(item.stock ?? 0) <= (item.stockMinimo ?? 10)">
-                    {{ (item.stock ?? 0) <= (item.stockMinimo ?? 10) ? 'Stock bajo' : 'Disponible' }}
+                  <span class="sku-tag">{{ getProductoPorId(item.productoId)?.codigo || getProductoPorId(item.productoId)?.codigoBarras || ('SEC-' + item.productoId) }}</span>
+                </td>
+                <td>
+                  <b style="color: #0f172a; font-size: 12.5px;">{{ item.nombreProducto || 'Producto #' + item.productoId }}</b>
+                </td>
+                <td>
+                  <b>L. {{ (getProductoPorId(item.productoId)?.precioVenta || getProductoPorId(item.productoId)?.precio || 0) | number:'1.2-2' }}</b>
+                </td>
+                <td style="text-align: center;">
+                  <span class="stock-badge" [class.low]="(item.stock ?? 0) <= (item.stockMinimo ?? 10) && (item.stock ?? 0) > 0" [class.zero]="(item.stock ?? 0) === 0">
+                    {{ item.stock ?? 0 }} unds
                   </span>
                 </td>
+                <td style="text-align: center;" class="muted">
+                  {{ item.stockMinimo ?? 10 }} unds
+                </td>
+                <td style="text-align: center;">
+                  <span class="status" [class.pending]="(item.stock ?? 0) <= (item.stockMinimo ?? 10) && (item.stock ?? 0) > 0" [class.anulado]="(item.stock ?? 0) === 0">
+                    {{ (item.stock ?? 0) === 0 ? 'Agotado' : ((item.stock ?? 0) <= (item.stockMinimo ?? 10) ? 'Stock bajo' : 'Disponible') }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  <button class="btn-action primary" (click)="abrirModalMovimientoInventario(item.productoId)" title="Registrar movimiento o ajuste de inventario">
+                    <lucide-icon [img]="icons.RotateCcw" [size]="12"></lucide-icon> Movimiento
+                  </button>
+                </td>
               </tr>
-              <tr *ngIf="!inventory.length">
-                <td colspan="4" class="empty">No hay registros de inventario disponibles.</td>
+              <tr *ngIf="!filteredInventory.length">
+                <td colspan="7" class="empty">No hay registros de inventario disponibles.</td>
               </tr>
             </tbody>
           </table>
@@ -759,11 +888,11 @@
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Fecha y Hora</th>
-                <th>Producto</th>
-                <th>Tipo de Movimiento</th>
-                <th>Cantidad</th>
+                <th style="width: 90px;">ID</th>
+                <th style="width: 210px;">Fecha y Hora</th>
+                <th>Producto / Equipo</th>
+                <th style="width: 170px; text-align: center;">Tipo de Movimiento</th>
+                <th style="width: 160px; text-align: right;">Cantidad</th>
               </tr>
             </thead>
             <tbody>
@@ -771,12 +900,12 @@
                 <td><b>#M-{{ m.movimientoId }}</b></td>
                 <td class="muted">{{ m.fechaMovimiento | date:'dd/MM/yyyy, hh:mm:ss a' }}</td>
                 <td><b>{{ m.producto }}</b></td>
-                <td>
+                <td style="text-align: center;">
                   <span class="status" [class.recibida]="m.tipoMovimiento === 'ENTRADA'" [class.anulado]="m.tipoMovimiento === 'SALIDA'">
                     {{ m.tipoMovimiento }}
                   </span>
                 </td>
-                <td>
+                <td style="text-align: right;">
                   <b [style.color]="m.tipoMovimiento === 'ENTRADA' ? '#187352' : '#dc2626'">
                     {{ m.tipoMovimiento === 'ENTRADA' ? '+' : '-' }}{{ m.cantidad }} unidades
                   </b>
@@ -805,12 +934,12 @@
           <table>
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>RTN (Fiscal)</th>
-                <th>Teléfono</th>
-                <th>Correo</th>
-                <th>Tipo</th>
-                <th>Acciones</th>
+                <th>Nombre Completo / Razón Social</th>
+                <th style="width: 170px;">RTN (Fiscal)</th>
+                <th style="width: 160px;">Teléfono</th>
+                <th>Correo Electrónico</th>
+                <th style="width: 130px; text-align: center;">Tipo</th>
+                <th style="width: 140px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -854,12 +983,12 @@
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th style="width: 110px;">ID</th>
                 <th>Proveedor</th>
-                <th>Fecha</th>
-                <th>Total</th>
-                <th>Estado</th>
-                <th>Acciones</th>
+                <th style="width: 170px;">Fecha</th>
+                <th style="width: 150px; text-align: right;">Total</th>
+                <th style="width: 130px; text-align: center;">Estado</th>
+                <th style="width: 220px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -908,11 +1037,11 @@
             <thead>
               <tr>
                 <th>Empresa / Proveedor</th>
-                <th>Contacto</th>
-                <th>RTN</th>
-                <th>Teléfono</th>
-                <th>Correo</th>
-                <th>Acciones</th>
+                <th style="width: 170px;">Contacto</th>
+                <th style="width: 170px;">RTN</th>
+                <th style="width: 150px;">Teléfono</th>
+                <th>Correo Electrónico</th>
+                <th style="width: 140px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1004,14 +1133,14 @@
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Fecha Apertura</th>
-                <th>Fecha Cierre</th>
-                <th>Monto Inicial</th>
-                <th>Efectivo Reportado</th>
-                <th>Ventas Efectivo</th>
-                <th>Diferencia</th>
-                <th>Estado</th>
+                <th style="width: 80px;">ID</th>
+                <th style="width: 170px;">Fecha Apertura</th>
+                <th style="width: 170px;">Fecha Cierre</th>
+                <th style="width: 140px;">Monto Inicial</th>
+                <th style="width: 150px;">Efectivo Reportado</th>
+                <th style="width: 140px;">Ventas Efectivo</th>
+                <th style="width: 130px;">Diferencia</th>
+                <th style="width: 110px; text-align: center;">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -1054,11 +1183,11 @@
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th style="width: 80px;">ID</th>
                 <th>Nombre</th>
                 <th>Correo Electrónico</th>
-                <th>Perfil Asignado</th>
-                <th>Acciones</th>
+                <th style="width: 170px;">Perfil Asignado</th>
+                <th style="width: 130px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1083,6 +1212,552 @@
           </table>
         </div>
       </section>
+
+      <!-- ========================================================================= -->
+      <!-- VISTA 11: REPORTES FISCALES Y GERENCIALES (EXCEL Y PDF)                   -->
+      <!-- ========================================================================= -->
+      <section *ngIf="active === 'Reportes'" class="panel data-panel" style="min-height: 520px;">
+        <div class="panel-heading" style="margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+          <div>
+            <h3>Centro de Reportes Fiscales y Gerenciales</h3>
+            <p>Genera y exporta reportes normativos para el SAR, arqueos diarios de caja y valorización de inventario.</p>
+          </div>
+          <div>
+            <div class="sub-tabs" style="margin-bottom: 0;">
+              <button class="sub-tab" [class.active]="subTabReporte === 'ventas-sar'" (click)="subTabReporte = 'ventas-sar'">
+                Libro de Ventas SAR (Mensual)
+              </button>
+              <button class="sub-tab" [class.active]="subTabReporte === 'cierre-caja'" (click)="subTabReporte = 'cierre-caja'">
+                Corte Z Diario (Caja)
+              </button>
+              <button class="sub-tab" [class.active]="subTabReporte === 'inventario'" (click)="subTabReporte = 'inventario'">
+                Valorización de Inventario
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------------- -->
+        <!-- SUBTAB 1: REPORTE MENSUAL DE VENTAS PARA LA DECLARACIÓN DEL SAR           -->
+        <!-- ------------------------------------------------------------------------- -->
+        <div *ngIf="subTabReporte === 'ventas-sar'" style="display: grid; gap: 18px;">
+          <!-- Barra de Filtros y Acciones -->
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #f8faf9; border: 1px solid #e2e8e5; border-radius: 10px; padding: 14px 18px; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Mes Fiscal:</label>
+                <select [(ngModel)]="reporteMesVentas" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600;">
+                  <option [value]="1">Enero</option>
+                  <option [value]="2">Febrero</option>
+                  <option [value]="3">Marzo</option>
+                  <option [value]="4">Abril</option>
+                  <option [value]="5">Mayo</option>
+                  <option [value]="6">Junio</option>
+                  <option [value]="7">Julio</option>
+                  <option [value]="8">Agosto</option>
+                  <option [value]="9">Septiembre</option>
+                  <option [value]="10">Octubre</option>
+                  <option [value]="11">Noviembre</option>
+                  <option [value]="12">Diciembre</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Año:</label>
+                <select [(ngModel)]="reporteAnoVentas" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600;">
+                  <option [value]="2025">2025</option>
+                  <option [value]="2026">2026</option>
+                  <option [value]="2027">2027</option>
+                </select>
+              </div>
+              <div style="padding-top: 18px; font-size: 11.5px; color: #64748b;">
+                Mostrando <b>{{ ventasFiltradasSAR.length }}</b> comprobantes fiscales emitidos.
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #166534; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarVentasSARExcel()" title="Exportar a Microsoft Excel (.xlsx)">
+                <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon>
+                Exportar Excel (.xlsx)
+              </button>
+              <button class="outline-button" style="padding: 8px 14px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px;" (click)="imprimirVentasSAR()" title="Imprimir o Guardar como PDF">
+                <lucide-icon [img]="icons.Printer" [size]="14"></lucide-icon>
+                Imprimir / PDF
+              </button>
+            </div>
+          </div>
+
+          <!-- Tarjetas de Resumen Fiscal SAR -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Facturado Mes</div>
+              <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 4px;">L. {{ totalVentasSARMes | number:'1.2-2' }}</div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Base Gravada 15%</div>
+              <div style="font-size: 20px; font-weight: 800; color: #0284c7; margin-top: 4px;">L. {{ totalGravado15SARMes | number:'1.2-2' }}</div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">ISV 15% Recaudado</div>
+              <div style="font-size: 20px; font-weight: 800; color: #16a34a; margin-top: 4px;">L. {{ totalISV15SARMes | number:'1.2-2' }}</div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Facturas Emitidas</div>
+              <div style="font-size: 20px; font-weight: 800; color: #7c3aed; margin-top: 4px;">{{ ventasFiltradasSAR.length }}</div>
+            </div>
+          </div>
+
+          <!-- Tabla del Libro de Ventas Fiscal -->
+          <div id="printable-report-area">
+            <div style="margin-bottom: 12px; display: none;" class="print-only-header">
+              <h2 style="margin: 0; font-size: 18px; color: #1e293b;">SISTEMA VISION TECH S. DE R.L.</h2>
+              <p style="margin: 2px 0; font-size: 12px; color: #475569;">RTN: 08011990123456 | LIBRO MENSUAL DE VENTAS SAR</p>
+              <p style="margin: 2px 0; font-size: 11px; color: #64748b;">Período: Mes {{ reporteMesVentas }} / {{ reporteAnoVentas }} | CAI Vigente: {{ sarConfig?.cai }}</p>
+              <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 10px 0;">
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>No. Factura SAR</th>
+                    <th>RTN Cliente</th>
+                    <th>Cliente</th>
+                    <th>Base Gravada</th>
+                    <th>ISV 15%</th>
+                    <th>Total Facturado</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let v of ventasFiltradasSAR">
+                    <td class="muted">{{ (v.fechaFactura || v.fechaVenta) | date:'dd/MM/yyyy' }}</td>
+                    <td><b class="tag-factura">{{ v.numeroFactura }}</b></td>
+                    <td class="muted">{{ v.clienteRtn || '00000000000000' }}</td>
+                    <td><b>{{ v.cliente }}</b></td>
+                    <td>L. {{ (v.montoGravado15 || ((v.total || 0) / 1.15)) | number:'1.2-2' }}</td>
+                    <td>L. {{ (v.isv15 || ((v.total || 0) - ((v.total || 0) / 1.15))) | number:'1.2-2' }}</td>
+                    <td><b>L. {{ (v.total || 0) | number:'1.2-2' }}</b></td>
+                    <td><span class="status">{{ v.estadoVenta }}</span></td>
+                  </tr>
+                  <tr *ngIf="!ventasFiltradasSAR.length">
+                    <td colspan="8" class="empty">No se encontraron facturas fiscales registradas para el período {{ reporteMesVentas }}/{{ reporteAnoVentas }}.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------------- -->
+        <!-- SUBTAB 2: REPORTE DE CIERRE DE TURNO DE CAJA (CORTE Z DIARIO)             -->
+        <!-- ------------------------------------------------------------------------- -->
+        <div *ngIf="subTabReporte === 'cierre-caja'" style="display: grid; gap: 18px;">
+          <!-- Selector de turno y acciones -->
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #f8faf9; border: 1px solid #e2e8e5; border-radius: 10px; padding: 14px 18px; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Seleccionar Cierre de Caja (Corte Z):</label>
+                <select [(ngModel)]="cierreSeleccionadoReporteId" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; min-width: 280px;">
+                  <option [value]="0">Último Cierre de Turno</option>
+                  <option *ngFor="let h of historialCaja" [value]="h.id">
+                    Cierre #{{ h.id }} - {{ h.fechaApertura | date:'dd/MM/yyyy hh:mm a' }} (L. {{ (h.montoEfectivoFinal || 0) | number:'1.2-2' }})
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button class="outline-button" style="padding: 8px 14px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px;" (click)="imprimirCorteZ()" title="Imprimir Comprobante Fiscal Corte Z">
+                <lucide-icon [img]="icons.Printer" [size]="14"></lucide-icon>
+                Imprimir Corte Z (PDF)
+              </button>
+            </div>
+          </div>
+
+          <!-- Voucher Oficial Corte Z -->
+          <div id="printable-report-area" style="max-width: 650px; margin: 0 auto; width: 100%;">
+            <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 26px; box-shadow: 0 4px 14px rgba(0,0,0,0.04); font-family: 'DM Mono', monospace;">
+              <!-- Encabezado Ticket Z -->
+              <div style="text-align: center; border-bottom: 1.5px dashed #94a3b8; padding-bottom: 14px; margin-bottom: 14px;">
+                <div style="font-size: 16px; font-weight: 800; color: #0f172a; font-family: 'Manrope', sans-serif;">SISTEMA VISION TECH S. DE R.L.</div>
+                <div style="font-size: 11px; color: #475569; margin-top: 2px;">SEGURIDAD ELECTRÓNICA & REDES</div>
+                <div style="font-size: 11px; color: #475569;">RTN: 08011990123456 | SUCURSAL PRINCIPAL #1</div>
+                <div style="font-size: 13px; font-weight: 800; color: #1e3a8a; margin-top: 8px; letter-spacing: 1px;">*** CORTE Z DIARIO DE CAJA ***</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">DOCUMENTO INTERNO DE CIERRE FISCAL</div>
+              </div>
+
+              <!-- Metadatos del Turno -->
+              <div *ngIf="cierreSeleccionadoReporte" style="display: grid; gap: 6px; font-size: 11.5px; color: #334155; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span>NÚMERO DE CIERRE:</span>
+                  <b>#C-00{{ cierreSeleccionadoReporte.id }}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>FECHA/HORA APERTURA:</span>
+                  <span>{{ cierreSeleccionadoReporte.fechaApertura | date:'dd/MM/yyyy, hh:mm:ss a' }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>FECHA/HORA CIERRE:</span>
+                  <span>{{ cierreSeleccionadoReporte.fechaCierre ? (cierreSeleccionadoReporte.fechaCierre | date:'dd/MM/yyyy, hh:mm:ss a') : 'Turno Activo' }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>RESPONSABLE DE TURNO:</span>
+                  <b>{{ currentUser.name }}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>ESTADO DEL TURNO:</span>
+                  <span class="status" [class.recibida]="cierreSeleccionadoReporte.estado === 'Cerrado'">{{ cierreSeleccionadoReporte.estado }}</span>
+                </div>
+              </div>
+
+              <!-- Detalle Financiero del Turno -->
+              <div *ngIf="cierreSeleccionadoReporte" style="border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; padding: 12px 0; margin-bottom: 16px; display: grid; gap: 7px; font-size: 12px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span>(+) FONDO INICIAL DE APERTURA:</span>
+                  <b>L. {{ (cierreSeleccionadoReporte.montoApertura || 0) | number:'1.2-2' }}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; color: #166534;">
+                  <span>(+) VENTAS EN EFECTIVO REGISTRADAS:</span>
+                  <b>L. {{ (cierreSeleccionadoReporte.totalVentasEfectivo || 0) | number:'1.2-2' }}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; color: #0284c7;">
+                  <span>(+) VENTAS CON TARJETA / POS:</span>
+                  <b>L. {{ (cierreSeleccionadoReporte.totalVentasTarjeta || 0) | number:'1.2-2' }}</b>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 6px; font-weight: 700;">
+                  <span>(=) TOTAL INGRESOS POR VENTAS:</span>
+                  <span>L. {{ ((cierreSeleccionadoReporte.totalVentasEfectivo || 0) + (cierreSeleccionadoReporte.totalVentasTarjeta || 0)) | number:'1.2-2' }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; background: #f8fafc; padding: 6px; border-radius: 4px; font-weight: 800; color: #0f172a;">
+                  <span>(=) EFECTIVO TEÓRICO EN CAJA:</span>
+                  <span>L. {{ ((cierreSeleccionadoReporte.montoApertura || 0) + (cierreSeleccionadoReporte.totalVentasEfectivo || 0)) | number:'1.2-2' }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; background: #f0fdf4; padding: 6px; border-radius: 4px; font-weight: 800; color: #15803d;">
+                  <span>(=) EFECTIVO FÍSICO ARQUEADO:</span>
+                  <span>L. {{ (cierreSeleccionadoReporte.montoEfectivoFinal || 0) | number:'1.2-2' }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 6px; border-radius: 4px; font-weight: 800;" [style.color]="(cierreSeleccionadoReporte.diferencia || 0) === 0 ? '#166534' : ((cierreSeleccionadoReporte.diferencia || 0) > 0 ? '#0284c7' : '#dc2626')" [style.background]="(cierreSeleccionadoReporte.diferencia || 0) === 0 ? '#f0fdf4' : '#fef2f2'">
+                  <span>DIFERENCIA (ARQUEO VS SISTEMA):</span>
+                  <span>{{ (cierreSeleccionadoReporte.diferencia || 0) >= 0 ? '+' : '' }}L. {{ (cierreSeleccionadoReporte.diferencia || 0) | number:'1.2-2' }} ({{ (cierreSeleccionadoReporte.diferencia || 0) === 0 ? 'CUADRADA' : ((cierreSeleccionadoReporte.diferencia || 0) > 0 ? 'SOBRANTE' : 'FALTANTE') }})</span>
+                </div>
+              </div>
+
+              <!-- Firmas de Responsabilidad -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 35px; text-align: center; font-size: 11px; color: #475569;">
+                <div>
+                  <div style="border-top: 1px solid #94a3b8; padding-top: 6px; font-weight: 700;">CAJERO / ENTREGÓ</div>
+                  <div style="font-size: 10px; color: #64748b;">Firma y Sello</div>
+                </div>
+                <div>
+                  <div style="border-top: 1px solid #94a3b8; padding-top: 6px; font-weight: 700;">ADMINISTRACIÓN / RECIBIÓ</div>
+                  <div style="font-size: 10px; color: #64748b;">Firma y Sello</div>
+                </div>
+              </div>
+
+              <div *ngIf="!cierreSeleccionadoReporte" class="empty">
+                No hay turnos cerrados disponibles para generar el Corte Z.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------------- -->
+        <!-- SUBTAB 3: REPORTE DE VALORIZACIÓN DE INVENTARIO                           -->
+        <!-- ------------------------------------------------------------------------- -->
+        <div *ngIf="subTabReporte === 'inventario'" style="display: grid; gap: 18px;">
+          <!-- Barra de Acciones -->
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #f8faf9; border: 1px solid #e2e8e5; border-radius: 10px; padding: 14px 18px; flex-wrap: wrap; gap: 12px;">
+            <div style="font-size: 12px; color: #475569;">
+              Equipos de <b>Seguridad Electrónica, CCTV y Redes</b> en existencias.
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #166534; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarInventarioExcel()" title="Exportar a Microsoft Excel (.xlsx)">
+                <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon>
+                Exportar Excel (.xlsx)
+              </button>
+              <button class="outline-button" style="padding: 8px 14px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px;" (click)="imprimirInventario()" title="Imprimir o Guardar como PDF">
+                <lucide-icon [img]="icons.Printer" [size]="14"></lucide-icon>
+                Imprimir / PDF
+              </button>
+            </div>
+          </div>
+
+          <!-- Tarjetas de Resumen de Valorización -->
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Unidades Físicas</div>
+              <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 4px;">{{ totalStockUnidades }} unds</div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Inversión al Costo</div>
+              <div style="font-size: 20px; font-weight: 800; color: #dc2626; margin-top: 4px;">L. {{ totalValorizadoCosto | number:'1.2-2' }}</div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Valor a Precio Venta</div>
+              <div style="font-size: 20px; font-weight: 800; color: #16a34a; margin-top: 4px;">L. {{ totalValorizadoVenta | number:'1.2-2' }}</div>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Margen Proyectado</div>
+              <div style="font-size: 20px; font-weight: 800; color: #0284c7; margin-top: 4px;">L. {{ (totalValorizadoVenta - totalValorizadoCosto) | number:'1.2-2' }}</div>
+            </div>
+          </div>
+
+          <!-- Tabla de Inventario Valorizado -->
+          <div id="printable-report-area">
+            <div style="margin-bottom: 12px; display: none;" class="print-only-header">
+              <h2 style="margin: 0; font-size: 18px; color: #1e293b;">SISTEMA VISION TECH S. DE R.L.</h2>
+              <p style="margin: 2px 0; font-size: 12px; color: #475569;">REPORTE DE VALORIZACIÓN DE INVENTARIO DE SEGURIDAD Y REDES</p>
+              <p style="margin: 2px 0; font-size: 11px; color: #64748b;">Generado: {{ fechaActualDisplay }} | Sucursal Principal</p>
+              <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 10px 0;">
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código / SKU</th>
+                    <th>Equipo / Dispositivo</th>
+                    <th>Stock</th>
+                    <th>Costo Est. (L.)</th>
+                    <th>Precio Venta (L.)</th>
+                    <th>Total al Costo</th>
+                    <th>Total a Venta</th>
+                    <th>Margen Proyectado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of inventarioValorizado">
+                    <td><b>{{ item.codigo }}</b></td>
+                    <td><b>{{ item.nombre }}</b></td>
+                    <td>
+                      <span class="tag-cai" [style.background]="item.stock > 10 ? '#f0fdf4' : '#fef2f2'" [style.color]="item.stock > 10 ? '#15803d' : '#b91c1c'">
+                        {{ item.stock }} unds
+                      </span>
+                    </td>
+                    <td>L. {{ item.costoEstimado | number:'1.2-2' }}</td>
+                    <td>L. {{ item.precioVenta | number:'1.2-2' }}</td>
+                    <td>L. {{ item.totalCosto | number:'1.2-2' }}</td>
+                    <td><b>L. {{ item.totalVenta | number:'1.2-2' }}</b></td>
+                    <td style="color: #0284c7; font-weight: 700;">+L. {{ item.margenProyectado | number:'1.2-2' }}</td>
+                  </tr>
+                  <tr *ngIf="!inventarioValorizado.length">
+                    <td colspan="8" class="empty">No hay existencias registradas en el inventario.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    
+      <!-- ========================================================================= -->
+      <!-- VISTA 12: CONFIGURACIÓN GENERAL, FACTURAS Y SEGURIDAD                    -->
+      <!-- ========================================================================= -->
+      <section *ngIf="active === 'Configuración'" class="panel data-panel" style="min-height: 580px; padding: 26px 30px;">
+        <div style="border-left: 4px solid #0284c7; padding-left: 12px; margin-bottom: 22px;">
+          <h2 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.03em;">Configuraciones</h2>
+          <p style="color: #64748b; font-size: 13px; margin: 4px 0 0;">Administre su empresa, facturas y seguridad desde un solo lugar.</p>
+        </div>
+
+        <div class="config-container">
+          <!-- Columna Izquierda: Pestañas de Navegación -->
+          <div class="config-sidebar">
+            <button class="config-tab-btn" [class.active]="subTabConfiguracion === 'general'" (click)="subTabConfiguracion = 'general'">
+              <div class="config-tab-icon">
+                <lucide-icon [img]="icons.Store" [size]="18"></lucide-icon>
+              </div>
+              <div>
+                <div class="config-tab-title">General</div>
+                <div class="config-tab-subtitle">Datos de la empresa</div>
+              </div>
+            </button>
+
+            <button class="config-tab-btn" [class.active]="subTabConfiguracion === 'facturas'" (click)="subTabConfiguracion = 'facturas'">
+              <div class="config-tab-icon">
+                <lucide-icon [img]="icons.FileText" [size]="18"></lucide-icon>
+              </div>
+              <div>
+                <div class="config-tab-title">Facturas</div>
+                <div class="config-tab-subtitle">Notas y pie de página</div>
+              </div>
+            </button>
+
+            <button class="config-tab-btn" [class.active]="subTabConfiguracion === 'seguridad'" (click)="subTabConfiguracion = 'seguridad'">
+              <div class="config-tab-icon">
+                <lucide-icon [img]="icons.Shield" [size]="18"></lucide-icon>
+              </div>
+              <div>
+                <div class="config-tab-title">Seguridad</div>
+                <div class="config-tab-subtitle">Contraseña y acceso</div>
+              </div>
+            </button>
+
+            <div class="config-version-box">
+              <div class="config-version-title">Factura.hn</div>
+              <div class="config-version-sub">
+                <div>Versión v1.0.1</div>
+                <div>01/01/2026</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: Tarjeta de Contenido según pestaña activa -->
+          <div class="config-card">
+
+            <!-- TAB 1: GENERAL (DATOS DE LA EMPRESA) -->
+            <ng-container *ngIf="subTabConfiguracion === 'general'">
+              <div class="config-card-header">
+                <h3 class="config-card-title">Datos generales de la compañía</h3>
+                <p class="config-card-desc">Actualice la información general de su compañía en el sistema.</p>
+              </div>
+              <div class="config-card-body">
+                <!-- Sección Logo -->
+                <div>
+                  <label class="config-label">Logo de la compañía</label>
+                  <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                    <div style="width: 140px; height: 110px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fafaf9; display: grid; place-items: center; overflow: hidden; padding: 8px;">
+                      <img [src]="companyConfig.logoUrl" alt="Logo de la Empresa" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.src='assets/logo.png'">
+                    </div>
+                    <label class="config-logo-dropzone" style="flex: 1; min-width: 220px;">
+                      <input type="file" (change)="onLogoUpload($event)" accept="image/png, image/jpeg, image/webp" style="display: none;">
+                      <div style="color: #0284c7; margin-bottom: 6px;">
+                        <lucide-icon [img]="icons.Download" [size]="24" style="transform: rotate(180deg);"></lucide-icon>
+                      </div>
+                      <div style="font-weight: 700; font-size: 13px; color: #1e293b;">Selecciona un archivo o arrástralo</div>
+                      <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">JPG, PNG</div>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Nombre de la compañía -->
+                <div>
+                  <label class="config-label">Nombre de la compañía*</label>
+                  <input type="text" [(ngModel)]="companyConfig.nombre" class="config-input" placeholder="Ej: 3tech Distribuidora S. De R.L de C.V.">
+                </div>
+
+                <!-- Gerente: Nombre y Apellido -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <div>
+                    <label class="config-label">Nombre (Gerente)</label>
+                    <input type="text" [(ngModel)]="companyConfig.nombreGerente" class="config-input" placeholder="Angel">
+                  </div>
+                  <div>
+                    <label class="config-label">Apellido</label>
+                    <input type="text" [(ngModel)]="companyConfig.apellidoGerente" class="config-input" placeholder="Guillen">
+                  </div>
+                </div>
+
+                <!-- RTN -->
+                <div>
+                  <label class="config-label">RTN*</label>
+                  <input type="text" [(ngModel)]="companyConfig.rtn" class="config-input" placeholder="18049025265441">
+                </div>
+
+                <!-- Dirección -->
+                <div>
+                  <label class="config-label">Dirección de la empresa</label>
+                  <textarea [(ngModel)]="companyConfig.direccion" rows="3" class="config-input" placeholder="Dirección completa"></textarea>
+                </div>
+
+                <!-- Teléfono y Correo -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                  <div>
+                    <label class="config-label">Teléfono de la empresa</label>
+                    <input type="text" [(ngModel)]="companyConfig.telefono" class="config-input" placeholder="0000-0000">
+                  </div>
+                  <div>
+                    <label class="config-label">Correo Electrónico de la Empresa</label>
+                    <input type="email" [(ngModel)]="companyConfig.email" class="config-input" placeholder="visiontech3x@gmail.com">
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                  <button class="primary-button" [disabled]="guardandoConfiguracion" (click)="guardarConfiguracionEmpresa()" style="background: #0284c7; padding: 12px 24px; font-weight: 700;">
+                    <lucide-icon [img]="icons.Check" [size]="16"></lucide-icon>
+                    {{ guardandoConfiguracion ? 'Guardando...' : 'Guardar Configuración' }}
+                  </button>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- TAB 2: FACTURAS (PREFERENCIAS DE NOTAS Y PIE) -->
+            <ng-container *ngIf="subTabConfiguracion === 'facturas'">
+              <div class="config-card-header">
+                <h3 class="config-card-title">Preferencias de facturas</h3>
+                <p class="config-card-desc">Valores que se aplican al crear facturas, cotizaciones, proformas y recibos. Puede cambiarlos en cada documento antes de guardar.</p>
+              </div>
+              <div class="config-card-body">
+                <!-- Nota del documento -->
+                <div style="border: 1px solid #bae6fd; border-radius: 12px; padding: 18px; background: #ffffff;">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #0284c7; color: #ffffff; display: grid; place-items: center;">
+                      <lucide-icon [img]="icons.FileText" [size]="16"></lucide-icon>
+                    </div>
+                    <div>
+                      <div style="font-size: 13px; font-weight: 700; color: #0f172a;">Nota del documento</div>
+                      <div style="font-size: 11px; color: #64748b;">Aparece al final del PDF, debajo de la tabla fiscal.</div>
+                    </div>
+                  </div>
+                  <textarea [(ngModel)]="companyConfig.notaDocumento" rows="3" class="config-input" placeholder="Ej: Gracias por su preferencia. Los pagos se realizan a 30 días."></textarea>
+                </div>
+
+                <!-- Notas al pie de página -->
+                <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; background: #ffffff;">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #334155; color: #ffffff; display: grid; place-items: center;">
+                      <lucide-icon [img]="icons.Layers" [size]="16"></lucide-icon>
+                    </div>
+                    <div>
+                      <div style="font-size: 13px; font-weight: 700; color: #0f172a;">Notas al pie de página</div>
+                      <div style="font-size: 11px; color: #64748b;">Texto de garantías, condiciones de cambio o políticas de devolución.</div>
+                    </div>
+                  </div>
+                  <textarea [(ngModel)]="companyConfig.notaPie" rows="3" class="config-input" placeholder="Ej: Garantía de 1 año en equipos de seguridad electrónica y tecnología. Conserve este comprobante."></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                  <button class="primary-button" [disabled]="guardandoConfiguracion" (click)="guardarConfiguracionEmpresa()" style="background: #0284c7; padding: 12px 24px; font-weight: 700;">
+                    <lucide-icon [img]="icons.Check" [size]="16"></lucide-icon>
+                    {{ guardandoConfiguracion ? 'Guardando...' : 'Guardar Preferencias' }}
+                  </button>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- TAB 3: SEGURIDAD (ACCESO Y CONTRASEÑA) -->
+            <ng-container *ngIf="subTabConfiguracion === 'seguridad'">
+              <div class="config-card-header">
+                <h3 class="config-card-title">Seguridad y acceso</h3>
+                <p class="config-card-desc">Administre sus credenciales de acceso y opciones de autenticación segura.</p>
+              </div>
+              <div class="config-card-body">
+                <div>
+                  <label class="config-label">Usuario Conectado</label>
+                  <input type="text" [value]="currentUser.email" class="config-input" disabled style="background: #f8fafc; color: #64748b;">
+                </div>
+                <div>
+                  <label class="config-label">Nueva Contraseña</label>
+                  <input type="password" placeholder="••••••••" class="config-input">
+                </div>
+                <div>
+                  <label class="config-label">Confirmar Contraseña</label>
+                  <input type="password" placeholder="••••••••" class="config-input">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                  <button class="primary-button" (click)="notificarExito('Seguridad', 'Las credenciales se han actualizado.')" style="background: #0284c7; padding: 12px 24px; font-weight: 700;">
+                    <lucide-icon [img]="icons.Lock" [size]="16"></lucide-icon> Actualizar Contraseña
+                  </button>
+                </div>
+              </div>
+            </ng-container>
+
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 </div>
@@ -1211,82 +1886,156 @@
 <!-- MODAL: VISUALIZACIÓN DE FACTURA FISCAL SAR EMITIDA (DESDE HISTORIAL)      -->
 <!-- ========================================================================= -->
 <div *ngIf="showFacturaModal" class="modal-backdrop">
-  <div class="modal-box" style="max-width:540px;">
+  <div class="modal-box" style="max-width:680px;">
     <div class="modal-header">
-      <h3>Factura Fiscal Emitida (SAR)</h3>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <lucide-icon [img]="icons.FileText" [size]="18" style="color:#0ea5e9;"></lucide-icon>
+        <h3>Factura Fiscal Emitida (SAR)</h3>
+      </div>
       <button class="modal-close" (click)="showFacturaModal = false">
         <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
       </button>
     </div>
-    <div class="modal-body">
-      <div class="invoice-sheet" id="invoice-print-area">
-        <div class="invoice-header">
-          <h4>SISTEMA VISION TECH S. DE R.L.</h4>
-          <div>RTN: {{ sarConfig?.rtn || '08011990123456' }}</div>
-          <div>Boulevard Morazán, Tegucigalpa, Honduras</div>
-          <div>Tel: +(504) 2233-4455 | Email: contacto&#64;visiontech.hn</div>
-        </div>
-
-        <div class="invoice-cai-box">
-          <div><b>FACTURA FISCAL Nº:</b> {{ facturaSeleccionada?.numeroFactura }}</div>
-          <div style="word-break:break-all; margin:4px 0;"><b>CAI:</b> {{ facturaSeleccionada?.cai }}</div>
-          <div><b>Rango Autorizado:</b> {{ facturaSeleccionada?.rangoDesde }} al {{ facturaSeleccionada?.rangoHasta }}</div>
-          <div><b>Fecha Límite de Emisión:</b> {{ facturaSeleccionada?.fechaLimiteEmision | date:'dd/MM/yyyy' }}</div>
-          <div><b>Fecha de Emisión:</b> {{ facturaSeleccionada?.fechaEmision | date:'dd/MM/yyyy, hh:mm a' }}</div>
-        </div>
-
-        <div>
-          <div><b>Cliente:</b> {{ facturaSeleccionada?.nombreCliente }}</div>
-          <div><b>RTN Cliente:</b> {{ facturaSeleccionada?.rtnCliente || 'Consumidor Final' }}</div>
-        </div>
-
-        <table style="width:100%; font-size:11px; margin-top:10px; border-top:1px solid #ccc;">
-          <thead>
-            <tr>
-              <th style="padding:6px 0;">Descripción</th>
-              <th style="text-align:right; padding:6px 0;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of facturaSeleccionada?.venta?.detalles">
-              <td style="padding:4px 0;">{{ item.cantidad }}x {{ item.producto }}</td>
-              <td style="text-align:right; padding:4px 0;">L. {{ item.total | number:'1.2-2' }}</td>
-            </tr>
-            <tr *ngIf="!facturaSeleccionada?.venta?.detalles?.length">
-              <td style="padding:4px 0;">Venta de Productos Ópticos</td>
-              <td style="text-align:right; padding:4px 0;">L. {{ facturaSeleccionada?.total | number:'1.2-2' }}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="invoice-totals">
-          <div class="invoice-row">
-            <span>Importe Exento:</span>
-            <span>L. {{ (facturaSeleccionada?.montoExento || 0) | number:'1.2-2' }}</span>
+    <div class="modal-body" style="padding:16px 20px;">
+      <div class="factura-paper-sheet" id="invoice-modal-print-area" style="box-shadow:none; border:1px solid #e2e8f0; padding:24px 22px;">
+        <!-- Encabezado con número de documento y logo -->
+        <div class="preview-brand-row" style="border-bottom-color:#0ea5e9;">
+          <div>
+            <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.05em;">
+              Número de Factura Fiscal SAR
+            </div>
+            <div style="font-size:18px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:2px; color:#0ea5e9;">
+              {{ facturaSeleccionada?.numeroFactura || '000-001-01-00000001' }}
+            </div>
+            <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
+              Fecha: {{ (facturaSeleccionada?.fechaEmision || facturaSeleccionada?.venta?.fechaVenta) | date:'MM/dd/yyyy, h:mm:ss a' }}
+            </div>
           </div>
-          <div class="invoice-row">
-            <span>Importe Gravado 15%:</span>
-            <span>L. {{ (facturaSeleccionada?.montoGravado15 || (facturaSeleccionada?.total / 1.15)) | number:'1.2-2' }}</span>
-          </div>
-          <div class="invoice-row">
-            <span>I.S.V. (15%):</span>
-            <span>L. {{ (facturaSeleccionada?.isv15 || (facturaSeleccionada?.total - (facturaSeleccionada?.total / 1.15))) | number:'1.2-2' }}</span>
-          </div>
-          <div class="invoice-row total-bold">
-            <span>TOTAL A PAGAR:</span>
-            <span>L. {{ (facturaSeleccionada?.total || 0) | number:'1.2-2' }}</span>
+          <div style="text-align:right;">
+            <img src="assets/logo.png" alt="Vision Tech" style="height:48px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.style.display='none'">
+            <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
+            <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
           </div>
         </div>
 
-        <div style="text-align:center; font-size:9px; color:#888; margin-top:8px;">
+        <!-- Caja Fiscal SAR Oficial -->
+        <div class="preview-cai-box">
+          <div><b>RTN Empresa:</b> {{ sarConfig?.rtn || '08011990123456' }}</div>
+          <div style="word-break:break-all; margin:3px 0;"><b>CAI:</b> {{ facturaSeleccionada?.cai || sarConfig?.cai }}</div>
+          <div><b>Rango Autorizado:</b> {{ facturaSeleccionada?.rangoDesde || sarConfig?.rangoDesde || '000-001-01-00000001' }} al {{ facturaSeleccionada?.rangoHasta || sarConfig?.rangoHasta || '000-001-01-00005000' }}</div>
+          <div><b>Fecha Límite de Emisión:</b> {{ (facturaSeleccionada?.fechaLimiteEmision || sarConfig?.fechaLimiteEmision) ? ((facturaSeleccionada?.fechaLimiteEmision || sarConfig?.fechaLimiteEmision) | date:'dd/MM/yyyy') : '31/12/2027' }}</div>
+        </div>
+
+        <!-- Información del Cliente -->
+        <div class="preview-client-box">
+          <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Información del Cliente</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10.5px;">
+            <div><span style="color:#64748b;">Cliente:</span> <b>{{ facturaSeleccionada?.nombreCliente || facturaSeleccionada?.venta?.cliente || 'Consumidor Final' }}</b></div>
+            <div><span style="color:#64748b;">RTN:</span> <b>{{ facturaSeleccionada?.rtnCliente || facturaSeleccionada?.venta?.clienteRtn || '0000-0000-00000' }}</b></div>
+            <div><span style="color:#64748b;">Correo:</span> {{ facturaSeleccionada?.email || facturaSeleccionada?.venta?.clienteEmail || '—' }}</div>
+            <div><span style="color:#64748b;">Método de Pago:</span> <b>{{ facturaSeleccionada?.metodoPago || 'Efectivo' }}</b></div>
+          </div>
+        </div>
+
+        <!-- Detalles de la Factura (Tabla de Ítems) -->
+        <div style="margin-bottom:14px;">
+          <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Detalles de la factura</div>
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Descripción</th>
+                <th style="text-align:center;">Cantidad</th>
+                <th style="text-align:right;">Precio</th>
+                <th style="text-align:right;">Descuento</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of (facturaSeleccionada?.venta?.detalles || facturaSeleccionada?.detalles)">
+                <td><b>{{ item.producto || item.nombre }}</b></td>
+                <td style="text-align:center;">{{ item.cantidad }}</td>
+                <td style="text-align:right;">L. {{ (item.precio || item.precioUnitario || 0) | number:'1.2-2' }}</td>
+                <td style="text-align:right;">L. {{ (item.descuento || 0) | number:'1.2-2' }}</td>
+                <td style="text-align:right;"><b>L. {{ (item.total || ((item.precio || 0) * (item.cantidad || 1))) | number:'1.2-2' }}</b></td>
+              </tr>
+              <tr *ngIf="!(facturaSeleccionada?.venta?.detalles?.length || facturaSeleccionada?.detalles?.length)">
+                <td><b>Equipo de Seguridad y Tecnología</b></td>
+                <td style="text-align:center;">1</td>
+                <td style="text-align:right;">L. {{ (facturaSeleccionada?.total || 0) | number:'1.2-2' }}</td>
+                <td style="text-align:right;">L. 0.00</td>
+                <td style="text-align:right;"><b>L. {{ (facturaSeleccionada?.total || 0) | number:'1.2-2' }}</b></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Resumen de la Factura (Cálculos SAR) -->
+        <div style="display:flex; justify-content:flex-end;">
+          <div class="preview-summary">
+            <div style="font-weight:700; color:#0f172a; margin-bottom:4px; font-size:11px;">Resumen de la factura</div>
+            <div class="preview-summary-row">
+              <span>Subtotal:</span>
+              <span>L. {{ ((facturaSeleccionada?.total || 0) - (facturaSeleccionada?.isv15 || 0) - (facturaSeleccionada?.isv18 || 0)) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-row">
+              <span>Exonerado:</span>
+              <span>L. 0.00</span>
+            </div>
+            <div class="preview-summary-row">
+              <span>Exento:</span>
+              <span>L. {{ (facturaSeleccionada?.montoExento || 0) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-row">
+              <span>Gravado 15%:</span>
+              <span>L. {{ (facturaSeleccionada?.montoGravado15 || ((facturaSeleccionada?.total || 0) / 1.15)) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-row">
+              <span>Gravado 18%:</span>
+              <span>L. {{ (facturaSeleccionada?.montoGravado18 || 0) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-row">
+              <span>ISV 15%:</span>
+              <span>L. {{ (facturaSeleccionada?.isv15 || ((facturaSeleccionada?.total || 0) - ((facturaSeleccionada?.total || 0) / 1.15))) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-row">
+              <span>ISV 18%:</span>
+              <span>L. {{ (facturaSeleccionada?.isv18 || 0) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-total">
+              <span>Total:</span>
+              <span>L. {{ (facturaSeleccionada?.total || 0) | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notas al pie -->
+        <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:10px; font-size:10px;">
+          <div style="margin-bottom:4px;">
+            <b>Notas al pie de factura:</b><br>
+            <span style="color:#64748b;">Gracias por su compra en Sistema Vision Tech. Garantía de fábrica en equipos de seguridad y electrónica.</span>
+          </div>
+        </div>
+
+        <!-- Total en Letras -->
+        <div class="preview-footer-words">
+          <div style="font-weight:700; color:#0f172a; margin-bottom:2px;">Total en Letras:</div>
+          <div style="color:#1e3a8a; font-weight:600; text-transform:uppercase;">
+            {{ convertirNumeroALetras(facturaSeleccionada?.total || 0) }}
+          </div>
+        </div>
+
+        <div style="text-align:center; font-size:9.5px; color:#64748b; font-weight:700; margin-top:14px; border-top:1px dashed #cbd5e1; padding-top:8px;">
           "LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA"
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="outline-button" (click)="showFacturaModal = false">Cerrar</button>
-      <button class="primary-button" style="margin:0; padding:10px 18px;" onclick="window.print()">
-        Imprimir Factura
+      <button class="btn-action" style="padding:9px 16px; font-weight:700;" (click)="descargarFacturaModalPDF()">
+        <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Descargar PDF
+      </button>
+      <button class="primary-button" style="margin:0; padding:10px 18px;" (click)="imprimirFacturaModal()">
+        <lucide-icon [img]="icons.Printer" [size]="14"></lucide-icon> Imprimir Factura
       </button>
     </div>
   </div>
@@ -1788,6 +2537,347 @@
       <button class="primary-button" style="margin:0; padding:10px 18px;" [disabled]="guardandoEditarCliente" (click)="guardarEdicionCliente()">
         {{ guardandoEditarCliente ? 'Guardando...' : 'Guardar Cambios' }}
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: EDITAR COTIZACIÓN (CON REGISTRO DE AUDITORÍA)                      -->
+<!-- ========================================================================= -->
+<div *ngIf="showEditarCotizacionModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width: 680px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <lucide-icon [img]="icons.Pencil" [size]="18" style="color:#7e22ce;"></lucide-icon>
+        <h3>Editar Cotización: {{ cotizacionEditando?.numeroCotizacion || ('#COT-' + cotizacionEditando?.ventaId) }}</h3>
+      </div>
+      <button class="modal-close" (click)="showEditarCotizacionModal = false">
+        <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Selección de Cliente -->
+      <div class="form-group">
+        <label>Cliente:</label>
+        <select [(ngModel)]="editarCotizacionForm.clienteId">
+          <option *ngFor="let c of clientes" [value]="c.clienteId">
+            {{ c.nombre }} (RTN: {{ c.rtn || 'Consumidor Final' }})
+          </option>
+        </select>
+      </div>
+
+      <!-- Lista de Ítems / Productos -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <label style="font-weight:700; font-size:11.5px;">Productos / Renglones de la cotización:</label>
+          <button type="button" class="btn-action purple" (click)="agregarItemEditarCotizacion()">
+            <lucide-icon [img]="icons.Plus" [size]="12"></lucide-icon> + Agregar ítem
+          </button>
+        </div>
+
+        <div style="display:grid; gap:10px;">
+          <div *ngFor="let item of editarCotizacionForm.items; let i = index" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; display:grid; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; font-weight:700; color:#475569;">Ítem #{{ i + 1 }}</span>
+              <button *ngIf="editarCotizacionForm.items.length > 1" type="button" class="btn-trash" (click)="eliminarItemEditarCotizacion(i)" title="Eliminar ítem">
+                <lucide-icon [img]="icons.Trash2" [size]="12"></lucide-icon>
+              </button>
+            </div>
+
+            <div class="form-group">
+              <label>Producto:</label>
+              <select [(ngModel)]="item.productoId" (change)="onProductoChangeEditar(item)">
+                <option *ngFor="let p of products" [value]="p.productoId">
+                  {{ p.nombre }} — L. {{ (p.precioVenta || p.precio || 0) | number:'1.2-2' }}
+                </option>
+              </select>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1.2fr 1fr 1fr; gap:8px; align-items:end;">
+              <div class="form-group">
+                <label>Cantidad:</label>
+                <input type="number" min="1" [(ngModel)]="item.cantidad">
+              </div>
+              <div class="form-group">
+                <label>Precio Unitario (L.):</label>
+                <input type="number" step="0.01" min="0" [(ngModel)]="item.precio">
+              </div>
+              <div class="form-group">
+                <label>Descuento (L.):</label>
+                <input type="number" step="0.01" min="0" [(ngModel)]="item.descuento">
+              </div>
+              <div style="text-align:right; font-weight:800; font-size:12px; color:#1e3a8a; padding-bottom:6px;">
+                L. {{ calcularLineaTotalEditar(item) | number:'1.2-2' }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:12px; font-size:14px; font-weight:800; color:#0f172a;">
+          Nuevo Total Cotización: L. {{ totalEditarCotizacion | number:'1.2-2' }}
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="outline-button" (click)="showEditarCotizacionModal = false">Cancelar</button>
+      <button class="primary-button" style="margin:0; padding:10px 18px; background:#7e22ce;" [disabled]="guardandoEdicionCotizacion" (click)="guardarEdicionCotizacion()">
+        {{ guardandoEdicionCotizacion ? 'Guardando en auditoría...' : 'Guardar Modificaciones' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: HISTORIAL DE MODIFICACIONES (LOG DE AUDITORÍA DE COTIZACIONES)     -->
+<!-- ========================================================================= -->
+<div *ngIf="showHistorialCotizacionModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width: 640px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <lucide-icon [img]="icons.History" [size]="18" style="color:#6366f1;"></lucide-icon>
+        <h3>Bitácora de Auditoría — Cotización {{ cotizacionHistorialVenta?.numeroCotizacion || ('#COT-' + cotizacionHistorialVenta?.ventaId) }}</h3>
+      </div>
+      <button class="modal-close" (click)="showHistorialCotizacionModal = false">
+        <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#f1f5f9; padding:10px 14px; border-radius:8px; font-size:11px;">
+        <div><b>Cliente:</b> {{ cotizacionHistorialVenta?.cliente }}</div>
+        <div><b>Total Actual:</b> L. {{ (cotizacionHistorialVenta?.total || 0) | number:'1.2-2' }}</div>
+      </div>
+
+      <div *ngIf="cargandoHistorial" style="text-align:center; padding:30px; color:#64748b;">
+        Cargando historial de auditoría...
+      </div>
+
+      <div *ngIf="!cargandoHistorial && historialCotizacionList.length === 0" style="text-align:center; padding:30px; color:#64748b;">
+        No hay registros en la bitácora para esta cotización.
+      </div>
+
+      <div *ngIf="!cargandoHistorial && historialCotizacionList.length > 0" class="audit-timeline">
+        <div *ngFor="let h of historialCotizacionList" class="audit-card" [class.creacion]="h.accion === 'CREACIÓN' || h.accion === 'CREACION'" [class.modificacion]="h.accion === 'MODIFICACIÓN' || h.accion === 'MODIFICACION'" [class.facturada]="h.accion === 'FACTURADA' || h.accion === 'CONVERSION_FACTURA'" [class.anulada]="h.accion === 'ANULADA'">
+          <div class="audit-header">
+            <span class="audit-action" [class.creacion]="h.accion === 'CREACIÓN' || h.accion === 'CREACION'" [class.modificacion]="h.accion === 'MODIFICACIÓN' || h.accion === 'MODIFICACION'" [class.facturada]="h.accion === 'FACTURADA' || h.accion === 'CONVERSION_FACTURA'" [class.anulada]="h.accion === 'ANULADA'">
+              {{ h.accion }}
+            </span>
+            <span style="color:#64748b;">{{ h.fechaModificacion | date:'dd/MM/yyyy, hh:mm:ss a' }}</span>
+          </div>
+
+          <div style="font-size:11px; color:#475569; margin-bottom:4px;">
+            <b>Usuario responsable:</b> <span style="color:#1e3a8a;">{{ h.usuario }}</span>
+            <span *ngIf="h.motivo" style="margin-left:8px; color:#6b7280;">&bull; <i>Motivo: {{ h.motivo }}</i></span>
+          </div>
+
+          <div class="audit-details">{{ h.detalleCambios }}</div>
+
+          <div class="audit-totals">
+            <span *ngIf="h.totalAnterior !== null && h.totalAnterior !== undefined">Total anterior: L. {{ h.totalAnterior | number:'1.2-2' }}</span>
+            <span style="color:#0f172a;"><b>Total resultante: L. {{ h.totalNuevo | number:'1.2-2' }}</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="outline-button" (click)="showHistorialCotizacionModal = false">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: VISUALIZACIÓN DE COTIZACIÓN (PROFORMA / IMPRESIÓN)                 -->
+<!-- ========================================================================= -->
+<div *ngIf="showVerCotizacionModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width:680px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <lucide-icon [img]="icons.FileText" [size]="18" style="color:#7e22ce;"></lucide-icon>
+        <h3>Cotización / Proforma Comercial</h3>
+      </div>
+      <button class="modal-close" (click)="showVerCotizacionModal = false">
+        <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
+      </button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;">
+      <div class="factura-paper-sheet" id="cotizacion-modal-print-area" style="box-shadow:none; border:1px solid #e9d5ff; padding:24px 22px;">
+        <!-- Encabezado con número de documento y logo -->
+        <div class="preview-brand-row" style="border-bottom-color:#7e22ce;">
+          <div>
+            <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:.05em;">
+              Número de Cotización
+            </div>
+            <div style="font-size:18px; font-weight:800; font-family:'Manrope',sans-serif; margin-top:2px; color:#7e22ce;">
+              {{ cotizacionSeleccionada?.numeroCotizacion || ('COT-' + cotizacionSeleccionada?.ventaId) }}
+            </div>
+            <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
+              Fecha: {{ cotizacionSeleccionada?.fechaVenta | date:'MM/dd/yyyy, h:mm:ss a' }}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <img src="assets/logo.png" alt="Vision Tech" style="height:48px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.style.display='none'">
+            <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
+            <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
+          </div>
+        </div>
+
+        <!-- Aviso Proforma -->
+        <div class="preview-cai-box" style="background:#faf5ff; border-color:#e9d5ff; color:#581c87;">
+          <div style="font-weight:800; font-size:11.5px; color:#7e22ce;">COTIZACIÓN COMERCIAL / PROFORMA</div>
+          <div><b>Validez de la oferta:</b> 15 días calendario a partir de su emisión.</div>
+          <div style="font-size:10px; color:#6b21a8; margin-top:3px;">
+            * Documento informativo sin valor tributario. No deduce existencias de inventario ni genera correlativo fiscal SAR.
+          </div>
+        </div>
+
+        <!-- Información del Cliente -->
+        <div class="preview-client-box">
+          <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Información del Cliente</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10.5px;">
+            <div><span style="color:#64748b;">Cliente:</span> <b>{{ cotizacionSeleccionada?.cliente || 'Consumidor Final' }}</b></div>
+            <div><span style="color:#64748b;">RTN:</span> <b>{{ cotizacionSeleccionada?.clienteRtn || '0000-0000-00000' }}</b></div>
+            <div><span style="color:#64748b;">Estado:</span> <span class="badge-cotizacion">{{ cotizacionSeleccionada?.estadoVenta }}</span></div>
+            <div><span style="color:#64748b;">Moneda:</span> <b>Lempiras (HNL)</b></div>
+          </div>
+        </div>
+
+        <!-- Detalles de la Cotización -->
+        <div style="margin-bottom:14px;">
+          <div style="font-weight:700; color:#0f172a; margin-bottom:6px; font-size:11px;">Detalles de la cotización</div>
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>Descripción</th>
+                <th style="text-align:center;">Cantidad</th>
+                <th style="text-align:right;">Precio</th>
+                <th style="text-align:right;">Descuento</th>
+                <th style="text-align:right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of cotizacionSeleccionada?.detalles">
+                <td><b>{{ item.producto }}</b></td>
+                <td style="text-align:center;">{{ item.cantidad }}</td>
+                <td style="text-align:right;">L. {{ (item.precio || 0) | number:'1.2-2' }}</td>
+                <td style="text-align:right;">L. 0.00</td>
+                <td style="text-align:right;"><b>L. {{ item.total | number:'1.2-2' }}</b></td>
+              </tr>
+              <tr *ngIf="!cotizacionSeleccionada?.detalles?.length">
+                <td><b>Equipo Tecnológico y de Seguridad</b></td>
+                <td style="text-align:center;">1</td>
+                <td style="text-align:right;">L. {{ (cotizacionSeleccionada?.total || 0) | number:'1.2-2' }}</td>
+                <td style="text-align:right;">L. 0.00</td>
+                <td style="text-align:right;"><b>L. {{ (cotizacionSeleccionada?.total || 0) | number:'1.2-2' }}</b></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Resumen de Cotización -->
+        <div style="display:flex; justify-content:flex-end;">
+          <div class="preview-summary">
+            <div style="font-weight:700; color:#0f172a; margin-bottom:4px; font-size:11px;">Resumen comercial</div>
+            <div class="preview-summary-row">
+              <span>Subtotal:</span>
+              <span>L. {{ ((cotizacionSeleccionada?.total || 0) / 1.15) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-row">
+              <span>ISV Estimado (15%):</span>
+              <span>L. {{ ((cotizacionSeleccionada?.total || 0) - ((cotizacionSeleccionada?.total || 0) / 1.15)) | number:'1.2-2' }}</span>
+            </div>
+            <div class="preview-summary-total" style="border-top-color:#7e22ce; color:#7e22ce;">
+              <span>Total Cotizado:</span>
+              <span>L. {{ (cotizacionSeleccionada?.total || 0) | number:'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total en Letras -->
+        <div class="preview-footer-words" style="background:#faf5ff; border-color:#e9d5ff;">
+          <div style="font-weight:700; color:#0f172a; margin-bottom:2px;">Total en Letras:</div>
+          <div style="color:#7e22ce; font-weight:600; text-transform:uppercase;">
+            {{ convertirNumeroALetras(cotizacionSeleccionada?.total || 0) }}
+          </div>
+        </div>
+
+        <div style="text-align:center; font-size:9.5px; color:#6b21a8; font-weight:700; margin-top:14px; border-top:1px dashed #e9d5ff; padding-top:8px;">
+          DOCUMENTO PROFORMA / COTIZACIÓN COMERCIAL &bull; NO CONSTITUYE FACTURA FISCAL SAR
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="outline-button" (click)="showVerCotizacionModal = false">Cerrar</button>
+      <button class="btn-action" style="padding:9px 16px; font-weight:700; color:#7e22ce; border-color:#e9d5ff;" (click)="descargarCotizacionModalPDF()">
+        <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Descargar PDF
+      </button>
+      <button class="primary-button" style="margin:0; padding:10px 18px; background:#7e22ce;" (click)="imprimirCotizacionModal()">
+        <lucide-icon [img]="icons.Printer" [size]="14"></lucide-icon> Imprimir Cotización
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ========================================================================= -->
+<!-- MODAL: HISTORIAL DE MODIFICACIONES (LOG DE AUDITORÍA DE PRODUCTOS - SOLO ADMIN) -->
+<!-- ========================================================================= -->
+<div *ngIf="showHistorialProductoModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width: 650px;">
+    <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+      <div>
+        <h3 style="color: #0f172a; display: flex; align-items: center; gap: 8px;">
+          <lucide-icon [img]="icons.History" [size]="18" style="color: #0284c7;"></lucide-icon>
+          Bitácora de Auditoría: {{ productoHistorialSeleccionado?.nombre }}
+        </h3>
+        <p style="font-size: 11px; color: #64748b; margin: 2px 0 0;">
+          Código: <b>{{ productoHistorialSeleccionado?.codigo || 'N/A' }}</b> &bull; Registro inmutable reservado para gerencia / administración.
+        </p>
+      </div>
+      <button class="modal-close" (click)="showHistorialProductoModal = false">
+        <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
+      </button>
+    </div>
+
+    <div class="modal-body" style="padding: 20px; max-height: 60vh; overflow-y: auto;">
+      <div *ngIf="cargandoHistorialProducto" style="text-align: center; padding: 30px; color: #64748b;">
+        <p>Cargando bitácora de auditoría del producto...</p>
+      </div>
+
+      <div *ngIf="!cargandoHistorialProducto && !historialProductoList.length" style="text-align: center; padding: 36px 20px; color: #94a3b8;">
+        <lucide-icon [img]="icons.History" [size]="36" style="margin-bottom: 8px; opacity: 0.5;"></lucide-icon>
+        <p style="font-size: 13px; font-weight: 600; color: #475569;">No hay modificaciones registradas para este producto</p>
+        <p style="font-size: 11px; color: #94a3b8;">Los cambios de precio, nombre, descripción o ISV se registrarán automáticamente aquí.</p>
+      </div>
+
+      <div *ngIf="!cargandoHistorialProducto && historialProductoList.length" style="display: flex; flex-direction: column;">
+        <div *ngFor="let item of historialProductoList" class="timeline-audit-item">
+          <div class="timeline-audit-dot"></div>
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+              <div>
+                <span class="status" style="background: #e0f2fe; color: #0369a1; font-weight: 800; font-size: 10px;">{{ item.accion }}</span>
+                <span style="font-size: 11.5px; font-weight: 700; color: #1e293b; margin-left: 8px;">Por: {{ item.usuario }}</span>
+              </div>
+              <span style="font-size: 10.5px; color: #94a3b8;">{{ item.fechaModificacion | date:'dd/MM/yyyy, h:mm a' }}</span>
+            </div>
+
+            <!-- Precios comparativos si hubo cambio -->
+            <div *ngIf="item.precioAnterior !== null && item.precioNuevo !== null && item.precioAnterior !== item.precioNuevo" 
+                 style="display: flex; gap: 14px; align-items: center; margin: 8px 0; background: #f8fafc; padding: 8px 12px; border-radius: 6px; font-size: 11px;">
+              <div><span style="color: #64748b;">Precio Anterior:</span> <b style="color: #e11d48; text-decoration: line-through;">L. {{ item.precioAnterior | number:'1.2-2' }}</b></div>
+              <div style="color: #94a3b8;">&rarr;</div>
+              <div><span style="color: #64748b;">Precio Nuevo:</span> <b style="color: #059669;">L. {{ item.precioNuevo | number:'1.2-2' }}</b></div>
+            </div>
+
+            <div style="font-size: 11.5px; color: #475569; white-space: pre-wrap; line-height: 1.45; background: #fcfcfc; border-left: 3px solid #38bdf8; padding: 6px 10px; border-radius: 0 4px 4px 0;">
+              {{ item.detalleCambios }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="background: #f8fafc; border-top: 1px solid #e2e8f0;">
+      <button class="outline-button" (click)="showHistorialProductoModal = false">Cerrar</button>
     </div>
   </div>
 </div>

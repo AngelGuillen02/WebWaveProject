@@ -7,6 +7,8 @@ namespace SistemaVisionTech.Features.Ventas.Dtos
         public int? MetodoPagoId { get; set; } = 1; // 1 = Efectivo
         public bool ConcretarVenta { get; set; } = true;
         public bool EmitirFactura { get; set; } = true;
+        public bool EsCotizacion { get; set; } = false;
+        public string? UsuarioNombre { get; set; }
         public List<CrearVentaDetalleDto> Detalles { get; set; } = [];
     }
 }

@@ -1,13 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, inject, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import Swal from 'sweetalert2';
+import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import {
   Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardList,
   FileBarChart, Home, LogOut, Menu, Package, Search,
   Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
   AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-  Pencil, History, Ban, Layers, LucideAngularModule
+  Pencil, History, Ban, Layers, Download, LucideAngularModule
 } from 'lucide-angular';
 
 interface Product {
@@ -118,12 +122,15 @@ interface VentaItem {
   fechaVenta: string;
   total: number;
   estadoVenta: string;
+  esCotizacion?: boolean;
+  numeroCotizacion?: string;
   numeroFactura?: string;
   cai?: string;
   isv15?: number;
   isv18?: number;
   montoExento?: number;
   montoGravado15?: number;
+  montoGravado18?: number;
   fechaFactura?: string;
   detalles: any[];
   pagos: any[];
@@ -166,7 +173,7 @@ export class AppComponent {
     FileBarChart, Home, LogOut, Menu, Package, Search,
     Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
     AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-    Pencil, History, Ban, Layers
+    Pencil, History, Ban, Layers, Download
   };
 
   readonly api = 'http://localhost:5008/api';
@@ -178,8 +185,14 @@ export class AppComponent {
   search = '';
   sidebarOpen = false;
 
-  currentUser = {
+  currentUser: {
+    name: string;
+    email?: string;
+    role: string;
+    initials: string;
+  } = {
     name: sessionStorage.getItem('webwave_user_name') || 'Angel Guillen',
+    email: sessionStorage.getItem('webwave_user_email') || 'admin@visiontech.com',
     role: sessionStorage.getItem('webwave_user_role') || 'Administrador',
     initials: sessionStorage.getItem('webwave_user_initials') || 'AG'
   };
@@ -187,6 +200,43 @@ export class AppComponent {
   get isAdmin(): boolean {
     const role = (this.currentUser.role || '').toLowerCase();
     return role.includes('admin') || role === 'administrador';
+  }
+
+  get isFacturador(): boolean {
+    const role = (this.currentUser.role || '').toLowerCase();
+    return role.includes('factur') || role.includes('ventas') || role.includes('vendedor');
+  }
+
+  get isCajero(): boolean {
+    const role = (this.currentUser.role || '').toLowerCase();
+    return role.includes('cajer');
+  }
+
+  get isAlmacen(): boolean {
+    const role = (this.currentUser.role || '').toLowerCase();
+    return role.includes('almacen') || role.includes('inventario');
+  }
+
+  puedeVerModulo(modulo: string): boolean {
+    if (this.isAdmin) return true;
+
+    // Rol Facturación y Ventas: ve únicamente Resumen, Facturas (ventas), Clientes y Productos
+    if (this.isFacturador) {
+      return ['Resumen', 'Facturas', 'Clientes', 'Productos'].includes(modulo);
+    }
+
+    // Rol Cajero: ve Resumen, Facturas, Caja, Clientes, Productos
+    if (this.isCajero) {
+      return ['Resumen', 'Facturas', 'Caja', 'Clientes', 'Productos'].includes(modulo);
+    }
+
+    // Rol Almacén: ve Resumen, Inventario, Productos, Compras, Proveedores
+    if (this.isAlmacen) {
+      return ['Resumen', 'Inventario', 'Productos', 'Compras', 'Proveedores'].includes(modulo);
+    }
+
+    // Rol general por defecto
+    return ['Resumen', 'Facturas', 'Clientes', 'Productos'].includes(modulo);
   }
 
   // Colecciones de Datos del API
@@ -202,8 +252,19 @@ export class AppComponent {
   usuarios: UsuarioItem[] = [];
   perfiles: PerfilItem[] = [];
 
-  // Pestañas secundarias en Inventario
+  // Pestañas secundarias en Facturas e Inventario
+  subTabFacturas: 'listado' | 'crear' = 'listado';
   subTabInventario: 'stock' | 'kardex' = 'stock';
+
+  abrirCrearFactura() {
+    this.active = 'Facturas';
+    this.subTabFacturas = 'crear';
+  }
+
+  volverAListadoFacturas() {
+    this.subTabFacturas = 'listado';
+    this.loadVentas();
+  }
 
   // Configuración SAR
   sarConfig: SARConfig | null = null;
@@ -213,6 +274,28 @@ export class AppComponent {
   showNuevoClienteModal = false;
   showMovimientoInventarioModal = false;
   facturaSeleccionada: any = null;
+
+  // Modales de Cotizaciones y Auditoría
+  showEditarCotizacionModal = false;
+  guardandoEdicionCotizacion = false;
+  cotizacionEditando: any = null;
+  editarCotizacionForm: {
+    clienteId: number;
+    motivo: string;
+    items: FacturaItemRow[];
+  } = {
+    clienteId: 1,
+    motivo: '',
+    items: []
+  };
+
+  showHistorialCotizacionModal = false;
+  cargandoHistorial = false;
+  historialCotizacionList: any[] = [];
+  cotizacionHistorialVenta: any = null;
+
+  showVerCotizacionModal = false;
+  cotizacionSeleccionada: any = null;
 
   // Modales de Compras y Proveedores
   showNuevaCompraModal = false;
@@ -250,6 +333,28 @@ export class AppComponent {
     perfilId: 1
   };
 
+  // Pestañas secundarias de Configuración
+  subTabConfiguracion: 'general' | 'facturas' | 'seguridad' = 'general';
+  guardandoConfiguracion = false;
+  companyConfig = {
+    nombre: localStorage.getItem('vt_company_nombre') || '3tech Distribuidora S. De R.L de C.V.',
+    nombreGerente: localStorage.getItem('vt_company_gerente_nombre') || 'Angel',
+    apellidoGerente: localStorage.getItem('vt_company_gerente_apellido') || 'Guillen',
+    rtn: localStorage.getItem('vt_company_rtn') || '18049025265441',
+    direccion: localStorage.getItem('vt_company_direccion') || '4ta Calle sur del progreso, Enfrente de Construcenter, mano derecho de Aire frio, Ala par de Carwash Osman',
+    telefono: localStorage.getItem('vt_company_telefono') || '0000-0000',
+    email: localStorage.getItem('vt_company_email') || 'visiontech3x@gmail.com',
+    notaDocumento: localStorage.getItem('vt_company_nota_doc') || 'Gracias por su preferencia. Los pagos se realizan a 30 días.',
+    notaPie: localStorage.getItem('vt_company_nota_pie') || 'Garantía de 1 año en equipos de seguridad electrónica y tecnología. Conserve este comprobante.',
+    logoUrl: localStorage.getItem('vt_company_logo') || 'assets/logo.png'
+  };
+
+  // Modal de Historial de Auditoría de Producto
+  showHistorialProductoModal = false;
+  cargandoHistorialProducto = false;
+  productoHistorialSeleccionado: any = null;
+  historialProductoList: any[] = [];
+
   // Modales de Edición de Productos y Clientes
   showEditarProductoModal = false;
   guardandoEditarProducto = false;
@@ -273,6 +378,32 @@ export class AppComponent {
     direccion: '',
     tipoCliente: 'Natural'
   };
+
+
+  // Cierre de cualquier modal al presionar la tecla Esc
+  @HostListener('window:keydown.escape', ['$event'])
+  handleKeyboardEvent(event: KeyboardEvent) {
+    this.cerrarTodosLosModales();
+  }
+
+  cerrarTodosLosModales() {
+    this.showSARConfigModal = false;
+    this.showFacturaModal = false;
+    this.showNuevoProductoModal = false;
+    this.showNuevoClienteModal = false;
+    this.showMovimientoInventarioModal = false;
+    this.showEditarCotizacionModal = false;
+    this.showHistorialCotizacionModal = false;
+    this.showVerCotizacionModal = false;
+    this.showNuevaCompraModal = false;
+    this.showProveedorModal = false;
+    this.showAbrirCajaModal = false;
+    this.showCerrarCajaModal = false;
+    this.showNuevoUsuarioModal = false;
+    this.showHistorialProductoModal = false;
+    this.showEditarProductoModal = false;
+    this.showEditarClienteModal = false;
+  }
 
   // Modelos de registro
   guardandoProducto = false;
@@ -323,20 +454,21 @@ export class AppComponent {
 
   // Facturación en vivo
   facturaForm = {
+    tipoDocumento: 'Factura' as 'Factura' | 'Cotizacion',
     clienteId: 1,
     fecha: new Date().toISOString().split('T')[0],
     metodoPagoId: 1,
     moneda: 'Lempiras (HNL)',
     notas: '',
-    notasPie: 'Gracias por su compra en Sistema Vision Tech. Garantía de 6 meses en monturas.',
+    notasPie: 'Gracias por su compra en Sistema Vision Tech. Garantía de 1 año en equipos de seguridad electrónica y redes.',
     mostrarNotas: false,
     mostrarNotasPie: false,
     items: [
       {
-        productoId: 1,
-        nombre: 'Lente Antirreflejo HD',
+        productoId: 7,
+        nombre: 'Camara Domo IP 4MP IR 30m PoE',
         cantidad: 1,
-        precio: 1250.00,
+        precio: 1450.00,
         descuento: 0,
         tipoISV: 'ISV15'
       }
@@ -349,15 +481,16 @@ export class AppComponent {
 
   nav = [
     { label: 'Resumen', icon: 'Home' },
-    { label: 'Facturación', icon: 'FileText' },
-    { label: 'Ventas', icon: 'ShoppingCart' },
+    { label: 'Facturas', icon: 'FileText' },
     { label: 'Compras', icon: 'Truck' },
     { label: 'Inventario', icon: 'Boxes' },
     { label: 'Productos', icon: 'Package' },
     { label: 'Clientes', icon: 'Users' },
     { label: 'Proveedores', icon: 'Store' },
     { label: 'Caja', icon: 'CircleDollarSign' },
-    { label: 'Usuarios', icon: 'Shield' }
+    { label: 'Reportes', icon: 'FileBarChart' },
+    { label: 'Usuarios', icon: 'Shield' },
+    { label: 'Configuración', icon: 'Settings' }
   ];
 
   stats = [
@@ -385,9 +518,68 @@ export class AppComponent {
     return { headers };
   }
 
+  // =========================================================================
+  // NOTIFICACIONES Y ALERTAS (SWEETALERT2)
+  // =========================================================================
+  notificarExito(titulo: string, texto?: string) {
+    return Swal.fire({
+      icon: 'success',
+      title: titulo,
+      text: texto || '',
+      confirmButtonColor: '#1f8a67',
+      confirmButtonText: 'Aceptar',
+      timer: 3500,
+      timerProgressBar: true
+    });
+  }
+
+  notificarError(titulo: string, texto?: string) {
+    return Swal.fire({
+      icon: 'error',
+      title: titulo,
+      text: texto || '',
+      confirmButtonColor: '#dc2626',
+      confirmButtonText: 'Entendido'
+    });
+  }
+
+  notificarAdvertencia(titulo: string, texto?: string) {
+    return Swal.fire({
+      icon: 'warning',
+      title: titulo,
+      text: texto || '',
+      confirmButtonColor: '#e98c35',
+      confirmButtonText: 'Aceptar'
+    });
+  }
+
+  notificarInfo(titulo: string, texto?: string) {
+    return Swal.fire({
+      icon: 'info',
+      title: titulo,
+      text: texto || '',
+      confirmButtonColor: '#12352d',
+      confirmButtonText: 'Aceptar'
+    });
+  }
+
+  async confirmarAccion(titulo: string, texto: string, confirmText: string = 'Sí, continuar', cancelText: string = 'Cancelar', esPeligroso: boolean = false): Promise<boolean> {
+    const result = await Swal.fire({
+      title: titulo,
+      text: texto,
+      icon: esPeligroso ? 'warning' : 'question',
+      showCancelButton: true,
+      confirmButtonColor: esPeligroso ? '#dc2626' : '#1f8a67',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: confirmText,
+      cancelButtonText: cancelText
+    });
+    return result.isConfirmed;
+  }
+
   private handleAuthError(err: any): boolean {
     if (err.status === 401) {
-      alert('Tu sesión ha expirado o el token de seguridad no es válido. Por favor vuelve a iniciar sesión.');
+      this.notificarAdvertencia('Sesión Expirada', 'Tu sesión ha expirado o el token de seguridad no es válido. Por favor vuelve a iniciar sesión.');
       this.logout();
       return true;
     }
@@ -421,8 +613,11 @@ export class AppComponent {
             .substring(0, 2)
             .toUpperCase();
           sessionStorage.setItem('webwave_user_initials', initials);
+          const userEmail = this.credentials.email || 'admin@visiontech.com';
+          sessionStorage.setItem('webwave_user_email', userEmail);
           this.currentUser = {
             name: response.nombre,
+            email: userEmail,
             role: response.perfil || 'Administrador',
             initials: initials || 'AG'
           };
@@ -457,12 +652,8 @@ export class AppComponent {
     this.active = label;
     this.sidebarOpen = false;
     if (label === 'Resumen') this.loadData();
-    if (label === 'Facturación') {
-      this.loadClientes();
-      this.loadProducts();
-      this.loadSARConfig();
-    }
-    if (label === 'Ventas') {
+    if (label === 'Facturas' || label === 'Facturación' || label === 'Ventas') {
+      this.subTabFacturas = 'listado';
       this.loadVentas();
       this.loadClientes();
       this.loadProducts();
@@ -707,7 +898,7 @@ export class AppComponent {
 
   guardarSARConfig() {
     if (!this.isAdmin) {
-      alert('Acceso denegado: Únicamente los usuarios administradores pueden modificar los parámetros del SAR.');
+      this.notificarAdvertencia('Acceso denegado', 'Únicamente los usuarios administradores pueden modificar los parámetros del SAR.');
       return;
     }
 
@@ -723,14 +914,14 @@ export class AppComponent {
 
     this.http.post<any>(`${this.api}/SAR/configuracion`, payload, this.getHeaders()).subscribe({
       next: () => {
-        alert('¡Configuración de SAR y CAI guardada exitosamente!');
+        this.notificarExito('Configuración Guardada', '¡Configuración de SAR y CAI guardada exitosamente!');
         this.showSARConfigModal = false;
         this.loadSARConfig();
         this.loadVentas();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al guardar configuración SAR: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error SAR', 'Error al guardar configuración SAR: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -751,10 +942,23 @@ export class AppComponent {
   }
 
   get ultimaFacturaDisplay(): string {
-    return this.ventas.find(v => v.numeroFactura)?.numeroFactura || '000-001-01-00000000';
+    if (this.facturaForm.tipoDocumento === 'Cotizacion') {
+      const conCot = this.ventas.find(v => v.esCotizacion && v.numeroCotizacion);
+      return conCot?.numeroCotizacion || 'COT-000000';
+    }
+    if (this.facturaEmitidaData?.numeroFactura) {
+      return this.facturaEmitidaData.numeroFactura;
+    }
+    const conFactura = this.ventas.find(v => v.numeroFactura);
+    return conFactura?.numeroFactura || '000-001-01-00000000';
   }
 
   get nuevaFacturaDisplay(): string {
+    if (this.facturaForm.tipoDocumento === 'Cotizacion') {
+      return this.facturaEmitida && this.facturaEmitidaData?.numeroCotizacion
+        ? this.facturaEmitidaData.numeroCotizacion
+        : 'COT-PROXIMA';
+    }
     return this.sarConfig?.siguienteFactura || '000-001-01-00000001';
   }
 
@@ -873,18 +1077,20 @@ export class AppComponent {
 
   generarFacturaEnVivo() {
     if (this.facturaForm.items.length === 0) {
-      alert('Agrega al menos un producto a la factura.');
+      this.notificarAdvertencia('Documento vacío', 'Agrega al menos un producto al documento.');
       return;
     }
 
     this.generandoFactura = true;
+    const isCotizacion = this.facturaForm.tipoDocumento === 'Cotizacion';
     const payload = {
       clienteId: Number(this.facturaForm.clienteId),
       sucursalId: 1,
-      usuarioId: 1,
+      usuarioNombre: this.currentUser?.name || 'Usuario',
       metodoPagoId: Number(this.facturaForm.metodoPagoId),
-      concretarVenta: true,
-      emitirFactura: true,
+      concretarVenta: !isCotizacion,
+      emitirFactura: !isCotizacion,
+      esCotizacion: isCotizacion,
       detalles: this.facturaForm.items.map(i => ({
         productoId: Number(i.productoId),
         cantidad: Number(i.cantidad),
@@ -898,16 +1104,55 @@ export class AppComponent {
         this.generandoFactura = false;
         this.facturaEmitida = true;
         this.facturaEmitidaData = ventaCreada;
-        alert(`¡Factura Fiscal Nº ${ventaCreada.numeroFactura || 'Generada'} emitida con éxito! Se descontó el inventario y se asignó el correlativo SAR.`);
+
+        if (isCotizacion) {
+          this.notificarExito(
+            'Cotización Generada',
+            `¡Cotización ${ventaCreada.numeroCotizacion || 'COT'} generada exitosamente! Puedes editarla o consultar su historial de cambios desde la pantalla de Ventas.`
+          );
+        } else {
+          // Inmediatamente calcular y actualizar el correlativo para que Nueva Factura muestre el siguiente número
+          if (ventaCreada.numeroFactura) {
+            const partes = ventaCreada.numeroFactura.split('-');
+            if (partes.length >= 4) {
+              const prefix = `${partes[0]}-${partes[1]}-${partes[2]}-`;
+              const currentNum = parseInt(partes[3], 10) || 0;
+              const nextNum = currentNum + 1;
+              const nextFormatted = nextNum.toString().padStart(8, '0');
+              const nextInvoice = `${prefix}${nextFormatted}`;
+              if (this.sarConfig) {
+                this.sarConfig.correlativoActual = currentNum;
+                this.sarConfig.siguienteFactura = nextInvoice;
+              } else {
+                this.sarConfig = {
+                  id: 1,
+                  sucursalId: 1,
+                  rtn: '08011990123456',
+                  cai: ventaCreada.cai || '',
+                  rangoDesde: `${prefix}00000001`,
+                  rangoHasta: `${prefix}00005000`,
+                  fechaLimiteEmision: new Date().toISOString(),
+                  correlativoActual: currentNum,
+                  siguienteFactura: nextInvoice,
+                  facturasDisponibles: 4999,
+                  vigente: true
+                };
+              }
+            }
+          }
+
+          this.notificarExito('Factura Fiscal Emitida', `¡Factura Fiscal Nº ${ventaCreada.numeroFactura || 'Generada'} emitida con éxito! Se descontó el inventario y se asignó el correlativo SAR.`);
+          this.loadSARConfig();
+          this.loadCajaEstado();
+        }
+
         this.loadVentas();
         this.loadInventory();
-        this.loadSARConfig();
-        this.loadCajaEstado();
       },
       error: (err) => {
         this.generandoFactura = false;
         if (!this.handleAuthError(err)) {
-          alert('Error al generar la factura: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Procesar', (isCotizacion ? 'Error al generar cotización: ' : 'Error al generar la factura: ') + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -916,22 +1161,25 @@ export class AppComponent {
   nuevaFacturaFormulario() {
     this.facturaEmitida = false;
     this.facturaEmitidaData = null;
-    const firstProd = this.products[0];
+    this.loadSARConfig();
+    this.loadVentas();
+    const firstProd = this.products.find(p => p.nombre?.toLowerCase().includes('camara') || p.nombre?.toLowerCase().includes('magnalock') || p.nombre?.toLowerCase().includes('switch')) || this.products[0];
     this.facturaForm = {
+      tipoDocumento: this.facturaForm?.tipoDocumento || 'Factura',
       clienteId: this.clientes[0]?.clienteId || 1,
       fecha: new Date().toISOString().split('T')[0],
       metodoPagoId: 1,
       moneda: 'Lempiras (HNL)',
       notas: '',
-      notasPie: 'Gracias por su compra en Sistema Vision Tech. Garantía de 6 meses en monturas.',
+      notasPie: 'Gracias por su compra en Sistema Vision Tech. Garantía de 1 año en equipos de seguridad electrónica y redes.',
       mostrarNotas: false,
       mostrarNotasPie: false,
       items: [
         {
           productoId: firstProd?.productoId || 1,
-          nombre: firstProd?.nombre || 'Producto',
+          nombre: firstProd?.nombre || 'Equipo Tecnológico',
           cantidad: 1,
-          precio: firstProd?.precioVenta || firstProd?.precio || 0,
+          precio: firstProd?.precioVenta || firstProd?.precio || 1450,
           descuento: 0,
           tipoISV: firstProd?.tipoISV || 'ISV15'
         }
@@ -939,12 +1187,132 @@ export class AppComponent {
     };
   }
 
+  // =========================================================================
+  // IMPRESIÓN Y EXPORTACIÓN A PDF DE FACTURAS Y COTIZACIONES
+  // =========================================================================
   imprimirFacturaEnVivo() {
-    window.print();
+    this.ejecutarImpresionElemento('invoice-preview-area');
+  }
+
+  descargarFacturaEnVivoPDF() {
+    const num = this.facturaEmitida
+      ? ((this.facturaForm.tipoDocumento === 'Cotizacion' ? this.facturaEmitidaData?.numeroCotizacion : this.facturaEmitidaData?.numeroFactura) || 'documento')
+      : (this.nuevaFacturaDisplay || 'documento');
+    const filename = `${this.facturaForm.tipoDocumento === 'Cotizacion' ? 'Cotizacion' : 'Factura'}_${num}.pdf`;
+    this.generarPDFDesdeElemento('invoice-preview-area', filename);
+  }
+
+  imprimirFacturaModal() {
+    this.ejecutarImpresionElemento('invoice-modal-print-area');
+  }
+
+  descargarFacturaModalPDF() {
+    const num = this.facturaSeleccionada?.numeroFactura || ('FAC-' + (this.facturaSeleccionada?.ventaId || '01'));
+    this.generarPDFDesdeElemento('invoice-modal-print-area', `Factura_${num}.pdf`);
+  }
+
+  imprimirCotizacionModal() {
+    this.ejecutarImpresionElemento('cotizacion-modal-print-area');
+  }
+
+  descargarCotizacionModalPDF() {
+    const num = this.cotizacionSeleccionada?.numeroCotizacion || ('COT-' + (this.cotizacionSeleccionada?.ventaId || '01'));
+    this.generarPDFDesdeElemento('cotizacion-modal-print-area', `Cotizacion_${num}.pdf`);
+  }
+
+  private ejecutarImpresionElemento(elementId: string) {
+    const el = document.getElementById(elementId);
+    if (!el) {
+      window.print();
+      return;
+    }
+
+    const printWin = window.open('', '_blank', 'width=850,height=900');
+    if (!printWin) {
+      window.print();
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Impresión de Documento - Vision Tech</title>
+          <meta charset="utf-8">
+          <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+          <style>
+            * { box-sizing: border-box; font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important; }
+            body { margin: 0; padding: 24px; background: #fff; color: #1e293b; font-size: 12px; }
+            .preview-brand-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0ea5e9; padding-bottom: 14px; margin-bottom: 16px; }
+            .preview-cai-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 11px; line-height: 1.6; color: #334155; }
+            .preview-client-box { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+            .preview-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 11.5px; }
+            .preview-table th { background: #f8fafc; border-bottom: 1.5px solid #cbd5e1; padding: 8px 6px; text-align: left; font-size: 11px !important; font-weight: 700 !important; color: #475569 !important; }
+            .preview-table td { padding: 8px 6px; border-bottom: 1px solid #f1f5f9; font-size: 11.5px; }
+            .preview-summary { margin-left: auto; width: 250px; display: grid; gap: 5px; border-top: 1px solid #cbd5e1; padding-top: 10px; }
+            .preview-summary-row { display: flex; justify-content: space-between; font-size: 11.5px; color: #475569; }
+            .preview-summary-total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; border-top: 2px solid #0f172a; padding-top: 6px; margin-top: 4px; color: #0f172a; }
+            .preview-footer-words { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 10px 14px; border-radius: 8px; margin-top: 14px; font-size: 11px; }
+            .badge-cotizacion { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; display: inline-block; }
+            @page { margin: 12mm; size: auto; }
+          </style>
+        </head>
+        <body>
+          <div>${el.innerHTML}</div>
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+              setTimeout(function() { window.close(); }, 800);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWin.document.open();
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+  }
+
+  private async generarPDFDesdeElemento(elementId: string, nombreArchivo: string) {
+    const el = document.getElementById(elementId);
+    if (!el) {
+      this.notificarAdvertencia('Error', 'No se encontró el elemento a exportar.');
+      return;
+    }
+
+    try {
+      this.notificarInfo('Generando PDF', 'Preparando documento con calidad de impresión...');
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(nombreArchivo);
+
+      Swal.close();
+      this.notificarExito('PDF Descargado', `Se descargó "${nombreArchivo}" exitosamente.`);
+    } catch (err: any) {
+      Swal.close();
+      this.notificarError('Error al crear PDF', 'No se pudo generar el archivo PDF: ' + (err?.message || 'Error inesperado'));
+    }
   }
 
   resetearNuevaFactura() {
+    this.facturaEmitida = false;
+    this.facturaEmitidaData = null;
     this.nuevaFacturaFormulario();
+    this.subTabFacturas = 'crear';
   }
 
   generarFacturaFiscal() {
@@ -952,11 +1320,217 @@ export class AppComponent {
   }
 
   // =========================================================================
+  // GESTIÓN Y EDICIÓN DE COTIZACIONES + HISTORIAL DE AUDITORÍA
+  // =========================================================================
+  abrirModalEditarCotizacion(venta: any) {
+    if (!venta.esCotizacion) {
+      this.notificarAdvertencia('Normativa SAR', 'Las facturas fiscales emitidas no pueden ser editadas por normativa SAR. Solo las cotizaciones admiten modificaciones.');
+      return;
+    }
+    if (venta.estadoVenta === 'Anulada') {
+      this.notificarAdvertencia('Cotización Anulada', 'No se puede editar una cotización que ha sido anulada.');
+      return;
+    }
+
+    this.cotizacionEditando = venta;
+    const itemsEditados: FacturaItemRow[] = (venta.detalles || []).map((d: any) => ({
+      productoId: d.productoId,
+      nombre: d.producto || '',
+      cantidad: d.cantidad,
+      precio: d.precio,
+      descuento: 0,
+      tipoISV: 'ISV15'
+    }));
+
+    if (itemsEditados.length === 0 && this.products.length > 0) {
+      const p = this.products[0];
+      itemsEditados.push({
+        productoId: p.productoId || 1,
+        nombre: p.nombre || '',
+        cantidad: 1,
+        precio: p.precioVenta || p.precio || 0,
+        descuento: 0,
+        tipoISV: p.tipoISV || 'ISV15'
+      });
+    }
+
+    this.editarCotizacionForm = {
+      clienteId: venta.clienteId,
+      motivo: '',
+      items: itemsEditados
+    };
+    this.showEditarCotizacionModal = true;
+  }
+
+  agregarItemEditarCotizacion() {
+    const p = this.products[0];
+    this.editarCotizacionForm.items.push({
+      productoId: p?.productoId || 1,
+      nombre: p?.nombre || '',
+      cantidad: 1,
+      precio: p?.precioVenta || p?.precio || 0,
+      descuento: 0,
+      tipoISV: p?.tipoISV || 'ISV15'
+    });
+  }
+
+  eliminarItemEditarCotizacion(index: number) {
+    if (this.editarCotizacionForm.items.length > 1) {
+      this.editarCotizacionForm.items.splice(index, 1);
+    }
+  }
+
+  onProductoChangeEditar(item: FacturaItemRow) {
+    const p = this.products.find(x => x.productoId == item.productoId);
+    if (p) {
+      item.nombre = p.nombre || '';
+      item.precio = p.precioVenta || p.precio || 0;
+      item.tipoISV = p.tipoISV || 'ISV15';
+    }
+  }
+
+  calcularLineaTotalEditar(item: FacturaItemRow): number {
+    const sub = (item.precio || 0) * (item.cantidad || 0);
+    return Math.max(0, sub - (item.descuento || 0));
+  }
+
+  get totalEditarCotizacion(): number {
+    return this.editarCotizacionForm.items.reduce((acc, i) => acc + this.calcularLineaTotalEditar(i), 0);
+  }
+
+  guardarEdicionCotizacion() {
+    if (!this.cotizacionEditando) return;
+    if (this.editarCotizacionForm.items.length === 0) {
+      this.notificarAdvertencia('Cotización vacía', 'Debe incluir al menos un producto.');
+      return;
+    }
+
+    this.guardandoEdicionCotizacion = true;
+    const payload = {
+      clienteId: Number(this.editarCotizacionForm.clienteId),
+      motivo: 'Ajuste de productos o precios en cotización',
+      detalles: this.editarCotizacionForm.items.map(i => ({
+        productoId: Number(i.productoId),
+        cantidad: Number(i.cantidad),
+        precioUnitario: Number(i.precio),
+        descuento: Number(i.descuento || 0)
+      }))
+    };
+
+    this.http.put<any>(`${this.api}/Ventas/${this.cotizacionEditando.ventaId}/Cotizacion`, payload, this.getHeaders()).subscribe({
+      next: (ventaActualizada) => {
+        this.guardandoEdicionCotizacion = false;
+        this.showEditarCotizacionModal = false;
+        this.notificarExito(
+          'Cotización Actualizada',
+          `¡Cotización ${ventaActualizada.numeroCotizacion || this.cotizacionEditando.numeroCotizacion} actualizada correctamente!`
+        );
+        this.loadVentas();
+      },
+      error: (err) => {
+        this.guardandoEdicionCotizacion = false;
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error al Modificar', 'Error al modificar cotización: ' + (err.error?.mensaje || err.message));
+        }
+      }
+    });
+  }
+
+  abrirHistorialCotizacion(venta: any) {
+    this.cotizacionHistorialVenta = venta;
+    this.cargandoHistorial = true;
+    this.historialCotizacionList = [];
+    this.showHistorialCotizacionModal = true;
+
+    this.http.get<any[]>(`${this.api}/Ventas/${venta.ventaId}/Cotizacion/Historial`, this.getHeaders()).subscribe({
+      next: (logs) => {
+        this.historialCotizacionList = logs || [];
+        this.cargandoHistorial = false;
+      },
+      error: (err) => {
+        this.cargandoHistorial = false;
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error al Cargar Historial', 'No se pudo obtener el historial de cambios: ' + (err.error?.mensaje || err.message));
+        }
+      }
+    });
+  }
+
+  async facturarCotizacionDesdeVentas(venta: any) {
+    const { value: formValues } = await Swal.fire({
+      title: 'Facturar Cotización (SAR)',
+      html: `
+        <div style="text-align:left; font-size:12px; font-family:'Manrope',sans-serif; color:#334155;">
+          <p style="margin-bottom:12px;">Se convertirá la cotización <b>${venta.numeroCotizacion || ('COT-' + venta.ventaId)}</b> a <b>Factura Fiscal Real</b> con CAI y correlativo oficial del SAR. Se rebajará el stock del inventario.</p>
+          <div style="background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #e2e8f0;">
+            <div><b>Cliente:</b> ${venta.cliente}</div>
+            <div><b>Total a Facturar:</b> L. ${(venta.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          <label style="font-weight:700; display:block; margin-bottom:4px;">Método de Pago:</label>
+          <select id="swal-metodo-pago" class="swal2-input" style="width:100%; margin:0; font-size:12px; height:38px; border-radius:6px; border:1px solid #cbd5e1;">
+            <option value="1">Efectivo</option>
+            <option value="2">Tarjeta de Crédito / Débito</option>
+            <option value="3">Transferencia Bancaria</option>
+          </select>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#1f8a67',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sí, emitir factura SAR',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const sel = document.getElementById('swal-metodo-pago') as HTMLSelectElement;
+        return {
+          metodoPagoId: sel ? Number(sel.value) : 1
+        };
+      }
+    });
+
+    if (!formValues) return;
+
+    this.http.post<any>(`${this.api}/Ventas/${venta.ventaId}/FacturarCotizacion?sucursalId=1&metodoPagoId=${formValues.metodoPagoId}`, {}, this.getHeaders()).subscribe({
+      next: (factura) => {
+        if (factura.numeroFactura) {
+          const partes = factura.numeroFactura.split('-');
+          if (partes.length >= 4) {
+            const prefix = `${partes[0]}-${partes[1]}-${partes[2]}-`;
+            const currentNum = parseInt(partes[3], 10) || 0;
+            const nextNum = currentNum + 1;
+            const nextFormatted = nextNum.toString().padStart(8, '0');
+            const nextInvoice = `${prefix}${nextFormatted}`;
+            if (this.sarConfig) {
+              this.sarConfig.correlativoActual = currentNum;
+              this.sarConfig.siguienteFactura = nextInvoice;
+            }
+          }
+        }
+        this.notificarExito('Factura SAR Emitida', `¡Cotización convertida exitosamente a Factura Fiscal Nº ${factura.numeroFactura || ''}! Se descontó el inventario.`);
+        this.loadVentas();
+        this.loadInventory();
+        this.loadSARConfig();
+        this.verFactura(factura);
+      },
+      error: (err) => {
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error al Facturar', 'Error al facturar cotización: ' + (err.error?.mensaje || err.message));
+        }
+      }
+    });
+  }
+
+  verCotizacion(venta: any) {
+    this.cotizacionSeleccionada = venta;
+    this.showVerCotizacionModal = true;
+  }
+
+  // =========================================================================
   // GESTIÓN DE COMPRAS Y PROVEEDORES
   // =========================================================================
   abrirModalNuevaCompra() {
     if (this.proveedores.length === 0) {
-      alert('Debes registrar al menos un proveedor antes de crear una orden de compra.');
+      this.notificarAdvertencia('Sin proveedores', 'Debes registrar al menos un proveedor antes de crear una orden de compra.');
       this.abrirModalNuevoProveedor();
       return;
     }
@@ -995,7 +1569,7 @@ export class AppComponent {
 
   guardarCompra() {
     if (this.nuevaCompra.items.length === 0) {
-      alert('Agrega al menos un producto a la compra.');
+      this.notificarAdvertencia('Orden vacía', 'Agrega al menos un producto a la compra.');
       return;
     }
 
@@ -1013,26 +1587,29 @@ export class AppComponent {
       next: (compraCreada) => {
         this.guardandoCompra = false;
         this.showNuevaCompraModal = false;
-        alert(`¡Orden de Compra #${compraCreada.compraId} registrada exitosamente!`);
+        this.notificarExito('Orden de Compra', `¡Orden de Compra #${compraCreada.compraId} registrada exitosamente!`);
         this.loadCompras();
       },
       error: (err) => {
         this.guardandoCompra = false;
         if (!this.handleAuthError(err)) {
-          alert('Error al registrar compra: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error en Compra', 'Error al registrar compra: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  recibirCompra(compraId: number) {
-    if (!confirm('¿Deseas marcar esta orden como RECIBIDA? El inventario se actualizará automáticamente con las unidades ingresadas.')) {
-      return;
-    }
+  async recibirCompra(compraId: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Recibir Mercancía?',
+      '¿Deseas marcar esta orden como RECIBIDA? El inventario se actualizará automáticamente con las unidades ingresadas.',
+      'Sí, recibir e ingresar'
+    );
+    if (!confirmado) return;
 
     this.http.put<any>(`${this.api}/Compras/${compraId}/Recibir`, {}, this.getHeaders()).subscribe({
       next: () => {
-        alert('¡Mercancía recibida e inventario actualizado exitosamente!');
+        this.notificarExito('Mercancía Recibida', '¡Mercancía recibida e inventario actualizado exitosamente!');
         this.loadCompras();
         this.loadInventory();
         this.loadProducts();
@@ -1040,25 +1617,30 @@ export class AppComponent {
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al recibir compra: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Recibir', 'Error al recibir compra: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  anularCompra(compraId: number) {
-    if (!confirm('¿Estás seguro de anular esta orden de compra?')) {
-      return;
-    }
+  async anularCompra(compraId: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Anular Orden de Compra?',
+      '¿Estás seguro de anular esta orden de compra?',
+      'Sí, anular',
+      'Cancelar',
+      true
+    );
+    if (!confirmado) return;
 
     this.http.put<any>(`${this.api}/Compras/${compraId}/Anular`, {}, this.getHeaders()).subscribe({
       next: () => {
-        alert('Orden de compra anulada.');
+        this.notificarExito('Orden Anulada', 'Orden de compra anulada.');
         this.loadCompras();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al anular compra: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Anular', 'Error al anular compra: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1092,7 +1674,7 @@ export class AppComponent {
 
   guardarProveedor() {
     if (!this.proveedorForm.nombre || !this.proveedorForm.nombre.trim()) {
-      alert('El nombre del proveedor es obligatorio.');
+      this.notificarAdvertencia('Campo requerido', 'El nombre del proveedor es obligatorio.');
       return;
     }
 
@@ -1114,28 +1696,39 @@ export class AppComponent {
       next: () => {
         this.guardandoProveedor = false;
         this.showProveedorModal = false;
-        alert(this.proveedorEditandoId ? 'Proveedor actualizado con éxito.' : '¡Proveedor creado exitosamente!');
+        this.notificarExito(
+          this.proveedorEditandoId ? 'Proveedor Actualizado' : 'Proveedor Registrado',
+          this.proveedorEditandoId ? 'Proveedor actualizado con éxito.' : '¡Proveedor creado exitosamente!'
+        );
         this.loadProveedores();
       },
       error: (err) => {
         this.guardandoProveedor = false;
         if (!this.handleAuthError(err)) {
-          alert('Error al guardar proveedor: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error de Proveedor', 'Error al guardar proveedor: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  eliminarProveedor(id: number) {
-    if (!confirm('¿Estás seguro de eliminar este proveedor?')) return;
+  async eliminarProveedor(id: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Eliminar Proveedor?',
+      '¿Estás seguro de eliminar este proveedor?',
+      'Sí, eliminar',
+      'Cancelar',
+      true
+    );
+    if (!confirmado) return;
+
     this.http.delete<any>(`${this.api}/Proveedores/${id}`, this.getHeaders()).subscribe({
       next: () => {
-        alert('Proveedor eliminado.');
+        this.notificarExito('Eliminado', 'Proveedor eliminado.');
         this.loadProveedores();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al eliminar proveedor: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Eliminar', 'Error al eliminar proveedor: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1157,14 +1750,14 @@ export class AppComponent {
 
     this.http.post<any>(`${this.api}/Caja/abrir`, payload, this.getHeaders()).subscribe({
       next: (res) => {
-        alert(`¡Caja abierta exitosamente con fondo inicial de L. ${res.montoApertura}!`);
+        this.notificarExito('Caja Abierta', `¡Caja abierta exitosamente con fondo inicial de L. ${res.montoApertura}!`);
         this.showAbrirCajaModal = false;
         this.loadCajaEstado();
         this.loadCajaHistorial();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al abrir caja: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error de Caja', 'Error al abrir caja: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1178,7 +1771,7 @@ export class AppComponent {
 
   confirmarCerrarCaja() {
     if (!this.estadoCaja.id) {
-      alert('No se detectó el identificador de la caja actual.');
+      this.notificarAdvertencia('Caja no encontrada', 'No se detectó el identificador de la caja actual.');
       return;
     }
 
@@ -1190,14 +1783,14 @@ export class AppComponent {
       next: (res) => {
         const dif = res.diferencia ?? 0;
         const msgDif = dif === 0 ? '¡Arqueo exacto!' : dif > 0 ? `Sobrante: L. ${dif}` : `Faltante: L. ${dif}`;
-        alert(`¡Caja cerrada exitosamente! ${msgDif}`);
+        this.notificarExito('Caja Cerrada', `¡Caja cerrada exitosamente! ${msgDif}`);
         this.showCerrarCajaModal = false;
         this.loadCajaEstado();
         this.loadCajaHistorial();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al cerrar caja: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error de Cierre', 'Error al cerrar caja: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1206,32 +1799,46 @@ export class AppComponent {
   // =========================================================================
   // ACCIONES EN VENTAS (CONFIRMAR, ANULAR)
   // =========================================================================
-  confirmarVenta(ventaId: number) {
-    if (!confirm('¿Deseas confirmar esta venta?')) return;
+  async confirmarVenta(ventaId: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Confirmar Venta?',
+      '¿Deseas confirmar esta venta?',
+      'Sí, confirmar'
+    );
+    if (!confirmado) return;
+
     this.http.put<any>(`${this.api}/Ventas/${ventaId}/Confirmar`, {}, this.getHeaders()).subscribe({
       next: () => {
-        alert('Venta confirmada exitosamente.');
+        this.notificarExito('Venta Confirmada', 'Venta confirmada exitosamente.');
         this.loadVentas();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al confirmar venta: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Confirmar', 'Error al confirmar venta: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  anularVenta(ventaId: number) {
-    if (!confirm('¿Estás seguro de anular esta venta?')) return;
+  async anularVenta(ventaId: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Anular Venta?',
+      '¿Estás seguro de anular esta venta? El stock de los productos volverá al inventario.',
+      'Sí, anular venta',
+      'Cancelar',
+      true
+    );
+    if (!confirmado) return;
+
     this.http.put<any>(`${this.api}/Ventas/${ventaId}/Anular`, {}, this.getHeaders()).subscribe({
       next: () => {
-        alert('Venta anulada.');
+        this.notificarExito('Venta Anulada', 'Venta anulada.');
         this.loadVentas();
         this.loadInventory();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al anular venta: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Anular', 'Error al anular venta: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1252,7 +1859,7 @@ export class AppComponent {
 
   guardarUsuario() {
     if (!this.nuevoUsuarioForm.nombre || !this.nuevoUsuarioForm.email || !this.nuevoUsuarioForm.password) {
-      alert('Todos los campos son obligatorios.');
+      this.notificarAdvertencia('Campos incompletos', 'Todos los campos son obligatorios.');
       return;
     }
 
@@ -1268,28 +1875,36 @@ export class AppComponent {
       next: () => {
         this.guardandoUsuario = false;
         this.showNuevoUsuarioModal = false;
-        alert('¡Usuario creado exitosamente!');
+        this.notificarExito('Usuario Creado', '¡Usuario creado exitosamente!');
         this.loadUsuarios();
       },
       error: (err) => {
         this.guardandoUsuario = false;
         if (!this.handleAuthError(err)) {
-          alert('Error al crear usuario: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Crear Usuario', 'Error al crear usuario: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  eliminarUsuario(id: number) {
-    if (!confirm('¿Estás seguro de eliminar este usuario?')) return;
+  async eliminarUsuario(id: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Eliminar Usuario?',
+      '¿Estás seguro de eliminar este usuario?',
+      'Sí, eliminar',
+      'Cancelar',
+      true
+    );
+    if (!confirmado) return;
+
     this.http.delete<any>(`${this.api}/Acceso/Usuarios/${id}`, this.getHeaders()).subscribe({
       next: () => {
-        alert('Usuario eliminado.');
+        this.notificarExito('Eliminado', 'Usuario eliminado.');
         this.loadUsuarios();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al eliminar usuario: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Eliminar', 'Error al eliminar usuario: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1324,29 +1939,37 @@ export class AppComponent {
       next: () => {
         this.guardandoEditarProducto = false;
         this.showEditarProductoModal = false;
-        alert('Producto actualizado con éxito.');
+        this.notificarExito('Producto Actualizado', 'Producto actualizado con éxito.');
         this.loadProducts();
       },
       error: (err) => {
         this.guardandoEditarProducto = false;
         if (!this.handleAuthError(err)) {
-          alert('Error al actualizar producto: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Actualizar', 'Error al actualizar producto: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  eliminarProducto(id: number) {
-    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+  async eliminarProducto(id: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Eliminar Producto?',
+      '¿Estás seguro de eliminar este producto del catálogo?',
+      'Sí, eliminar',
+      'Cancelar',
+      true
+    );
+    if (!confirmado) return;
+
     this.http.delete<any>(`${this.api}/Productos/${id}`, this.getHeaders()).subscribe({
       next: () => {
-        alert('Producto eliminado.');
+        this.notificarExito('Eliminado', 'Producto eliminado.');
         this.loadProducts();
         this.loadInventory();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al eliminar producto: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Eliminar', 'Error al eliminar producto: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1380,28 +2003,36 @@ export class AppComponent {
       next: () => {
         this.guardandoEditarCliente = false;
         this.showEditarClienteModal = false;
-        alert('Cliente actualizado con éxito.');
+        this.notificarExito('Cliente Actualizado', 'Cliente actualizado con éxito.');
         this.loadClientes();
       },
       error: (err) => {
         this.guardandoEditarCliente = false;
         if (!this.handleAuthError(err)) {
-          alert('Error al actualizar cliente: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Actualizar', 'Error al actualizar cliente: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  eliminarCliente(id: number) {
-    if (!confirm('¿Estás seguro de eliminar este cliente?')) return;
+  async eliminarCliente(id: number) {
+    const confirmado = await this.confirmarAccion(
+      '¿Eliminar Cliente?',
+      '¿Estás seguro de eliminar este cliente?',
+      'Sí, eliminar',
+      'Cancelar',
+      true
+    );
+    if (!confirmado) return;
+
     this.http.delete<any>(`${this.api}/Clientes/${id}`, this.getHeaders()).subscribe({
       next: () => {
-        alert('Cliente eliminado.');
+        this.notificarExito('Eliminado', 'Cliente eliminado.');
         this.loadClientes();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al eliminar cliente: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Eliminar', 'Error al eliminar cliente: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1424,7 +2055,7 @@ export class AppComponent {
 
   guardarCliente() {
     if (!this.nuevoCliente.nombre || !this.nuevoCliente.nombre.trim()) {
-      alert('El nombre del cliente es obligatorio.');
+      this.notificarAdvertencia('Campo requerido', 'El nombre del cliente es obligatorio.');
       return;
     }
 
@@ -1439,7 +2070,7 @@ export class AppComponent {
 
     this.http.post<any>(`${this.api}/Clientes`, payload, this.getHeaders()).subscribe({
       next: (clienteCreado) => {
-        alert(`¡Cliente "${clienteCreado.nombre}" registrado exitosamente!`);
+        this.notificarExito('Cliente Registrado', `¡Cliente "${clienteCreado.nombre}" registrado exitosamente!`);
         this.showNuevoClienteModal = false;
         this.loadClientes();
         if (clienteCreado.clienteId) {
@@ -1449,14 +2080,16 @@ export class AppComponent {
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al registrar cliente: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Registrar', 'Error al registrar cliente: ' + (err.error?.mensaje || err.message));
         }
       }
     });
   }
 
-  abrirModalMovimientoInventario() {
-    if (this.products.length > 0) {
+  abrirModalMovimientoInventario(productoId?: number) {
+    if (productoId) {
+      this.movimientoInventario.productoId = productoId;
+    } else if (this.products.length > 0) {
       this.movimientoInventario.productoId = this.products[0].productoId!;
     }
     this.movimientoInventario.tipoMovimiento = 'ENTRADA';
@@ -1466,7 +2099,7 @@ export class AppComponent {
 
   guardarMovimientoInventario() {
     if (this.movimientoInventario.cantidad <= 0) {
-      alert('La cantidad a mover debe ser mayor a 0.');
+      this.notificarAdvertencia('Cantidad inválida', 'La cantidad a mover debe ser mayor a 0.');
       return;
     }
 
@@ -1478,7 +2111,7 @@ export class AppComponent {
 
     this.http.post<any>(`${this.api}/Inventario/Movimiento`, payload, this.getHeaders()).subscribe({
       next: () => {
-        alert('¡Movimiento de inventario registrado con éxito!');
+        this.notificarExito('Inventario Actualizado', '¡Movimiento de inventario registrado con éxito!');
         this.showMovimientoInventarioModal = false;
         this.loadInventory();
         this.loadProducts();
@@ -1486,7 +2119,7 @@ export class AppComponent {
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al registrar movimiento: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Registrar', 'Error al registrar movimiento: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1508,7 +2141,7 @@ export class AppComponent {
 
   guardarProducto() {
     if (!this.nuevoProducto.nombre || !this.nuevoProducto.nombre.trim()) {
-      alert('El nombre del producto es obligatorio.');
+      this.notificarAdvertencia('Campo requerido', 'El nombre del producto es obligatorio.');
       return;
     }
 
@@ -1528,14 +2161,18 @@ export class AppComponent {
       next: (prodCreado) => {
         this.guardandoProducto = false;
         this.showNuevoProductoModal = false;
-        alert(`¡Producto "${prodCreado.nombre}" creado exitosamente con stock de ${payload.stockInicial} unidades! Ya está disponible para la venta.`);
+        this.notificarExito(
+          'Producto Creado',
+          `¡Producto "${prodCreado.nombre}" creado exitosamente con stock de ${payload.stockInicial} unidades! Ya está disponible para la venta.`
+        );
         this.loadProducts();
         this.loadInventory();
+        this.loadMovimientos();
       },
       error: (err) => {
         this.guardandoProducto = false;
         if (!this.handleAuthError(err)) {
-          alert('Error al registrar producto: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Guardar', 'Error al registrar producto: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1543,7 +2180,7 @@ export class AppComponent {
 
   abrirSARConfig() {
     if (!this.isAdmin) {
-      alert('Acceso restringido: Solo administradores pueden configurar los datos del SAR.');
+      this.notificarAdvertencia('Acceso restringido', 'Acceso restringido: Solo administradores pueden configurar los datos del SAR.');
       return;
     }
     this.showSARConfigModal = true;
@@ -1577,7 +2214,7 @@ export class AppComponent {
           };
           this.showFacturaModal = true;
         } else {
-          alert('Esta venta aún no tiene una factura fiscal emitida.');
+          this.notificarInfo('Sin Factura', 'Esta venta aún no tiene una factura fiscal emitida.');
         }
       }
     });
@@ -1586,14 +2223,28 @@ export class AppComponent {
   emitirFactura(ventaId: number) {
     this.http.post<any>(`${this.api}/Ventas/${ventaId}/Facturar?sucursalId=1`, {}, this.getHeaders()).subscribe({
       next: (factura) => {
-        alert(`¡Factura emitida correctamente! Nº: ${factura.numeroFactura}`);
+        if (factura.numeroFactura) {
+          const partes = factura.numeroFactura.split('-');
+          if (partes.length >= 4) {
+            const prefix = `${partes[0]}-${partes[1]}-${partes[2]}-`;
+            const currentNum = parseInt(partes[3], 10) || 0;
+            const nextNum = currentNum + 1;
+            const nextFormatted = nextNum.toString().padStart(8, '0');
+            const nextInvoice = `${prefix}${nextFormatted}`;
+            if (this.sarConfig) {
+              this.sarConfig.correlativoActual = currentNum;
+              this.sarConfig.siguienteFactura = nextInvoice;
+            }
+          }
+        }
+        this.notificarExito('Factura Emitida', `¡Factura emitida correctamente! Nº: ${factura.numeroFactura}`);
         this.loadVentas();
         this.loadSARConfig();
         this.verFactura({ ventaId, ...factura });
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          alert('Error al emitir factura: ' + (err.error?.mensaje || err.message));
+          this.notificarError('Error al Emitir', 'Error al emitir factura: ' + (err.error?.mensaje || err.message));
         }
       }
     });
@@ -1601,6 +2252,22 @@ export class AppComponent {
 
   iconFor(name: string) {
     return this.icons[name as keyof typeof this.icons];
+  }
+
+  getProductoPorId(productoId?: number): Product | undefined {
+    if (!productoId) return undefined;
+    return this.products.find(p => p.productoId === productoId);
+  }
+
+  get filteredInventory(): Inventory[] {
+    if (!this.search.trim()) return this.inventory;
+    const q = this.search.toLowerCase().trim();
+    return this.inventory.filter(i => {
+      const prod = this.getProductoPorId(i.productoId);
+      return (i.nombreProducto || '').toLowerCase().includes(q) ||
+             (prod?.codigo || '').toLowerCase().includes(q) ||
+             (prod?.codigoBarras || '').toLowerCase().includes(q);
+    });
   }
 
   get filteredProducts() {
@@ -1617,5 +2284,291 @@ export class AppComponent {
 
   get recentSales() {
     return this.ventas.slice(0, 5);
+  }
+
+  // =========================================================================
+  // ALERTAS PREVENTIVAS DE CAI Y RANGO SAR
+  // =========================================================================
+  get alertaCAI(): { tipo: 'danger' | 'warning'; titulo: string; mensaje: string; detalle: string; diasRestantes: number; facturasDisponibles: number } | null {
+    if (!this.sarConfig) return null;
+
+    const hoy = new Date();
+    const fechaLimite = new Date(this.sarConfig.fechaLimiteEmision);
+    const diffTime = fechaLimite.getTime() - hoy.getTime();
+    const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let facturasDisponibles = this.sarConfig.facturasDisponibles;
+    if (facturasDisponibles === undefined || facturasDisponibles === null) {
+      const hastaNum = this.extraerNumeroCorrelativo(this.sarConfig.rangoHasta);
+      facturasDisponibles = Math.max(0, hastaNum - (this.sarConfig.correlativoActual || 0));
+    }
+
+    if (diasRestantes <= 0) {
+      return {
+        tipo: 'danger',
+        titulo: '¡CAI VENCIDO! FECHA LÍMITE DE EMISIÓN EXPIRADA',
+        mensaje: `El CAI registrado expiró el ${fechaLimite.toLocaleDateString('es-HN')}. Por normativa SAR, no se permite emitir facturas legales hasta registrar un nuevo CAI.`,
+        detalle: `Actualice inmediatamente la autorización del CAI en Configuración SAR.`,
+        diasRestantes,
+        facturasDisponibles
+      };
+    }
+
+    if (facturasDisponibles <= 0) {
+      return {
+        tipo: 'danger',
+        titulo: '¡RANGO DE FACTURAS SAR AGOTADO!',
+        mensaje: `Se ha alcanzado el límite de numeración autorizada (${this.sarConfig.rangoHasta}).`,
+        detalle: `Debe tramitar un nuevo rango ante el SAR y registrarlo en el sistema.`,
+        diasRestantes,
+        facturasDisponibles
+      };
+    }
+
+    if (diasRestantes <= 30 && facturasDisponibles <= 100) {
+      return {
+        tipo: 'danger',
+        titulo: `¡ALERTA CRÍTICA SAR! CAI VENCE EN ${diasRestantes} DÍAS Y QUEDAN ${facturasDisponibles} FACTURAS`,
+        mensaje: `Fecha límite: ${fechaLimite.toLocaleDateString('es-HN')} | Quedan solo ${facturasDisponibles} comprobantes autorizados.`,
+        detalle: `Inicie el trámite de renovación de CAI y asignación de rango ante el SAR de inmediato.`,
+        diasRestantes,
+        facturasDisponibles
+      };
+    }
+
+    if (diasRestantes <= 30) {
+      return {
+        tipo: 'warning',
+        titulo: `¡ALERTA PREVENTIVA CAI! VENCE EN ${diasRestantes} DÍAS`,
+        mensaje: `La autorización fiscal del SAR vencerá el ${fechaLimite.toLocaleDateString('es-HN')}.`,
+        detalle: `Quedan ${diasRestantes} días calendario para gestionar la renovación del CAI con el SAR antes de su bloqueo.`,
+        diasRestantes,
+        facturasDisponibles
+      };
+    }
+
+    if (facturasDisponibles <= 100) {
+      return {
+        tipo: 'warning',
+        titulo: `¡ALERTA PREVENTIVA CAI! QUEDAN SOLO ${facturasDisponibles} FACTURAS DISPONIBLES`,
+        mensaje: `El rango autorizado está próximo a agotarse. Siguiente factura: ${this.sarConfig.siguienteFactura}. Límite: ${this.sarConfig.rangoHasta}.`,
+        detalle: `Gestione con anticipación la ampliación de rango de facturación ante el SAR.`,
+        diasRestantes,
+        facturasDisponibles
+      };
+    }
+
+    return null;
+  }
+
+  extraerNumeroCorrelativo(rango: string): number {
+    if (!rango) return 0;
+    const partes = rango.split('-');
+    if (partes.length >= 4) {
+      return parseInt(partes[3], 10) || 0;
+    }
+    return 0;
+  }
+
+  // =========================================================================
+  // MÓDULO DE REPORTES FISCALES Y GERENCIALES (EXCEL Y PDF)
+  // =========================================================================
+  subTabReporte: 'ventas-sar' | 'cierre-caja' | 'inventario' = 'ventas-sar';
+  reporteMesVentas: number = new Date().getMonth() + 1;
+  reporteAnoVentas: number = new Date().getFullYear();
+  cierreSeleccionadoReporteId: number = 0;
+
+  get ventasFiltradasSAR(): VentaItem[] {
+    return this.ventas.filter(v => {
+      if (v.esCotizacion || !v.numeroFactura) return false;
+      const f = new Date(v.fechaFactura || v.fechaVenta);
+      return (f.getMonth() + 1) === Number(this.reporteMesVentas) && f.getFullYear() === Number(this.reporteAnoVentas);
+    });
+  }
+
+  get totalVentasSARMes(): number {
+    return this.ventasFiltradasSAR.reduce((acc, v) => acc + (v.total || 0), 0);
+  }
+
+  get totalISV15SARMes(): number {
+    return this.ventasFiltradasSAR.reduce((acc, v) => acc + (v.isv15 || ((v.total || 0) - ((v.total || 0) / 1.15))), 0);
+  }
+
+  get totalGravado15SARMes(): number {
+    return this.ventasFiltradasSAR.reduce((acc, v) => acc + (v.montoGravado15 || ((v.total || 0) / 1.15)), 0);
+  }
+
+
+  guardarConfiguracionEmpresa() {
+    this.guardandoConfiguracion = true;
+    localStorage.setItem('vt_company_nombre', this.companyConfig.nombre);
+    localStorage.setItem('vt_company_gerente_nombre', this.companyConfig.nombreGerente);
+    localStorage.setItem('vt_company_gerente_apellido', this.companyConfig.apellidoGerente);
+    localStorage.setItem('vt_company_rtn', this.companyConfig.rtn);
+    localStorage.setItem('vt_company_direccion', this.companyConfig.direccion);
+    localStorage.setItem('vt_company_telefono', this.companyConfig.telefono);
+    localStorage.setItem('vt_company_email', this.companyConfig.email);
+    localStorage.setItem('vt_company_nota_doc', this.companyConfig.notaDocumento);
+    localStorage.setItem('vt_company_nota_pie', this.companyConfig.notaPie);
+    localStorage.setItem('vt_company_logo', this.companyConfig.logoUrl);
+
+    // Actualizar notas predeterminadas de facturación
+    this.facturaForm.notas = this.companyConfig.notaDocumento;
+    this.facturaForm.notasPie = this.companyConfig.notaPie;
+
+    setTimeout(() => {
+      this.guardandoConfiguracion = false;
+      this.notificarExito('Configuración Guardada', 'Los datos generales y notas predeterminadas se han actualizado correctamente.');
+    }, 400);
+  }
+
+  onLogoUpload(event: any) {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.companyConfig.logoUrl = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  abrirHistorialProducto(prod: Product) {
+    this.productoHistorialSeleccionado = prod;
+    this.showHistorialProductoModal = true;
+    this.cargandoHistorialProducto = true;
+    this.historialProductoList = [];
+
+    this.http.get<any[]>(`${this.api}/Productos/${prod.productoId}/Historial`, this.getHeaders()).subscribe({
+      next: (data) => {
+        this.historialProductoList = Array.isArray(data) ? data : [];
+        this.cargandoHistorialProducto = false;
+      },
+      error: (err) => {
+        this.cargandoHistorialProducto = false;
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error al Cargar Historial', err.error?.mensaje || 'No se pudo obtener la bitácora de este producto.');
+        }
+      }
+    });
+  }
+
+  exportarVentasSARExcel() {
+    const data = this.ventasFiltradasSAR.map((v, idx) => ({
+      'No.': idx + 1,
+      'Fecha Emisión': new Date(v.fechaFactura || v.fechaVenta).toLocaleDateString('es-HN'),
+      'No. Factura Fiscal': v.numeroFactura || '—',
+      'CAI': v.cai || '—',
+      'RTN Cliente': v.clienteRtn || '00000000000000',
+      'Nombre Cliente': v.cliente,
+      'Exento (L.)': Number((v.montoExento || 0).toFixed(2)),
+      'Gravado 15% (L.)': Number((v.montoGravado15 || ((v.total || 0) / 1.15)).toFixed(2)),
+      'Gravado 18% (L.)': Number((v.montoGravado18 || 0).toFixed(2)),
+      'ISV 15% (L.)': Number((v.isv15 || ((v.total || 0) - ((v.total || 0) / 1.15))).toFixed(2)),
+      'ISV 18% (L.)': Number((v.isv18 || 0).toFixed(2)),
+      'Total Facturado (L.)': Number((v.total || 0).toFixed(2)),
+      'Estado': v.estadoVenta
+    }));
+
+    if (data.length === 0) {
+      this.notificarAdvertencia('Sin datos', 'No hay facturas fiscales emitidas para el mes seleccionado.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Libro_Ventas_SAR');
+    XLSX.writeFile(wb, `Libro_Ventas_SAR_${this.reporteMesVentas}_${this.reporteAnoVentas}.xlsx`);
+    this.notificarExito('Reporte Exportado', 'El reporte mensual de ventas para el SAR se ha descargado en formato Excel.');
+  }
+
+  imprimirVentasSAR() {
+    window.print();
+  }
+
+  // Reporte Valorización de Inventario
+  get inventarioValorizado(): any[] {
+    return this.inventory.map(inv => {
+      const prod = this.products.find(p => p.productoId === inv.productoId);
+      const stock = inv.stock || 0;
+      const precioVenta = prod?.precioVenta || prod?.precio || 0;
+      const costoEstimado = precioVenta * 0.65; // Margen referencial 35%
+      const totalCosto = stock * costoEstimado;
+      const totalVenta = stock * precioVenta;
+      const margen = totalVenta - totalCosto;
+
+      return {
+        productoId: inv.productoId,
+        codigo: prod?.codigo || prod?.codigoBarras || `SEC-${inv.productoId}`,
+        nombre: prod?.nombre || inv.nombreProducto || 'Equipo de Seguridad / Redes',
+        stock: stock,
+        costoEstimado: costoEstimado,
+        precioVenta: precioVenta,
+        totalCosto: totalCosto,
+        totalVenta: totalVenta,
+        margenProyectado: margen
+      };
+    });
+  }
+
+  get totalStockUnidades(): number {
+    return this.inventarioValorizado.reduce((acc, i) => acc + i.stock, 0);
+  }
+
+  get totalValorizadoCosto(): number {
+    return this.inventarioValorizado.reduce((acc, i) => acc + i.totalCosto, 0);
+  }
+
+  get totalValorizadoVenta(): number {
+    return this.inventarioValorizado.reduce((acc, i) => acc + i.totalVenta, 0);
+  }
+
+  exportarInventarioExcel() {
+    const data = this.inventarioValorizado.map((i, idx) => ({
+      'No.': idx + 1,
+      'Código / SKU': i.codigo,
+      'Equipo / Dispositivo': i.nombre,
+      'Stock Actual': i.stock,
+      'Costo Estimado (L.)': Number(i.costoEstimado.toFixed(2)),
+      'Precio Venta (L.)': Number(i.precioVenta.toFixed(2)),
+      'Valor Total al Costo (L.)': Number(i.totalCosto.toFixed(2)),
+      'Valor a Precio Venta (L.)': Number(i.totalVenta.toFixed(2)),
+      'Margen Proyectado (L.)': Number(i.margenProyectado.toFixed(2))
+    }));
+
+    if (data.length === 0) {
+      this.notificarAdvertencia('Sin inventario', 'No hay registros de inventario disponibles para exportar.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Valorizacion_Inventario');
+    XLSX.writeFile(wb, `Valorizacion_Inventario_VisionTech_${new Date().toISOString().split('T')[0]}.xlsx`);
+    this.notificarExito('Inventario Exportado', 'La valorización de inventario se descargó con éxito en formato Excel.');
+  }
+
+  imprimirInventario() {
+    window.print();
+  }
+
+  // Reporte Corte Z Diario
+  get cierreSeleccionadoReporte(): CierreCajaItem | undefined {
+    if (this.cierreSeleccionadoReporteId) {
+      return this.historialCaja.find(c => c.id === Number(this.cierreSeleccionadoReporteId));
+    }
+    return this.historialCaja[0];
+  }
+
+  imprimirCorteZ() {
+    window.print();
+  }
+
+  get fechaActualDisplay(): string {
+    return new Date().toLocaleDateString('es-HN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
   }
 }

@@ -8,6 +8,8 @@ namespace SistemaVisionTech.Features.Ventas.Dtos
         public DateTime FechaVenta { get; set; }
         public decimal Total { get; set; }
         public string EstadoVenta { get; set; } = string.Empty;
+        public bool EsCotizacion { get; set; }
+        public string? NumeroCotizacion { get; set; }
         public string? NumeroFactura { get; set; }
         public string? CAI { get; set; }
         public decimal? ISV15 { get; set; }

@@ -98,7 +98,7 @@ namespace SistemaVisionTech.Features.Productos.Services
             return Result<ProductoResponseDto>.Ok(response);
         }
 
-        public async Task<Result<ProductoResponseDto>> EditarAsync(int id, ProductoCreacionDto dto)
+        public async Task<Result<ProductoResponseDto>> EditarAsync(int id, ProductoCreacionDto dto, string? usuario = null)
         {
             Producto? producto = await _context.Productos.FindAsync(id);
 
@@ -114,6 +114,20 @@ namespace SistemaVisionTech.Features.Productos.Services
                     return Result<ProductoResponseDto>.Fail("Ya existe otro producto con ese código de barras.");
             }
 
+            var cambios = new List<string>();
+            if (producto.Nombre != dto.Nombre)
+                cambios.Add($"Nombre: '{producto.Nombre}' -> '{dto.Nombre}'");
+            if (producto.Precio != dto.Precio)
+                cambios.Add($"Precio: L. {producto.Precio:N2} -> L. {dto.Precio:N2}");
+            if (producto.Descripcion != dto.Descripcion)
+                cambios.Add("Descripción modificada");
+            if (producto.CodigoBarras != dto.CodigoBarras)
+                cambios.Add($"Código/SKU: '{producto.CodigoBarras}' -> '{dto.CodigoBarras}'");
+            if (producto.TipoISV != dto.TipoISV)
+                cambios.Add($"Impuesto: '{producto.TipoISV}' -> '{dto.TipoISV}'");
+
+            decimal precioAnterior = producto.Precio;
+
             producto.Nombre = dto.Nombre;
             producto.Descripcion = dto.Descripcion;
             producto.Precio = dto.Precio;
@@ -122,12 +136,38 @@ namespace SistemaVisionTech.Features.Productos.Services
             producto.CodigoBarras = dto.CodigoBarras;
             producto.TipoISV = dto.TipoISV;
 
+            if (cambios.Count > 0)
+            {
+                var auditLog = new SistemaVisionTech.Infrastructure.Entities.ProductosHistorial
+                {
+                    ProductoId = id,
+                    Usuario = string.IsNullOrWhiteSpace(usuario) ? "Administrador" : usuario,
+                    FechaModificacion = DateTime.UtcNow,
+                    Accion = "MODIFICACION",
+                    DetalleCambios = string.Join(" | ", cambios),
+                    PrecioAnterior = precioAnterior,
+                    PrecioNuevo = dto.Precio,
+                    Activo = true
+                };
+                _context.ProductosHistorial.Add(auditLog);
+            }
+
             await _context.SaveChangesAsync();
 
             var inv = await _context.Inventario.FirstOrDefaultAsync(i => i.ProductoId == id);
             var response = MapToDto(producto);
             response.Stock = inv?.Cantidad ?? 0;
             return Result<ProductoResponseDto>.Ok(response);
+        }
+
+        public async Task<Result<List<SistemaVisionTech.Infrastructure.Entities.ProductosHistorial>>> ObtenerHistorialAsync(int productoId)
+        {
+            var logs = await _context.ProductosHistorial
+                .Where(h => h.ProductoId == productoId)
+                .OrderByDescending(h => h.FechaModificacion)
+                .ToListAsync();
+
+            return Result<List<SistemaVisionTech.Infrastructure.Entities.ProductosHistorial>>.Ok(logs);
         }
 
         public async Task<Result<bool>> EliminarAsync(int id)
