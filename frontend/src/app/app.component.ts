@@ -1,3 +1,4 @@
+import { environment } from '../environments/environment';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Component, inject, HostListener } from '@angular/core';
@@ -176,7 +177,7 @@ export class AppComponent {
     Pencil, History, Ban, Layers, Download
   };
 
-  readonly api = 'http://localhost:5008/api';
+  readonly api = environment.apiUrl;
   loginMode = !sessionStorage.getItem('webwave_token');
   loading = false;
   error = '';
