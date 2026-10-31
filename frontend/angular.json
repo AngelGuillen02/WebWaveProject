@@ -18,7 +18,10 @@
               "zone.js"
             ],
             "tsConfig": "tsconfig.app.json",
-            "allowedCommonJsDependencies": ["sweetalert2", "xlsx"],
+            "allowedCommonJsDependencies": [
+              "sweetalert2",
+              "xlsx"
+            ],
             "assets": [
               "src/favicon.ico"
             ],
@@ -35,7 +38,13 @@
                   "maximumError": "5mb"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ]
             },
             "development": {
               "optimization": false,
