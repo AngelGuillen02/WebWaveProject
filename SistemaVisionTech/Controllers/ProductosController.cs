@@ -64,6 +64,11 @@ namespace SistemaVisionTech.Controllers
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
-            => HandleResult(await _svc.EliminarAsync(id));
+        {
+            var usuario = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "name")?.Value
+                          ?? User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value
+                          ?? "Usuario";
+            return HandleResult(await _svc.EliminarAsync(id, usuario));
+        }
     }
 }

@@ -10,6 +10,6 @@ namespace SistemaVisionTech.Features.Productos.Interfaces
         Task<Result<ProductoResponseDto>> CrearAsync(ProductoCreacionDto dto);
         Task<Result<ProductoResponseDto>> EditarAsync(int id, ProductoCreacionDto dto, string? usuario = null);
         Task<Result<List<SistemaVisionTech.Infrastructure.Entities.ProductosHistorial>>> ObtenerHistorialAsync(int productoId);
-        Task<Result<bool>> EliminarAsync(int id);
+        Task<Result<bool>> EliminarAsync(int id, string? usuario = null);
     }
 }

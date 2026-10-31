@@ -2386,7 +2386,7 @@ export class AppComponent {
   // =========================================================================
   // MÓDULO DE REPORTES FISCALES Y GERENCIALES (EXCEL Y PDF)
   // =========================================================================
-  subTabReporte: 'ventas-sar' | 'cierre-caja' | 'inventario' = 'ventas-sar';
+  subTabReporte: 'ventas-sar' | 'cierre-caja' | 'inventario' | 'auditoria' = 'ventas-sar';
   reporteMesVentas: number = new Date().getMonth() + 1;
   reporteAnoVentas: number = new Date().getFullYear();
   cierreSeleccionadoReporteId: number = 0;

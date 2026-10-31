@@ -1233,6 +1233,9 @@
               <button class="sub-tab" [class.active]="subTabReporte === 'inventario'" (click)="subTabReporte = 'inventario'">
                 Valorización de Inventario
               </button>
+              <button *ngIf="isAdmin" class="sub-tab" [class.active]="subTabReporte === 'auditoria'" (click)="subTabReporte = 'auditoria'; loadAuditoriaLogs()">
+                Bitácora de Auditoría (Admin)
+              </button>
             </div>
           </div>
         </div>
@@ -1548,6 +1551,80 @@
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        <!-- ------------------------------------------------------------------------- -->
+        <!-- SUBTAB 4: BITÁCORA GLOBAL DE AUDITORÍA Y BORRADO LÓGICO (SOLO ADMIN)      -->
+        <!-- ------------------------------------------------------------------------- -->
+        <div *ngIf="subTabReporte === 'auditoria'" style="display: grid; gap: 18px;">
+          <!-- Barra de Filtros y Acciones -->
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #f8faf9; border: 1px solid #e2e8e5; border-radius: 10px; padding: 14px 18px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <div style="font-weight: 800; font-size: 14px; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                <lucide-icon [img]="icons.History" [size]="16" style="color: #0284c7;"></lucide-icon>
+                Bitácora de Auditoría y Control de Eliminaciones
+              </div>
+              <p style="font-size: 11.5px; color: #64748b; margin: 3px 0 0;">
+                Registro estricto de borrados lógicos, modificaciones de precios y cambios de cotizaciones. Todo queda registrado.
+              </p>
+            </div>
+            <button class="btn-action" (click)="loadAuditoriaLogs()" title="Refrescar Registros">
+              <lucide-icon [img]="icons.RotateCcw" [size]="13"></lucide-icon> Actualizar Bitácora
+            </button>
+          </div>
+
+          <div class="table-wrap">
+            <div *ngIf="cargandoAuditoria" style="text-align: center; padding: 36px; color: #64748b;">
+              <p>Consultando bitácora de auditoría global...</p>
+            </div>
+
+            <div *ngIf="!cargandoAuditoria && !logsAuditoriaList.length" style="text-align: center; padding: 45px 20px; color: #94a3b8;">
+              <lucide-icon [img]="icons.History" [size]="40" style="margin-bottom: 8px; opacity: 0.4;"></lucide-icon>
+              <p style="font-size: 13px; font-weight: 700; color: #475569;">No hay eventos registrados en la bitácora todavía</p>
+              <p style="font-size: 11px; color: #94a3b8;">Cualquier edición o borrado lógico de productos o cotizaciones aparecerá aquí.</p>
+            </div>
+
+            <table *ngIf="!cargandoAuditoria && logsAuditoriaList.length">
+              <thead>
+                <tr>
+                  <th style="width: 130px;">Fecha y Hora</th>
+                  <th style="width: 110px;">Módulo / Tipo</th>
+                  <th style="width: 180px;">Referencia</th>
+                  <th style="width: 140px;">Usuario</th>
+                  <th style="width: 120px;">Acción</th>
+                  <th>Detalle de la Modificación / Borrado Lógico</th>
+                  <th style="width: 110px; text-align: right;">Val. Anterior</th>
+                  <th style="width: 110px; text-align: right;">Val. Nuevo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of logsAuditoriaList">
+                  <td style="font-size: 11px; color: #64748b; white-space: nowrap;">
+                    {{ item.fecha | date:'dd/MM/yyyy, h:mm a' }}
+                  </td>
+                  <td>
+                    <span class="status" [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : '#f0fdf4'" [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : '#15803d'" style="font-weight: 800; font-size: 10px;">
+                      {{ item.tipo }}
+                    </span>
+                  </td>
+                  <td><b>{{ item.referencia }}</b></td>
+                  <td><span class="muted">{{ item.usuario }}</span></td>
+                  <td>
+                    <span class="status" [style.background]="item.accion === 'ELIMINACION_LOGICA' ? '#fee2e2' : (item.accion === 'ANULADA' ? '#fff1f2' : '#f1f5f9')" [style.color]="item.accion === 'ELIMINACION_LOGICA' ? '#b91c1c' : (item.accion === 'ANULADA' ? '#e11d48' : '#334155')" style="font-weight: 800; font-size: 10px;">
+                      {{ item.accion }}
+                    </span>
+                  </td>
+                  <td style="font-size: 11.5px; color: #334155;">{{ item.detalle }}</td>
+                  <td style="text-align: right; color: #e11d48; text-decoration: line-through; font-size: 11.5px;">
+                    {{ item.valorAnterior }}
+                  </td>
+                  <td style="text-align: right; font-weight: 700; color: #059669; font-size: 11.5px;">
+                    {{ item.valorNuevo }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>

@@ -170,7 +170,7 @@ namespace SistemaVisionTech.Features.Productos.Services
             return Result<List<SistemaVisionTech.Infrastructure.Entities.ProductosHistorial>>.Ok(logs);
         }
 
-        public async Task<Result<bool>> EliminarAsync(int id)
+        public async Task<Result<bool>> EliminarAsync(int id, string? usuario = null)
         {
             Producto? producto = await _context.Productos.FindAsync(id);
 
@@ -178,6 +178,19 @@ namespace SistemaVisionTech.Features.Productos.Services
                 return Result<bool>.Fail("El producto no existe.");
 
             producto.Activo = false;
+
+            _context.ProductosHistorial.Add(new ProductosHistorial
+            {
+                ProductoId = id,
+                Usuario = usuario ?? "Usuario",
+                FechaModificacion = DateTime.UtcNow,
+                Accion = "ELIMINACION_LOGICA",
+                DetalleCambios = $"Producto '{producto.Nombre}' marcado como inactivo (Borrado Lógico).",
+                PrecioAnterior = producto.Precio,
+                PrecioNuevo = 0,
+                Activo = true
+            });
+
             await _context.SaveChangesAsync();
 
             return Result<bool>.Ok(true);
