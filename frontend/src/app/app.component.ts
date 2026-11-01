@@ -12,7 +12,7 @@ import {
   FileBarChart, Home, LogOut, Menu, Package, Search,
   Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
   AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-  Pencil, History, Ban, Layers, Download, Filter, LucideAngularModule
+  Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, LucideAngularModule
 } from 'lucide-angular';
 
 interface Product {
@@ -177,7 +177,7 @@ export class AppComponent {
     FileBarChart, Home, LogOut, Menu, Package, Search,
     Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
     AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-    Pencil, History, Ban, Layers, Download, Filter
+    Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff
   };
 
   readonly api = environment.apiUrl;
@@ -185,9 +185,15 @@ export class AppComponent {
   loading = false;
   error = '';
   credentials = { email: '', password: '' };
+  mostrarPasswordLogin = false;
   active = 'Resumen';
   search = '';
   searchProductos = '';
+  searchClientes = '';
+  searchProveedores = '';
+  searchCompras = '';
+  searchReporteVentas = '';
+  searchReporteInventario = '';
 
   // Filtros por columna para la tabla de Facturas / Cotizaciones
   filtroVentas = {
@@ -265,8 +271,51 @@ export class AppComponent {
     return role.includes('almacen') || role.includes('inventario');
   }
 
+  todasLasPantallasDisponibles: { label: string; icon: string; descripcion: string }[] = [
+    { label: 'Resumen', icon: 'Home', descripcion: 'Panel general y métricas clave en vivo' },
+    { label: 'Facturas', icon: 'FileText', descripcion: 'Facturación SAR y Cotizaciones' },
+    { label: 'Compras', icon: 'Truck', descripcion: 'Gestión y recepción de órdenes de compra' },
+    { label: 'Inventario', icon: 'Boxes', descripcion: 'Control de existencias y kardex físico' },
+    { label: 'Productos', icon: 'Package', descripcion: 'Catálogo de productos, precios e ISV' },
+    { label: 'Clientes', icon: 'Users', descripcion: 'Directorio de clientes y RTN fiscal' },
+    { label: 'Proveedores', icon: 'Store', descripcion: 'Directorio de casas proveedoras' },
+    { label: 'Caja', icon: 'CircleDollarSign', descripcion: 'Aperturas, arqueos y cierres de turno' },
+    { label: 'Reportes', icon: 'FileBarChart', descripcion: 'Libro de ventas SAR, corte Z y reportes' },
+    { label: 'Usuarios', icon: 'Shield', descripcion: 'Administración de usuarios y roles RBAC' },
+    { label: 'Configuración', icon: 'Settings', descripcion: 'Parámetros fiscales SAR y del sistema' }
+  ];
+
+  getDefaultScreensForRole(roleName?: string): string[] {
+    const rol = (roleName || '').toLowerCase();
+    if (rol.includes('admin') || rol.includes('super')) {
+      return this.todasLasPantallasDisponibles.map(p => p.label);
+    }
+    if (rol.includes('factura') || rol.includes('venta') || rol.includes('vendedor')) {
+      return ['Resumen', 'Facturas', 'Clientes', 'Productos'];
+    }
+    if (rol.includes('caj')) {
+      return ['Resumen', 'Facturas', 'Caja', 'Clientes', 'Productos'];
+    }
+    if (rol.includes('almacen') || rol.includes('inventario') || rol.includes('bodega')) {
+      return ['Resumen', 'Inventario', 'Productos', 'Compras', 'Proveedores'];
+    }
+    return ['Resumen', 'Facturas', 'Clientes', 'Productos'];
+  }
+
   puedeVerModulo(modulo: string): boolean {
     if (this.isAdmin) return true;
+
+    // Verificar si el usuario tiene pantallas personalizadas asignadas
+    const emailKey = (this.currentUser.email || '').toLowerCase();
+    const customScreens = localStorage.getItem('vt_user_screens_' + emailKey);
+    if (customScreens) {
+      try {
+        const screens: string[] = JSON.parse(customScreens);
+        if (Array.isArray(screens) && screens.length > 0) {
+          return screens.includes(modulo);
+        }
+      } catch (e) {}
+    }
 
     // Rol Facturación y Ventas: ve únicamente Resumen, Facturas (ventas), Clientes y Productos
     if (this.isFacturador) {
@@ -431,8 +480,12 @@ export class AppComponent {
     nombre: '',
     email: '',
     password: '',
-    perfilId: 1
+    perfilId: 1,
+    pantallas: [] as string[]
   };
+  showEditarPermisosUsuarioModal = false;
+  usuarioPermisosEditando: UsuarioItem | null = null;
+  pantallasUsuarioEditando: string[] = [];
 
   // Pestañas secundarias de Configuración
   subTabConfiguracion: 'general' | 'facturas' | 'seguridad' | 'auditoria' = 'general';
@@ -803,14 +856,12 @@ export class AppComponent {
   }
 
   loadData() {
+    // Carga prioritaria y optimizada de métricas del panel Resumen (evita peticiones redundantes de Compras y Proveedores)
     this.loadProducts();
     this.loadInventory();
     this.loadVentas();
-    this.loadClientes();
-    this.loadSARConfig();
-    this.loadCompras();
-    this.loadProveedores();
     this.loadCajaEstado();
+    this.loadSARConfig();
   }
 
   loadProducts() {
@@ -2006,13 +2057,104 @@ export class AppComponent {
   // GESTIÓN DE USUARIOS (RBAC)
   // =========================================================================
   abrirModalNuevoUsuario() {
+    const perfilInicial = this.perfiles[0]?.perfilId || 1;
+    const defaults = this.getDefaultScreensForRole(this.perfiles[0]?.nombre);
     this.nuevoUsuarioForm = {
       nombre: '',
       email: '',
       password: '',
-      perfilId: this.perfiles[0]?.perfilId || 1
+      perfilId: perfilInicial,
+      pantallas: [...defaults]
     };
     this.showNuevoUsuarioModal = true;
+  }
+
+  onPerfilChangeNuevoUsuario() {
+    const perfil = this.perfiles.find(p => p.perfilId === Number(this.nuevoUsuarioForm.perfilId));
+    const defaults = this.getDefaultScreensForRole(perfil?.nombre);
+    this.nuevoUsuarioForm.pantallas = [...defaults];
+  }
+
+  abrirModalPermisosUsuario(user: UsuarioItem) {
+    this.usuarioPermisosEditando = user;
+    const emailKey = (user.email || '').toLowerCase();
+    const stored = localStorage.getItem('vt_user_screens_' + emailKey);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.pantallasUsuarioEditando = [...parsed];
+        } else {
+          this.pantallasUsuarioEditando = this.getDefaultScreensForRole(user.perfil);
+        }
+      } catch (e) {
+        this.pantallasUsuarioEditando = this.getDefaultScreensForRole(user.perfil);
+      }
+    } else {
+      this.pantallasUsuarioEditando = this.getDefaultScreensForRole(user.perfil);
+    }
+    this.showEditarPermisosUsuarioModal = true;
+  }
+
+  guardarPermisosUsuario() {
+    if (!this.usuarioPermisosEditando) return;
+    const emailKey = (this.usuarioPermisosEditando.email || '').toLowerCase();
+    localStorage.setItem('vt_user_screens_' + emailKey, JSON.stringify(this.pantallasUsuarioEditando));
+    this.showEditarPermisosUsuarioModal = false;
+    this.notificarExito('Permisos Actualizados', `Pantallas autorizadas guardadas para ${this.usuarioPermisosEditando.nombre}.`);
+  }
+
+  isPantallaSeleccionada(label: string, esEdicion: boolean = false): boolean {
+    if (esEdicion) {
+      return this.pantallasUsuarioEditando.includes(label);
+    }
+    return this.nuevoUsuarioForm.pantallas ? this.nuevoUsuarioForm.pantallas.includes(label) : false;
+  }
+
+  togglePantalla(label: string, esEdicion: boolean = false) {
+    if (esEdicion) {
+      if (this.pantallasUsuarioEditando.includes(label)) {
+        this.pantallasUsuarioEditando = this.pantallasUsuarioEditando.filter(p => p !== label);
+      } else {
+        this.pantallasUsuarioEditando.push(label);
+      }
+    } else {
+      if (!this.nuevoUsuarioForm.pantallas) this.nuevoUsuarioForm.pantallas = [];
+      if (this.nuevoUsuarioForm.pantallas.includes(label)) {
+        this.nuevoUsuarioForm.pantallas = this.nuevoUsuarioForm.pantallas.filter((p: string) => p !== label);
+      } else {
+        this.nuevoUsuarioForm.pantallas.push(label);
+      }
+    }
+  }
+
+  seleccionarTodasPantallas(esEdicion: boolean = false) {
+    const todas = this.todasLasPantallasDisponibles.map(p => p.label);
+    if (esEdicion) {
+      this.pantallasUsuarioEditando = [...todas];
+    } else {
+      this.nuevoUsuarioForm.pantallas = [...todas];
+    }
+  }
+
+  deseleccionarTodasPantallas(esEdicion: boolean = false) {
+    if (esEdicion) {
+      this.pantallasUsuarioEditando = [];
+    } else {
+      this.nuevoUsuarioForm.pantallas = [];
+    }
+  }
+
+  getPermisosUsuarioCount(user: UsuarioItem): number {
+    const emailKey = (user.email || '').toLowerCase();
+    const stored = localStorage.getItem('vt_user_screens_' + emailKey);
+    if (stored) {
+      try {
+        const screens = JSON.parse(stored);
+        if (Array.isArray(screens) && screens.length > 0) return screens.length;
+      } catch (e) {}
+    }
+    return this.getDefaultScreensForRole(user.perfil).length;
   }
 
   guardarUsuario() {
@@ -2033,7 +2175,10 @@ export class AppComponent {
       next: () => {
         this.guardandoUsuario = false;
         this.showNuevoUsuarioModal = false;
-        this.notificarExito('Usuario Creado', '¡Usuario creado exitosamente!');
+        if (this.nuevoUsuarioForm.pantallas && this.nuevoUsuarioForm.pantallas.length > 0) {
+          localStorage.setItem('vt_user_screens_' + payload.email.toLowerCase(), JSON.stringify(this.nuevoUsuarioForm.pantallas));
+        }
+        this.notificarExito('Usuario Creado', '¡Usuario creado exitosamente con sus pantallas configuradas!');
         this.loadUsuarios();
       },
       error: (err) => {
@@ -2442,6 +2587,43 @@ export class AppComponent {
     );
   }
 
+  get filteredClientes(): Cliente[] {
+    const q = (this.searchClientes || '').trim().toLowerCase();
+    if (!q) return this.clientes;
+    return this.clientes.filter(c =>
+      (c.nombre || '').toLowerCase().includes(q) ||
+      (c.rtn || '').toLowerCase().includes(q) ||
+      (c.telefono || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.direccion || '').toLowerCase().includes(q)
+    );
+  }
+
+  get filteredProveedores(): Proveedor[] {
+    const q = (this.searchProveedores || '').trim().toLowerCase();
+    if (!q) return this.proveedores;
+    return this.proveedores.filter(p =>
+      (p.nombre || '').toLowerCase().includes(q) ||
+      (p.contacto || '').toLowerCase().includes(q) ||
+      (p.rtn || '').toLowerCase().includes(q) ||
+      (p.telefono || '').toLowerCase().includes(q) ||
+      (p.email || '').toLowerCase().includes(q)
+    );
+  }
+
+  get filteredCompras(): Compra[] {
+    const q = (this.searchCompras || '').trim().toLowerCase();
+    if (!q) return this.compras;
+    const cleanId = q.replace('#oc-', '').replace('oc-', '').replace('#', '');
+    return this.compras.filter(c =>
+      String(c.compraId || '').toLowerCase().includes(cleanId) ||
+      (c.proveedor || '').toLowerCase().includes(q) ||
+      (c.estadoCompra || '').toLowerCase().includes(q) ||
+      String(c.total || '').includes(q) ||
+      (c.fechaCompra ? String(c.fechaCompra).toLowerCase().includes(q) : false)
+    );
+  }
+
   get filteredVentas() {
     return this.ventas.filter(v => {
       // 1. Filtro ID
@@ -2609,8 +2791,32 @@ export class AppComponent {
     return this.ventas.filter(v => {
       if (v.esCotizacion || !v.numeroFactura) return false;
       const f = new Date(v.fechaFactura || v.fechaVenta);
-      return (f.getMonth() + 1) === Number(this.reporteMesVentas) && f.getFullYear() === Number(this.reporteAnoVentas);
+      const matchFecha = (f.getMonth() + 1) === Number(this.reporteMesVentas) && f.getFullYear() === Number(this.reporteAnoVentas);
+      if (!matchFecha) return false;
+
+      if (this.searchReporteVentas && this.searchReporteVentas.trim()) {
+        const q = this.searchReporteVentas.trim().toLowerCase();
+        const numFact = (v.numeroFactura || '').toLowerCase();
+        const cli = (v.cliente || '').toLowerCase();
+        const rtn = (v.clienteRtn || v.rtn || '').toLowerCase();
+        const cai = (v.cai || '').toLowerCase();
+        if (!numFact.includes(q) && !cli.includes(q) && !rtn.includes(q) && !cai.includes(q)) {
+          return false;
+        }
+      }
+
+      return true;
     });
+  }
+
+  get inventarioValorizadoFiltrado(): any[] {
+    const items = this.inventarioValorizado;
+    if (!this.searchReporteInventario || !this.searchReporteInventario.trim()) return items;
+    const q = this.searchReporteInventario.trim().toLowerCase();
+    return items.filter(i =>
+      (i.codigo || '').toLowerCase().includes(q) ||
+      (i.nombre || '').toLowerCase().includes(q)
+    );
   }
 
   get totalVentasSARMes(): number {

@@ -9,16 +9,36 @@
     <form (ngSubmit)="login()">
       <label>
         Correo electrónico
-        <input name="email" type="email" [(ngModel)]="credentials.email" placeholder="admin&#64;visiontech.com" required>
+        <input name="email" type="email" [(ngModel)]="credentials.email" placeholder="admin&#64;visiontech.com" required [disabled]="loading">
       </label>
       <label>
         Contraseña
-        <input name="password" type="password" [(ngModel)]="credentials.password" placeholder="••••••••" required>
+        <div style="position: relative; display: flex; align-items: center; width: 100%;">
+          <input 
+            name="password" 
+            [type]="mostrarPasswordLogin ? 'text' : 'password'" 
+            [(ngModel)]="credentials.password" 
+            placeholder="••••••••" 
+            required 
+            [disabled]="loading"
+            style="width: 100%; padding-right: 44px;"
+            autocomplete="current-password"
+          >
+          <button 
+            type="button" 
+            (click)="mostrarPasswordLogin = !mostrarPasswordLogin" 
+            style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #78837f; padding: 6px; display: flex; align-items: center; justify-content: center; transition: color 0.2s;"
+            [title]="mostrarPasswordLogin ? 'Ocultar contraseña' : 'Ver contraseña'"
+          >
+            <lucide-icon [img]="mostrarPasswordLogin ? icons.EyeOff : icons.Eye" [size]="18"></lucide-icon>
+          </button>
+        </div>
       </label>
       <div *ngIf="error" class="form-error">{{ error }}</div>
       <button class="primary-button" type="submit" [disabled]="loading">
-        {{ loading ? 'Conectando…' : 'Entrar al sistema' }}
-        <lucide-icon [img]="icons.ChevronDown" [size]="17" class="rotate-minus-90"></lucide-icon>
+        <lucide-icon *ngIf="loading" [img]="icons.RotateCcw" [size]="16" class="spin"></lucide-icon>
+        <span>{{ loading ? 'Iniciando sesión…' : 'Entrar al sistema' }}</span>
+        <lucide-icon *ngIf="!loading" [img]="icons.ChevronDown" [size]="17" class="rotate-minus-90"></lucide-icon>
       </button>
     </form>
     <p class="login-foot">SistemaVisionTech conectado a Supabase PostgreSQL</p>
@@ -1085,6 +1105,28 @@
           </div>
           <button class="primary-small" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
         </div>
+        <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 280px; position: relative; display: flex; align-items: center;">
+            <lucide-icon [img]="icons.Search" [size]="16" style="position: absolute; left: 12px; color: #94a3b8; pointer-events: none;"></lucide-icon>
+            <input 
+              type="text" 
+              [(ngModel)]="searchClientes" 
+              placeholder="Buscar cliente por nombre, RTN fiscal, teléfono, correo..." 
+              style="width: 100%; padding: 9px 36px 9px 36px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #ffffff; outline: none; transition: all 0.2s;"
+            >
+            <button 
+              *ngIf="searchClientes" 
+              (click)="searchClientes = ''" 
+              style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center;"
+              title="Limpiar búsqueda"
+            >
+              <lucide-icon [img]="icons.X" [size]="15"></lucide-icon>
+            </button>
+          </div>
+          <div style="font-size: 12px; color: #64748b; font-weight: 600;">
+            Mostrando <b>{{ filteredClientes.length }}</b> de {{ clientes.length }} clientes
+          </div>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1098,7 +1140,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of clientes">
+              <tr *ngFor="let c of filteredClientes">
                 <td><b>{{ c.nombre }}</b></td>
                 <td><code style="color:#187352;">{{ c.rtn || '08011990123456' }}</code></td>
                 <td>{{ c.telefono || '—' }}</td>
@@ -1113,6 +1155,12 @@
                       <lucide-icon [img]="icons.Trash2" [size]="12"></lucide-icon>
                     </button>
                   </div>
+                </td>
+              </tr>
+              <tr *ngIf="clientes.length && !filteredClientes.length">
+                <td colspan="6" class="empty" style="text-align: center; padding: 26px; color: #64748b;">
+                  No se encontraron clientes que coincidan con "<b>{{ searchClientes }}</b>".
+                  <button class="text-button" (click)="searchClientes = ''" style="display: block; margin: 6px auto 0;">Limpiar búsqueda</button>
                 </td>
               </tr>
               <tr *ngIf="!clientes.length">
@@ -1134,6 +1182,28 @@
           </div>
           <button class="primary-small" (click)="abrirModalNuevaCompra()">+ Nueva Orden de Compra</button>
         </div>
+        <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 280px; position: relative; display: flex; align-items: center;">
+            <lucide-icon [img]="icons.Search" [size]="16" style="position: absolute; left: 12px; color: #94a3b8; pointer-events: none;"></lucide-icon>
+            <input 
+              type="text" 
+              [(ngModel)]="searchCompras" 
+              placeholder="Buscar orden de compra por ID (#OC), proveedor, total o estado..." 
+              style="width: 100%; padding: 9px 36px 9px 36px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #ffffff; outline: none; transition: all 0.2s;"
+            >
+            <button 
+              *ngIf="searchCompras" 
+              (click)="searchCompras = ''" 
+              style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center;"
+              title="Limpiar búsqueda"
+            >
+              <lucide-icon [img]="icons.X" [size]="15"></lucide-icon>
+            </button>
+          </div>
+          <div style="font-size: 12px; color: #64748b; font-weight: 600;">
+            Mostrando <b>{{ filteredCompras.length }}</b> de {{ compras.length }} órdenes
+          </div>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1147,7 +1217,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of compras">
+              <tr *ngFor="let c of filteredCompras">
                 <td><b>#OC-{{ c.compraId }}</b></td>
                 <td>{{ c.proveedor }}</td>
                 <td class="muted">{{ c.fechaCompra | date:'dd/MM/yyyy, hh:mm a' }}</td>
@@ -1166,6 +1236,12 @@
                       <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anular
                     </button>
                   </div>
+                </td>
+              </tr>
+              <tr *ngIf="compras.length && !filteredCompras.length">
+                <td colspan="6" class="empty" style="text-align: center; padding: 26px; color: #64748b;">
+                  No se encontraron órdenes de compra que coincidan con "<b>{{ searchCompras }}</b>".
+                  <button class="text-button" (click)="searchCompras = ''" style="display: block; margin: 6px auto 0;">Limpiar búsqueda</button>
                 </td>
               </tr>
               <tr *ngIf="!compras.length">
@@ -1187,6 +1263,28 @@
           </div>
           <button class="primary-small" (click)="abrirModalNuevoProveedor()">+ Nuevo Proveedor</button>
         </div>
+        <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 280px; position: relative; display: flex; align-items: center;">
+            <lucide-icon [img]="icons.Search" [size]="16" style="position: absolute; left: 12px; color: #94a3b8; pointer-events: none;"></lucide-icon>
+            <input 
+              type="text" 
+              [(ngModel)]="searchProveedores" 
+              placeholder="Buscar proveedor por empresa, contacto, RTN, teléfono, correo..." 
+              style="width: 100%; padding: 9px 36px 9px 36px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #ffffff; outline: none; transition: all 0.2s;"
+            >
+            <button 
+              *ngIf="searchProveedores" 
+              (click)="searchProveedores = ''" 
+              style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center;"
+              title="Limpiar búsqueda"
+            >
+              <lucide-icon [img]="icons.X" [size]="15"></lucide-icon>
+            </button>
+          </div>
+          <div style="font-size: 12px; color: #64748b; font-weight: 600;">
+            Mostrando <b>{{ filteredProveedores.length }}</b> de {{ proveedores.length }} proveedores
+          </div>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1200,7 +1298,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let prov of proveedores">
+              <tr *ngFor="let prov of filteredProveedores">
                 <td><b>{{ prov.nombre }}</b></td>
                 <td>{{ prov.contacto || '—' }}</td>
                 <td>{{ prov.rtn || '—' }}</td>
@@ -1215,6 +1313,12 @@
                       <lucide-icon [img]="icons.Trash2" [size]="12"></lucide-icon>
                     </button>
                   </div>
+                </td>
+              </tr>
+              <tr *ngIf="proveedores.length && !filteredProveedores.length">
+                <td colspan="6" class="empty" style="text-align: center; padding: 26px; color: #64748b;">
+                  No se encontraron proveedores que coincidan con "<b>{{ searchProveedores }}</b>".
+                  <button class="text-button" (click)="searchProveedores = ''" style="display: block; margin: 6px auto 0;">Limpiar búsqueda</button>
                 </td>
               </tr>
               <tr *ngIf="!proveedores.length">
@@ -1341,8 +1445,8 @@
                 <th style="width: 80px;">ID</th>
                 <th>Nombre</th>
                 <th>Correo Electrónico</th>
-                <th style="width: 170px;">Perfil Asignado</th>
-                <th style="width: 130px; text-align: right;">Acciones</th>
+                <th style="width: 180px;">Perfil Asignado</th>
+                <th style="width: 220px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1352,12 +1456,20 @@
                 <td class="muted">{{ u.email }}</td>
                 <td>
                   <span class="tag-cai">{{ u.perfil }}</span>
+                  <div style="font-size: 11px; color: #0284c7; font-weight: 600; margin-top: 3px;">
+                    {{ getPermisosUsuarioCount(u) }} pantallas activas
+                  </div>
                 </td>
-                <td>
-                  <button *ngIf="u.usuarioId !== 1" class="btn-action danger" (click)="eliminarUsuario(u.usuarioId)" title="Eliminar usuario">
-                    <lucide-icon [img]="icons.Trash2" [size]="12"></lucide-icon> Eliminar
-                  </button>
-                  <span *ngIf="u.usuarioId === 1" class="muted">Principal</span>
+                <td style="text-align: right;">
+                  <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                    <button *ngIf="isAdmin" class="btn-action primary" (click)="abrirModalPermisosUsuario(u)" title="Configurar pantallas y módulos autorizados">
+                      <lucide-icon [img]="icons.Settings" [size]="12"></lucide-icon> Permisos
+                    </button>
+                    <button *ngIf="u.usuarioId !== 1" class="btn-action danger" (click)="eliminarUsuario(u.usuarioId)" title="Eliminar usuario">
+                      <lucide-icon [img]="icons.Trash2" [size]="12"></lucide-icon>
+                    </button>
+                  </div>
+                  <span *ngIf="u.usuarioId === 1 && !isAdmin" class="muted">Principal</span>
                 </td>
               </tr>
               <tr *ngIf="!usuarios.length">
@@ -1429,6 +1541,23 @@
               </div>
               <div style="padding-top: 18px; font-size: 11.5px; color: #64748b;">
                 Mostrando <b>{{ ventasFiltradasSAR.length }}</b> comprobantes fiscales emitidos.
+              </div>
+              <div style="padding-top: 14px; position: relative; display: flex; align-items: center; min-width: 250px;">
+                <lucide-icon [img]="icons.Search" [size]="14" style="position: absolute; left: 10px; color: #94a3b8; pointer-events: none;"></lucide-icon>
+                <input 
+                  type="text" 
+                  [(ngModel)]="searchReporteVentas" 
+                  placeholder="Buscar N° Factura, cliente, CAI..." 
+                  style="width: 100%; padding: 6px 26px 6px 30px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #fff;"
+                >
+                <button 
+                  *ngIf="searchReporteVentas" 
+                  (click)="searchReporteVentas = ''" 
+                  style="position: absolute; right: 6px; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center;"
+                  title="Limpiar"
+                >
+                  <lucide-icon [img]="icons.X" [size]="13"></lucide-icon>
+                </button>
               </div>
             </div>
 
@@ -1626,8 +1755,27 @@
         <div *ngIf="subTabReporte === 'inventario'" style="display: grid; gap: 18px;">
           <!-- Barra de Acciones -->
           <div style="display: flex; justify-content: space-between; align-items: center; background: #f8faf9; border: 1px solid #e2e8e5; border-radius: 10px; padding: 14px 18px; flex-wrap: wrap; gap: 12px;">
-            <div style="font-size: 12px; color: #475569;">
-              Equipos de <b>Seguridad Electrónica, CCTV y Redes</b> en existencias.
+            <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+              <div style="font-size: 12px; color: #475569;">
+                Equipos de <b>Seguridad Electrónica, CCTV y Redes</b> en existencias.
+              </div>
+              <div style="position: relative; display: flex; align-items: center; min-width: 240px;">
+                <lucide-icon [img]="icons.Search" [size]="14" style="position: absolute; left: 10px; color: #94a3b8; pointer-events: none;"></lucide-icon>
+                <input 
+                  type="text" 
+                  [(ngModel)]="searchReporteInventario" 
+                  placeholder="Buscar por Código / SKU o Equipo..." 
+                  style="width: 100%; padding: 6px 26px 6px 30px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #fff;"
+                >
+                <button 
+                  *ngIf="searchReporteInventario" 
+                  (click)="searchReporteInventario = ''" 
+                  style="position: absolute; right: 6px; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center;"
+                  title="Limpiar"
+                >
+                  <lucide-icon [img]="icons.X" [size]="13"></lucide-icon>
+                </button>
+              </div>
             </div>
 
             <div style="display: flex; gap: 10px;">
@@ -1686,7 +1834,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let item of inventarioValorizado">
+                  <tr *ngFor="let item of inventarioValorizadoFiltrado">
                     <td><b>{{ item.codigo }}</b></td>
                     <td><b>{{ item.nombre }}</b></td>
                     <td>
@@ -2703,7 +2851,7 @@
 <!-- MODAL: REGISTRAR NUEVO USUARIO (RBAC)                                    -->
 <!-- ========================================================================= -->
 <div *ngIf="showNuevoUsuarioModal" class="modal-backdrop">
-  <div class="modal-box" style="max-width: 480px;">
+  <div class="modal-box" style="max-width: 620px;">
     <div class="modal-header">
       <div style="display:flex; align-items:center; gap:8px;">
         <lucide-icon [img]="icons.Users" [size]="18"></lucide-icon>
@@ -2713,7 +2861,7 @@
         <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
       </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
       <div class="form-group">
         <label>Nombre Completo (*):</label>
         <input type="text" [(ngModel)]="nuevoUsuarioForm.nombre" placeholder="Ej: Ana Lucía Flores">
@@ -2730,8 +2878,8 @@
           <input type="password" [(ngModel)]="nuevoUsuarioForm.password" placeholder="••••••••">
         </div>
         <div class="form-group">
-          <label>Perfil / Rol (*):</label>
-          <select [(ngModel)]="nuevoUsuarioForm.perfilId">
+          <label>Perfil Base / Rol (*):</label>
+          <select [(ngModel)]="nuevoUsuarioForm.perfilId" (change)="onPerfilChangeNuevoUsuario()">
             <option *ngFor="let perf of perfiles" [value]="perf.perfilId">
               {{ perf.nombre }}
             </option>
@@ -2739,28 +2887,53 @@
         </div>
       </div>
 
-      <!-- VISUALIZACIÓN DINÁMICA DE MÓDULOS Y PANTALLAS CON ACCESO -->
-      <div style="margin-top: 14px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-          <div style="font-size: 12px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-            <lucide-icon [img]="icons.Shield" [size]="15" style="color: #0284c7;"></lucide-icon>
-            Pantallas y Módulos a los que tendrá acceso:
+      <!-- SELECCIÓN Y CONFIGURACIÓN INDIVIDUAL DE TODAS LAS PANTALLAS -->
+      <div style="margin-top: 14px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+            <lucide-icon [img]="icons.Shield" [size]="16" style="color: #0284c7;"></lucide-icon>
+            Seleccionar Pantallas Permitidas:
           </div>
-          <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: 600;">
-            {{ getModulosAccesoPorPerfil(nuevoUsuarioForm.perfilId).length }} pantallas permitidas
-          </span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="sub-tab" style="padding: 3px 8px; font-size: 11px;" (click)="seleccionarTodasPantallas(false)">
+              Todas
+            </button>
+            <button type="button" class="sub-tab" style="padding: 3px 8px; font-size: 11px;" (click)="deseleccionarTodasPantallas(false)">
+              Ninguna
+            </button>
+            <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 12px; font-weight: 700;">
+              {{ nuevoUsuarioForm.pantallas?.length || 0 }} de {{ todasLasPantallasDisponibles.length }} activas
+            </span>
+          </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px;">
-          <div *ngFor="let mod of getModulosAccesoPorPerfil(nuevoUsuarioForm.perfilId)" 
-               style="display: flex; align-items: center; gap: 8px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px;">
-            <lucide-icon [img]="iconFor(mod.icon)" [size]="15" style="color: #0284c7; flex-shrink: 0;"></lucide-icon>
-            <div style="overflow: hidden;">
-              <div style="font-size: 12px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ mod.nombre }}</div>
-              <div style="font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" [title]="mod.descripcion">{{ mod.descripcion }}</div>
+        <p style="font-size: 11px; color: #64748b; margin: 0 0 10px;">
+          Marca o desmarca las pantallas que podrá ver este usuario. Aunque el rol base sea Ventas, puedes otorgarle acceso a Caja, Inventario o Reportes según lo necesites.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+          <label 
+            *ngFor="let mod of todasLasPantallasDisponibles" 
+            style="display: flex; align-items: center; gap: 10px; border: 1.5px solid; border-radius: 8px; padding: 8px 12px; cursor: pointer; transition: all 0.15s;"
+            [style.borderColor]="isPantallaSeleccionada(mod.label, false) ? '#0284c7' : '#e2e8f0'"
+            [style.background]="isPantallaSeleccionada(mod.label, false) ? '#f0f9ff' : '#ffffff'"
+          >
+            <input 
+              type="checkbox" 
+              [checked]="isPantallaSeleccionada(mod.label, false)" 
+              (change)="togglePantalla(mod.label, false)" 
+              style="width: 16px; height: 16px; accent-color: #0284c7; cursor: pointer;"
+            >
+            <lucide-icon [img]="iconFor(mod.icon)" [size]="16" [style.color]="isPantallaSeleccionada(mod.label, false) ? '#0284c7' : '#94a3b8'"></lucide-icon>
+            <div style="overflow: hidden; flex: 1;">
+              <div style="font-size: 12px; font-weight: 700;" [style.color]="isPantallaSeleccionada(mod.label, false) ? '#0369a1' : '#334155'">
+                {{ mod.label }}
+              </div>
+              <div style="font-size: 10.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" [title]="mod.descripcion">
+                {{ mod.descripcion }}
+              </div>
             </div>
-            <lucide-icon [img]="icons.Check" [size]="13" style="color: #10b981; margin-left: auto; flex-shrink: 0;"></lucide-icon>
-          </div>
+          </label>
         </div>
       </div>
     </div>
@@ -2768,6 +2941,81 @@
       <button class="outline-button" (click)="showNuevoUsuarioModal = false">Cancelar</button>
       <button class="primary-button" style="margin:0; padding:10px 18px;" [disabled]="guardandoUsuario" (click)="guardarUsuario()">
         {{ guardandoUsuario ? 'Guardando...' : 'Crear Usuario' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: EDITAR PERMISOS Y PANTALLAS DE USUARIO                            -->
+<!-- ========================================================================= -->
+<div *ngIf="showEditarPermisosUsuarioModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width: 620px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <lucide-icon [img]="icons.Shield" [size]="18" style="color: #0284c7;"></lucide-icon>
+        <div>
+          <h3 style="margin: 0; font-size: 16px;">Permisos de Pantalla: {{ usuarioPermisosEditando?.nombre }}</h3>
+          <p style="margin: 2px 0 0; font-size: 11.5px; color: #64748b;">Rol asignado: <b>{{ usuarioPermisosEditando?.perfil }}</b> ({{ usuarioPermisosEditando?.email }})</p>
+        </div>
+      </div>
+      <button class="modal-close" (click)="showEditarPermisosUsuarioModal = false">
+        <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
+      </button>
+    </div>
+    <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+      <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px;">
+            Pantallas a las que tiene acceso:
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="sub-tab" style="padding: 3px 8px; font-size: 11px;" (click)="seleccionarTodasPantallas(true)">
+              Todas
+            </button>
+            <button type="button" class="sub-tab" style="padding: 3px 8px; font-size: 11px;" (click)="deseleccionarTodasPantallas(true)">
+              Ninguna
+            </button>
+            <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 12px; font-weight: 700;">
+              {{ pantallasUsuarioEditando.length }} de {{ todasLasPantallasDisponibles.length }} activas
+            </span>
+          </div>
+        </div>
+
+        <p style="font-size: 11px; color: #64748b; margin: 0 0 10px;">
+          Marca o desmarca los accesos a pantallas para este usuario. Los cambios tendrán efecto de inmediato.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; max-height: 260px; overflow-y: auto; padding-right: 4px;">
+          <label 
+            *ngFor="let mod of todasLasPantallasDisponibles" 
+            style="display: flex; align-items: center; gap: 10px; border: 1.5px solid; border-radius: 8px; padding: 8px 12px; cursor: pointer; transition: all 0.15s;"
+            [style.borderColor]="isPantallaSeleccionada(mod.label, true) ? '#0284c7' : '#e2e8f0'"
+            [style.background]="isPantallaSeleccionada(mod.label, true) ? '#f0f9ff' : '#ffffff'"
+          >
+            <input 
+              type="checkbox" 
+              [checked]="isPantallaSeleccionada(mod.label, true)" 
+              (change)="togglePantalla(mod.label, true)" 
+              style="width: 16px; height: 16px; accent-color: #0284c7; cursor: pointer;"
+            >
+            <lucide-icon [img]="iconFor(mod.icon)" [size]="16" [style.color]="isPantallaSeleccionada(mod.label, true) ? '#0284c7' : '#94a3b8'"></lucide-icon>
+            <div style="overflow: hidden; flex: 1;">
+              <div style="font-size: 12px; font-weight: 700;" [style.color]="isPantallaSeleccionada(mod.label, true) ? '#0369a1' : '#334155'">
+                {{ mod.label }}
+              </div>
+              <div style="font-size: 10.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" [title]="mod.descripcion">
+                {{ mod.descripcion }}
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="outline-button" (click)="showEditarPermisosUsuarioModal = false">Cancelar</button>
+      <button class="primary-button" style="margin:0; padding:10px 18px;" (click)="guardarPermisosUsuario()">
+        Guardar Permisos
       </button>
     </div>
   </div>

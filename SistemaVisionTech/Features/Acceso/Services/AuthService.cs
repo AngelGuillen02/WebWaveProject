@@ -28,11 +28,12 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result<LoginResponseDto>.Fail("La contraseña es obligatoria.", isValidation: true);
 
             string email = dto.Email.Trim();
+            string emailLower = email.ToLower();
 
             Usuarios? usuario = await _context.Usuarios
                 .AsNoTracking()
                 .Include(u => u.Perfil)
-                .FirstOrDefaultAsync(u => u.Email == email);
+                .FirstOrDefaultAsync(u => u.Email == email || u.Email == emailLower);
 
             if (usuario is null || !BCryptNet.Verify(dto.Contraseña, usuario.Contraseña))
                 return Result<LoginResponseDto>.Fail(

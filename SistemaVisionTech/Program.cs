@@ -126,7 +126,7 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon-login",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
+                PermitLimit = 20,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
@@ -351,6 +351,8 @@ using (var scope = app.Services.CreateScope())
                 ""PrecioNuevo"" NUMERIC(18,2) NOT NULL,
                 ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
             );
+
+            CREATE INDEX IF NOT EXISTS ""IX_Usuarios_Email"" ON dbo.""Usuarios"" (""Email"");
         ");
     }
     catch (Exception ex)
