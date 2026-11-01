@@ -51,7 +51,11 @@ namespace SistemaVisionTech.Controllers
         [HttpPost("emitir-factura/{ventaId:int}/{sucursalId:int}")]
         public async Task<IActionResult> EmitirFactura(int ventaId, int sucursalId = 1)
         {
-            var resultado = await _svc.EmitirFacturaAsync(ventaId, sucursalId);
+            var usuario = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
+                          ?? User.Claims.FirstOrDefault(c => c.Type == "unique_name")?.Value
+                          ?? User.Identity?.Name
+                          ?? "Facturador SAR";
+            var resultado = await _svc.EmitirFacturaAsync(ventaId, sucursalId, usuario);
             return HandleResult(resultado);
         }
 

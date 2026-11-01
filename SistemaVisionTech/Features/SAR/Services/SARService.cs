@@ -95,7 +95,7 @@ namespace SistemaVisionTech.Features.SAR.Services
             return Result<ConfiguracionSARDto>.Ok(MapToDto(config));
         }
 
-        public async Task<Result<FacturaEmitidaResponseDto>> EmitirFacturaAsync(int ventaId, int sucursalId)
+        public async Task<Result<FacturaEmitidaResponseDto>> EmitirFacturaAsync(int ventaId, int sucursalId, string? usuario = null)
         {
             FacturasEmitidas? facturaExistente = await _context.FacturasEmitidas
                 .FirstOrDefaultAsync(f => f.VentaId == ventaId && f.Activo);
@@ -192,7 +192,7 @@ namespace SistemaVisionTech.Features.SAR.Services
             {
                 VentaId = ventaId,
                 NumeroCotizacion = numeroFactura,
-                Usuario = "Facturador SAR",
+                Usuario = !string.IsNullOrWhiteSpace(usuario) ? usuario : "Facturador SAR",
                 FechaModificacion = DateTime.UtcNow,
                 Accion = "ASIGNACIÓN CAI SAR",
                 DetalleCambios = $"Asignado CAI: {config.CAI} y correlativo fiscal: {numeroFactura}. Rango autorizado: {config.RangoDesde} a {config.RangoHasta}.",

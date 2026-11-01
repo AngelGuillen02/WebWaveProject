@@ -674,6 +674,10 @@ export class AppComponent {
     { label: 'Estado de Caja', value: 'Cerrada', trend: 'Turno actual', icon: 'CircleDollarSign', tone: 'purple' }
   ];
 
+  get visibleStats() {
+    return this.stats.filter(s => s.label !== 'Estado de Caja' || this.puedeVerModulo('Caja'));
+  }
+
   constructor() {
     if (!this.loginMode) {
       this.loadData();
@@ -860,7 +864,9 @@ export class AppComponent {
     this.loadProducts();
     this.loadInventory();
     this.loadVentas();
-    this.loadCajaEstado();
+    if (this.puedeVerModulo('Caja')) {
+      this.loadCajaEstado();
+    }
     this.loadSARConfig();
   }
 
@@ -1399,11 +1405,53 @@ export class AppComponent {
   // =========================================================================
   // IMPRESIÓN Y EXPORTACIÓN A PDF DE FACTURAS Y COTIZACIONES
   // =========================================================================
+  registrarLogDocumento(tipo: 'FACTURA' | 'COTIZACION', entidadId: number, referencia: string, accion: string, detalle: string, total: number) {
+    if (!entidadId) return;
+    const payload = {
+      tipo,
+      entidadId,
+      referencia,
+      accion,
+      detalle,
+      motivo: accion.includes('IMPRESI') ? 'Impresión de comprobante' : 'Descarga digital PDF',
+      total,
+      usuario: this.currentUser?.name || 'Usuario'
+    };
+    this.http.post(`${this.api}/Auditoria/registrar-evento`, payload, this.getHeaders()).subscribe({
+      next: () => {},
+      error: (e) => console.warn('No se pudo registrar auditoría de documento:', e)
+    });
+  }
+
   imprimirFacturaEnVivo() {
+    if (this.facturaEmitida && this.facturaEmitidaData) {
+      const isCot = this.facturaForm.tipoDocumento === 'Cotizacion';
+      const ref = isCot ? (this.facturaEmitidaData.numeroCotizacion || `COT-${this.facturaEmitidaData.ventaId}`) : (this.facturaEmitidaData.numeroFactura || `FAC-${this.facturaEmitidaData.ventaId}`);
+      this.registrarLogDocumento(
+        isCot ? 'COTIZACION' : 'FACTURA',
+        this.facturaEmitidaData.ventaId,
+        ref,
+        isCot ? 'IMPRESIÓN COTIZACIÓN' : 'IMPRESIÓN FACTURA',
+        `Impresión de comprobante oficial realizada por ${this.currentUser?.name || 'Usuario'}.`,
+        this.facturaEmitidaData.total || this.totalFactura
+      );
+    }
     this.ejecutarImpresionElemento('invoice-preview-area');
   }
 
   descargarFacturaEnVivoPDF() {
+    if (this.facturaEmitida && this.facturaEmitidaData) {
+      const isCot = this.facturaForm.tipoDocumento === 'Cotizacion';
+      const ref = isCot ? (this.facturaEmitidaData.numeroCotizacion || `COT-${this.facturaEmitidaData.ventaId}`) : (this.facturaEmitidaData.numeroFactura || `FAC-${this.facturaEmitidaData.ventaId}`);
+      this.registrarLogDocumento(
+        isCot ? 'COTIZACION' : 'FACTURA',
+        this.facturaEmitidaData.ventaId,
+        ref,
+        isCot ? 'DESCARGA COTIZACIÓN PDF' : 'DESCARGA FACTURA PDF',
+        `Descarga de documento en PDF realizada por ${this.currentUser?.name || 'Usuario'}.`,
+        this.facturaEmitidaData.total || this.totalFactura
+      );
+    }
     const num = this.facturaEmitida
       ? ((this.facturaForm.tipoDocumento === 'Cotizacion' ? this.facturaEmitidaData?.numeroCotizacion : this.facturaEmitidaData?.numeroFactura) || 'documento')
       : (this.nuevaFacturaDisplay || 'documento');
@@ -1412,19 +1460,67 @@ export class AppComponent {
   }
 
   imprimirFacturaModal() {
+    if (this.facturaSeleccionada) {
+      const id = this.facturaSeleccionada.ventaId || this.facturaSeleccionada.id;
+      const ref = this.facturaSeleccionada.numeroFactura || `FAC-${id}`;
+      this.registrarLogDocumento(
+        'FACTURA',
+        id,
+        ref,
+        'IMPRESIÓN FACTURA',
+        `Impresión de Factura Fiscal SAR Nº ${ref} realizada por ${this.currentUser?.name || 'Usuario'}.`,
+        this.facturaSeleccionada.total || 0
+      );
+    }
     this.ejecutarImpresionElemento('invoice-modal-print-area');
   }
 
   descargarFacturaModalPDF() {
+    if (this.facturaSeleccionada) {
+      const id = this.facturaSeleccionada.ventaId || this.facturaSeleccionada.id;
+      const ref = this.facturaSeleccionada.numeroFactura || `FAC-${id}`;
+      this.registrarLogDocumento(
+        'FACTURA',
+        id,
+        ref,
+        'DESCARGA FACTURA PDF',
+        `Descarga de Factura Fiscal SAR Nº ${ref} en PDF por ${this.currentUser?.name || 'Usuario'}.`,
+        this.facturaSeleccionada.total || 0
+      );
+    }
     const num = this.facturaSeleccionada?.numeroFactura || ('FAC-' + (this.facturaSeleccionada?.ventaId || '01'));
     this.generarPDFDesdeElemento('invoice-modal-print-area', `Factura_${num}.pdf`);
   }
 
   imprimirCotizacionModal() {
+    if (this.cotizacionSeleccionada) {
+      const id = this.cotizacionSeleccionada.ventaId;
+      const ref = this.cotizacionSeleccionada.numeroCotizacion || `COT-${id}`;
+      this.registrarLogDocumento(
+        'COTIZACION',
+        id,
+        ref,
+        'IMPRESIÓN COTIZACIÓN',
+        `Impresión de Cotización Nº ${ref} realizada por ${this.currentUser?.name || 'Usuario'}.`,
+        this.cotizacionSeleccionada.total || 0
+      );
+    }
     this.ejecutarImpresionElemento('cotizacion-modal-print-area');
   }
 
   descargarCotizacionModalPDF() {
+    if (this.cotizacionSeleccionada) {
+      const id = this.cotizacionSeleccionada.ventaId;
+      const ref = this.cotizacionSeleccionada.numeroCotizacion || `COT-${id}`;
+      this.registrarLogDocumento(
+        'COTIZACION',
+        id,
+        ref,
+        'DESCARGA COTIZACIÓN PDF',
+        `Descarga de Cotización Nº ${ref} en PDF por ${this.currentUser?.name || 'Usuario'}.`,
+        this.cotizacionSeleccionada.total || 0
+      );
+    }
     const num = this.cotizacionSeleccionada?.numeroCotizacion || ('COT-' + (this.cotizacionSeleccionada?.ventaId || '01'));
     this.generarPDFDesdeElemento('cotizacion-modal-print-area', `Cotizacion_${num}.pdf`);
   }
@@ -2699,6 +2795,8 @@ export class AppComponent {
   // ALERTAS PREVENTIVAS DE CAI Y RANGO SAR
   // =========================================================================
   get alertaCAI(): { tipo: 'danger' | 'warning'; titulo: string; mensaje: string; detalle: string; diasRestantes: number; facturasDisponibles: number } | null {
+    // Solo visible para administradores y superusuarios (oculto para usuarios con rol de facturación/ventas)
+    if (!this.isAdmin) return null;
     if (!this.sarConfig) return null;
 
     const hoy = new Date();
@@ -2950,6 +3048,9 @@ export class AppComponent {
     if (!dateVal) return null;
     if (dateVal instanceof Date) return dateVal;
     let str = String(dateVal).trim();
+    if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}/.test(str)) {
+      str = str.replace(' ', 'T');
+    }
     if (!str.endsWith('Z') && !str.includes('+') && !/(-\d{2}:\d{2})$/.test(str)) {
       str += 'Z';
     }

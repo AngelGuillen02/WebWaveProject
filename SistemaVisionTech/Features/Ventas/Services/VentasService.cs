@@ -274,7 +274,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
             {
                 try
                 {
-                    await _sarService.EmitirFacturaAsync(venta.VentaId, dto.SucursalId);
+                    await _sarService.EmitirFacturaAsync(venta.VentaId, dto.SucursalId, dto.UsuarioNombre);
                 }
                 catch (Exception)
                 {
@@ -543,7 +543,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
             try
             {
                 // Emitir factura SAR oficial con CAI
-                await _sarService.EmitirFacturaAsync(ventaId, sucursalId);
+                await _sarService.EmitirFacturaAsync(ventaId, sucursalId, usuarioNombre);
             }
             catch (Exception)
             {

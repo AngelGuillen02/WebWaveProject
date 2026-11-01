@@ -7,7 +7,7 @@ namespace SistemaVisionTech.Features.SAR.Interfaces
     {
         Task<Result<ConfiguracionSARDto>> CrearConfiguracionAsync(CrearConfiguracionSARDto dto);
         Task<Result<ConfiguracionSARDto>> ObtenerConfiguracionActualAsync(int sucursalId);
-        Task<Result<FacturaEmitidaResponseDto>> EmitirFacturaAsync(int ventaId, int sucursalId);
+        Task<Result<FacturaEmitidaResponseDto>> EmitirFacturaAsync(int ventaId, int sucursalId, string? usuario = null);
         Task<Result<FacturaEmitidaResponseDto>> ObtenerFacturaAsync(int ventaId);
     }
 }

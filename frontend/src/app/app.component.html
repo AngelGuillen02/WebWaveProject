@@ -5,8 +5,7 @@
     </div>
     <p class="eyebrow">WEBWAVE BUSINESS</p>
     <h1>Todo tu negocio,<br><em>en movimiento.</em></h1>
-    <p class="login-copy">Gestiona inventario, ventas y facturación SAR desde un solo lugar.</p>
-    <form (ngSubmit)="login()">
+        <form (ngSubmit)="login()">
       <label>
         Correo electrónico
         <input name="email" type="email" [(ngModel)]="credentials.email" placeholder="admin&#64;visiontech.com" required [disabled]="loading">
@@ -41,8 +40,7 @@
         <lucide-icon *ngIf="!loading" [img]="icons.ChevronDown" [size]="17" class="rotate-minus-90"></lucide-icon>
       </button>
     </form>
-    <p class="login-foot">SistemaVisionTech conectado a Supabase PostgreSQL</p>
-  </div>
+      </div>
   <div class="login-art">
     <div class="art-top">
       <span class="live-dot"></span> OPERACIONES EN TIEMPO REAL
@@ -56,13 +54,6 @@
       </div>
       <div class="months">
         <span>ENE</span><span>MAR</span><span>MAY</span><span>JUL</span><span>SEP</span><span>OCT</span>
-      </div>
-    </div>
-    <div class="floating-note">
-      <span class="note-icon">✓</span>
-      <div>
-        <b>Facturación SAR Activa</b>
-        <small>CAI Vigente</small>
       </div>
     </div>
   </div>
@@ -175,7 +166,7 @@
       <!-- VISTA 1: RESUMEN                                                          -->
       <!-- ========================================================================= -->
       <!-- ALERTA PREVENTIVA CAI EN DASHBOARD -->
-      <div *ngIf="active === 'Resumen' && alertaCAI" class="cai-alert-banner" style="margin-bottom: 22px; padding: 16px 20px; border-radius: 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.04);" [style.background]="alertaCAI.tipo === 'danger' ? '#fef2f2' : '#fffbeb'" [style.border]="alertaCAI.tipo === 'danger' ? '1.5px solid #fca5a5' : '1.5px solid #fde68a'">
+      <div *ngIf="active === 'Resumen' && isAdmin && alertaCAI" class="cai-alert-banner" style="margin-bottom: 22px; padding: 16px 20px; border-radius: 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.04);" [style.background]="alertaCAI.tipo === 'danger' ? '#fef2f2' : '#fffbeb'" [style.border]="alertaCAI.tipo === 'danger' ? '1.5px solid #fca5a5' : '1.5px solid #fde68a'">
         <div style="display: flex; gap: 14px; align-items: flex-start;">
           <div [style.color]="alertaCAI.tipo === 'danger' ? '#dc2626' : '#d97706'" style="padding-top: 2px;">
             <lucide-icon [img]="icons.AlertTriangle" [size]="24"></lucide-icon>
@@ -200,7 +191,7 @@
       </div>
 
       <section *ngIf="active === 'Resumen'" class="stats-grid">
-        <article *ngFor="let stat of stats" class="stat-card">
+        <article *ngFor="let stat of visibleStats" class="stat-card">
           <div class="stat-top">
             <span>{{ stat.label }}</span>
             <span class="stat-icon" [class]="stat.tone">
@@ -290,7 +281,7 @@
       <!-- ========================================================================= -->
       <ng-container *ngIf="active === 'Facturas'">
         <!-- ALERTA PREVENTIVA CAI EN FACTURAS -->
-        <div *ngIf="alertaCAI" class="cai-alert-banner" style="margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);" [style.background]="alertaCAI.tipo === 'danger' ? '#fef2f2' : '#fffbeb'" [style.border]="alertaCAI.tipo === 'danger' ? '1px solid #fecaca' : '1px solid #fde68a'">
+        <div *ngIf="isAdmin && alertaCAI" class="cai-alert-banner" style="margin-bottom: 20px; padding: 14px 18px; border-radius: 10px; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);" [style.background]="alertaCAI.tipo === 'danger' ? '#fef2f2' : '#fffbeb'" [style.border]="alertaCAI.tipo === 'danger' ? '1px solid #fecaca' : '1px solid #fde68a'">
           <div style="display: flex; gap: 12px; align-items: flex-start;">
             <div [style.color]="alertaCAI.tipo === 'danger' ? '#dc2626' : '#d97706'" style="padding-top: 2px;">
               <lucide-icon [img]="icons.AlertTriangle" [size]="22"></lucide-icon>
@@ -484,7 +475,7 @@
                     </div>
                   </td>
                   <td>{{ venta.cliente }}</td>
-                  <td class="muted">{{ parseFechaUtc(venta.fechaVenta) | date:'dd/MM/yyyy, hh:mm a' }}</td>
+                  <td class="muted">{{ parseFechaUtc(venta.fechaVenta) | date:'dd/MM/yyyy, hh:mm a':'-0600' }}</td>
                   <td>
                     <span *ngIf="venta.esCotizacion" class="muted" style="font-size:10px; font-style:italic;">No aplica (Cotización)</span>
                     <span *ngIf="!venta.esCotizacion && venta.cai" class="cai-badge" title="{{ venta.cai }}">
@@ -876,15 +867,17 @@
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:10px; color:#64748b;">
                 <span>Documento: {{ facturaForm.fecha | date:'MM/dd/yyyy, h:mm:ss a' }}</span>
                 <div style="display:flex; align-items:center; gap:8px;">
-                  <button class="btn-action" (click)="descargarFacturaEnVivoPDF()" title="Descargar PDF">
-                    <lucide-icon [img]="icons.Download" [size]="12"></lucide-icon> PDF
-                  </button>
-                  <button class="btn-action primary" (click)="imprimirFacturaEnVivo()" title="Imprimir comprobante">
-                    <lucide-icon [img]="icons.Printer" [size]="12"></lucide-icon> Imprimir
-                  </button>
-                  <button *ngIf="facturaEmitida" class="btn-action success" (click)="volverAListadoFacturas()" title="Ver en el listado general de facturas">
-                    <lucide-icon [img]="icons.ClipboardList" [size]="12"></lucide-icon> Ver en Listado
-                  </button>
+                  <ng-container *ngIf="facturaEmitida">
+                    <button class="btn-action" (click)="descargarFacturaEnVivoPDF()" title="Descargar PDF">
+                      <lucide-icon [img]="icons.Download" [size]="12"></lucide-icon> PDF
+                    </button>
+                    <button class="btn-action primary" (click)="imprimirFacturaEnVivo()" title="Imprimir comprobante">
+                      <lucide-icon [img]="icons.Printer" [size]="12"></lucide-icon> Imprimir
+                    </button>
+                    <button class="btn-action success" (click)="volverAListadoFacturas()" title="Ver en el listado general de facturas">
+                      <lucide-icon [img]="icons.ClipboardList" [size]="12"></lucide-icon> Ver en Listado
+                    </button>
+                  </ng-container>
                   <span [class]="facturaEmitida ? 'badge-success' : 'badge-pending'">
                     {{ facturaForm.tipoDocumento === 'Cotizacion' ? (facturaEmitida ? 'Cotización: Generada' : 'Cotización: Pendiente') : (facturaEmitida ? 'Factura: Emitida' : 'Factura: Pendiente') }}
                   </span>
@@ -1073,7 +1066,7 @@
             <tbody>
               <tr *ngFor="let m of movimientosKardex">
                 <td><b>#M-{{ m.movimientoId }}</b></td>
-                <td class="muted">{{ m.fechaMovimiento | date:'dd/MM/yyyy, hh:mm:ss a' }}</td>
+                <td class="muted">{{ parseFechaUtc(m.fechaMovimiento) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}</td>
                 <td><b>{{ m.producto }}</b></td>
                 <td style="text-align: center;">
                   <span class="status" [class.recibida]="m.tipoMovimiento === 'ENTRADA'" [class.anulado]="m.tipoMovimiento === 'SALIDA'">
@@ -1220,7 +1213,7 @@
               <tr *ngFor="let c of filteredCompras">
                 <td><b>#OC-{{ c.compraId }}</b></td>
                 <td>{{ c.proveedor }}</td>
-                <td class="muted">{{ c.fechaCompra | date:'dd/MM/yyyy, hh:mm a' }}</td>
+                <td class="muted">{{ parseFechaUtc(c.fechaCompra) | date:'dd/MM/yyyy, hh:mm a':'-0600' }}</td>
                 <td><b>L. {{ (c.total || 0) | number:'1.2-2' }}</b></td>
                 <td>
                   <span class="status" [class.pending]="c.estadoCompra === 'Pendiente'" [class.recibida]="c.estadoCompra === 'Recibida'" [class.anulado]="c.estadoCompra === 'Anulada'">
@@ -1405,8 +1398,8 @@
             <tbody>
               <tr *ngFor="let h of historialCaja">
                 <td><b>#C-{{ h.id }}</b></td>
-                <td class="muted">{{ h.fechaApertura | date:'dd/MM/yyyy, hh:mm a' }}</td>
-                <td class="muted">{{ h.fechaCierre ? (h.fechaCierre | date:'dd/MM/yyyy, hh:mm a') : '—' }}</td>
+                <td class="muted">{{ parseFechaUtc(h.fechaApertura) | date:'dd/MM/yyyy, hh:mm a':'-0600' }}</td>
+                <td class="muted">{{ h.fechaCierre ? (parseFechaUtc(h.fechaCierre) | date:'dd/MM/yyyy, hh:mm a':'-0600') : '—' }}</td>
                 <td>L. {{ (h.montoApertura || 0) | number:'1.2-2' }}</td>
                 <td><b>L. {{ (h.montoEfectivoFinal || 0) | number:'1.2-2' }}</b></td>
                 <td>L. {{ (h.totalVentasEfectivo || 0) | number:'1.2-2' }}</td>
@@ -1924,7 +1917,7 @@
               <tbody>
                 <tr *ngFor="let item of logsAuditoriaFiltrados">
                   <td style="font-size: 11px; color: #475569; white-space: nowrap; font-weight: 600;">
-                    {{ parseFechaUtc(item.fecha) | date:'dd/MM/yyyy, hh:mm:ss a' }}
+                    {{ parseFechaUtc(item.fecha) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
                   </td>
                   <td>
                     <span class="status" [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : (item.tipo.includes('FACTURA') ? '#ecfdf5' : '#f5f3ff')" [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : (item.tipo.includes('FACTURA') ? '#047857' : '#6d28d9')" style="font-weight: 800; font-size: 9.5px;">
@@ -2010,13 +2003,6 @@
               </div>
             </button>
 
-            <div class="config-version-box">
-              <div class="config-version-title">Factura.hn</div>
-              <div class="config-version-sub">
-                <div>Versión v1.0.1</div>
-                <div>01/01/2026</div>
-              </div>
-            </div>
           </div>
 
           <!-- Columna Derecha: Tarjeta de Contenido según pestaña activa -->
@@ -2205,7 +2191,7 @@
                         <b style="color: #0f172a; font-size: 12.5px;">{{ item.referencia }}</b>
                         <span style="font-size: 11px; color: #64748b;">&bull; Usuario: <b>{{ item.usuario }}</b></span>
                       </div>
-                      <span style="font-size: 11px; color: #94a3b8;">{{ item.fecha | date:'dd/MM/yyyy, h:mm a' }}</span>
+                      <span style="font-size: 11px; color: #94a3b8;">{{ parseFechaUtc(item.fecha) | date:'dd/MM/yyyy, hh:mm a':'-0600' }}</span>
                     </div>
 
                     <div *ngIf="item.valorAnterior !== '-' || item.valorNuevo !== '-'" style="display: flex; gap: 14px; align-items: center; margin: 6px 0; background: #f8fafc; padding: 6px 10px; border-radius: 6px; font-size: 11px;">
@@ -3254,7 +3240,7 @@
             <span class="audit-action" [class.creacion]="h.accion === 'CREACIÓN' || h.accion === 'CREACION'" [class.modificacion]="h.accion === 'MODIFICACIÓN' || h.accion === 'MODIFICACION'" [class.facturada]="h.accion === 'FACTURADA' || h.accion === 'CONVERSION_FACTURA'" [class.anulada]="h.accion === 'ANULADA'">
               {{ h.accion }}
             </span>
-            <span style="color:#64748b;">{{ h.fechaModificacion | date:'dd/MM/yyyy, hh:mm:ss a' }}</span>
+            <span style="color:#64748b;">{{ parseFechaUtc(h.fechaModificacion) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}</span>
           </div>
 
           <div style="font-size:11px; color:#475569; margin-bottom:4px;">
@@ -3450,7 +3436,7 @@
                 <span class="status" style="background: #e0f2fe; color: #0369a1; font-weight: 800; font-size: 10px;">{{ item.accion }}</span>
                 <span style="font-size: 11.5px; font-weight: 700; color: #1e293b; margin-left: 8px;">Por: {{ item.usuario }}</span>
               </div>
-              <span style="font-size: 10.5px; color: #94a3b8;">{{ item.fechaModificacion | date:'dd/MM/yyyy, h:mm a' }}</span>
+              <span style="font-size: 10.5px; color: #94a3b8;">{{ parseFechaUtc(item.fechaModificacion) | date:'dd/MM/yyyy, hh:mm a':'-0600' }}</span>
             </div>
 
             <!-- Precios comparativos si hubo cambio -->
@@ -3525,7 +3511,7 @@
                 {{ historialEntidadList.length - i }}
               </td>
               <td style="font-size: 11px; color: #334155; font-weight: 600; white-space: nowrap;">
-                {{ parseFechaUtc(h.fecha) | date:'dd/MM/yyyy, hh:mm:ss a' }}
+                {{ parseFechaUtc(h.fecha) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
               </td>
               <td>
                 <span style="font-weight: 700; color: #1e293b; font-size: 11.5px;">{{ h.usuario }}</span>

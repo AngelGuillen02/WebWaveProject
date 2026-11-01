@@ -241,5 +241,57 @@ namespace SistemaVisionTech.Controllers
             }).ToList();
             return Ok(logsVFormat);
         }
+
+        [HttpPost("registrar-evento")]
+        public async Task<IActionResult> RegistrarEvento([FromBody] RegistrarLogAuditoriaDto dto)
+        {
+            if (dto == null || dto.EntidadId <= 0)
+            {
+                return BadRequest(new { mensaje = "Datos de auditoría incompletos." });
+            }
+
+            var usuario = !string.IsNullOrWhiteSpace(dto.Usuario)
+                ? dto.Usuario.Trim()
+                : (User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
+                   ?? User.Claims.FirstOrDefault(c => c.Type == "unique_name")?.Value
+                   ?? User.Identity?.Name
+                   ?? "Usuario");
+
+            string accionNormalizada = (dto.Accion ?? "IMPRESIÓN").Trim().ToUpperInvariant();
+            string detalle = !string.IsNullOrWhiteSpace(dto.Detalle)
+                ? dto.Detalle.Trim()
+                : $"Acción de {accionNormalizada} sobre el documento {dto.Referencia ?? ("#" + dto.EntidadId)}.";
+
+            var log = new SistemaVisionTech.Infrastructure.Entities.CotizacionesHistorial
+            {
+                VentaId = dto.EntidadId,
+                NumeroCotizacion = dto.Referencia,
+                Usuario = usuario,
+                FechaModificacion = DateTime.UtcNow,
+                Accion = accionNormalizada,
+                DetalleCambios = detalle,
+                TotalAnterior = dto.Total,
+                TotalNuevo = dto.Total ?? 0,
+                Motivo = dto.Motivo ?? "Gestión de comprobante oficial",
+                Activo = true
+            };
+
+            _context.CotizacionesHistorial.Add(log);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { mensaje = "Evento registrado exitosamente en bitácora." });
+        }
+    }
+
+    public class RegistrarLogAuditoriaDto
+    {
+        public string? Tipo { get; set; }
+        public int EntidadId { get; set; }
+        public string? Referencia { get; set; }
+        public string Accion { get; set; } = string.Empty;
+        public string? Detalle { get; set; }
+        public string? Motivo { get; set; }
+        public decimal? Total { get; set; }
+        public string? Usuario { get; set; }
     }
 }
