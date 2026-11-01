@@ -76,10 +76,29 @@ namespace SistemaVisionTech.Controllers
                 })
                 .ToListAsync();
 
+            // 3. Logs de facturación fiscal SAR
+            var logsFacturas = await _context.FacturasEmitidas
+                .AsNoTracking()
+                .OrderByDescending(f => f.FechaEmision)
+                .Take(200)
+                .Select(f => new
+                {
+                    tipo = "FACTURA SAR",
+                    referencia = f.NumeroFactura,
+                    usuario = f.NombreCliente,
+                    fecha = f.FechaEmision,
+                    accion = f.Activo ? "EMISIÓN FISCAL" : "ANULADA",
+                    detalle = "CAI: " + f.CAI + " | Cliente: " + f.NombreCliente + " (RTN: " + (f.RTNCliente ?? "Consumidor Final") + ")",
+                    valorAnterior = "-",
+                    valorNuevo = "L. " + f.Total.ToString()
+                })
+                .ToListAsync();
+
             var combinado = logsProductos.Cast<object>()
                 .Concat(logsCotizaciones.Cast<object>())
+                .Concat(logsFacturas.Cast<object>())
                 .OrderByDescending(x => ((dynamic)x).fecha)
-                .Take(300)
+                .Take(400)
                 .ToList();
 
             return Ok(combinado);

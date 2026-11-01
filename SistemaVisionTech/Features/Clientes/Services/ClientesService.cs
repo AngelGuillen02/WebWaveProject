@@ -16,11 +16,19 @@ namespace SistemaVisionTech.Features.Clientes.Services
             _context = context;
         }
 
-        public async Task<Result<List<ClienteResponseDto>>> ListarAsync()
+        public async Task<Result<List<ClienteResponseDto>>> ListarAsync(int? page = null, int? pageSize = null)
         {
-            List<ClienteResponseDto> clientes = await _context.Clientes
-                .Select(c => MapToDto(c))
-                .ToListAsync();
+            var query = _context.Clientes.AsNoTracking().OrderBy(c => c.Nombre);
+            List<ClienteResponseDto> clientes;
+
+            if (page.HasValue && pageSize.HasValue && page.Value > 0 && pageSize.Value > 0)
+            {
+                clientes = await query.Skip((page.Value - 1) * pageSize.Value).Take(pageSize.Value).Select(c => MapToDto(c)).ToListAsync();
+            }
+            else
+            {
+                clientes = await query.Take(500).Select(c => MapToDto(c)).ToListAsync();
+            }
 
             return Result<List<ClienteResponseDto>>.Ok(clientes);
         }

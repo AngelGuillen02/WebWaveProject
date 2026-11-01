@@ -19,9 +19,12 @@ namespace SistemaVisionTech.Features.Productos.Services
         public async Task<Result<List<ProductoResponseDto>>> ListarAsync()
         {
             var inventarios = await _context.Inventario
+                .AsNoTracking()
                 .ToDictionaryAsync(i => i.ProductoId, i => i.Cantidad);
 
             List<ProductoResponseDto> productos = await _context.Productos
+                .AsNoTracking()
+                .OrderBy(p => p.Nombre)
                 .Select(p => MapToDto(p))
                 .ToListAsync();
 

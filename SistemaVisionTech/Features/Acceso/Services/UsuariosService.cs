@@ -67,6 +67,12 @@ namespace SistemaVisionTech.Features.Acceso.Services
             if (string.IsNullOrWhiteSpace(dto.Contraseña))
                 return Result<UsuariosDto>.Fail("La contraseña es obligatoria.", isValidation: true);
 
+            if (dto.Contraseña.Length < 8)
+                return Result<UsuariosDto>.Fail("La contraseña debe tener al menos 8 caracteres.", isValidation: true);
+
+            if (!dto.Contraseña.Any(char.IsDigit))
+                return Result<UsuariosDto>.Fail("La contraseña debe contener al menos un número.", isValidation: true);
+
             bool emailExiste = await _context.Usuarios
                 .AnyAsync(u => u.Email == dto.Email);
 
@@ -86,8 +92,6 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Contraseña = BCryptNet.HashPassword(dto.Contraseña),
                 PerfilId = dto.PerfilId
             };
-
-            Console.WriteLine(dto.PerfilId);
 
             _context.Usuarios.Add(usuario);
             await _context.SaveChangesAsync();
@@ -131,6 +135,12 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             if (!string.IsNullOrWhiteSpace(dto.Contraseña))
             {
+                if (dto.Contraseña.Length < 8)
+                    return Result<UsuariosDto>.Fail("La contraseña debe tener al menos 8 caracteres.", isValidation: true);
+
+                if (!dto.Contraseña.Any(char.IsDigit))
+                    return Result<UsuariosDto>.Fail("La contraseña debe contener al menos un número.", isValidation: true);
+
                 usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(dto.Contraseña.Trim());
             }
 

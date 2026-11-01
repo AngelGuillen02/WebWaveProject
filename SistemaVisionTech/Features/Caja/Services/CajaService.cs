@@ -51,11 +51,15 @@ namespace SistemaVisionTech.Features.Caja.Services
             if (caja.Estado != "Abierto")
                 return Result<CierreCajaResponseDto>.Fail("La caja no está abierta.");
 
+            DateTime fechaInicio = caja.FechaApertura.Date;
+            DateTime fechaFin = fechaInicio.AddDays(1);
+
             List<PagosVenta> ventasDelDia = await _context.PagosVenta
-                .Where(p => p.Venta.FechaVenta.Date == caja.FechaApertura.Date
+                .AsNoTracking()
+                .Where(p => p.Venta.FechaVenta >= fechaInicio
+                         && p.Venta.FechaVenta < fechaFin
                          && p.Venta.Activo)
                 .Include(p => p.MetodoPago)
-                .Include(p => p.Venta)
                 .ToListAsync();
 
             decimal totalEfectivo = 0;
@@ -95,8 +99,13 @@ namespace SistemaVisionTech.Features.Caja.Services
             if (cajaAbierta is null)
                 return Result<EstadoCajaResponseDto>.Fail("No hay caja abierta para esta sucursal.");
 
+            DateTime hoyInicio = DateTime.UtcNow.Date;
+            DateTime hoyFin = hoyInicio.AddDays(1);
+
             List<PagosVenta> ventasDelDia = await _context.PagosVenta
-                .Where(p => p.Venta.FechaVenta.Date == DateTime.UtcNow.Date
+                .AsNoTracking()
+                .Where(p => p.Venta.FechaVenta >= hoyInicio
+                         && p.Venta.FechaVenta < hoyFin
                          && p.Venta.Activo)
                 .Include(p => p.MetodoPago)
                 .ToListAsync();
@@ -125,8 +134,10 @@ namespace SistemaVisionTech.Features.Caja.Services
         public async Task<Result<List<CierreCajaResponseDto>>> ObtenerHistorialAsync(int sucursalId)
         {
             List<CierreCajaResponseDto> cierres = await _context.CierresCaja
+                .AsNoTracking()
                 .Where(c => c.SucursalId == sucursalId)
                 .OrderByDescending(c => c.FechaApertura)
+                .Take(100)
                 .Select(c => MapToDto(c))
                 .ToListAsync();
 

@@ -47,6 +47,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,Facturador,Ventas")]
         [HttpPost("emitir-factura/{ventaId:int}/{sucursalId:int}")]
         public async Task<IActionResult> EmitirFactura(int ventaId, int sucursalId = 1)
         {

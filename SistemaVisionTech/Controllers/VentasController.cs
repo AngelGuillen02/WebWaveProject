@@ -31,9 +31,9 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ObtenerVentas()
+        public async Task<IActionResult> ObtenerVentas([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
         {
-            Result<IEnumerable<VentasDto>> resultado = await _ventasService.ObtenerVentasAsync();
+            Result<IEnumerable<VentasDto>> resultado = await _ventasService.ObtenerVentasAsync(page, pageSize);
             return HandleResult(resultado);
         }
 

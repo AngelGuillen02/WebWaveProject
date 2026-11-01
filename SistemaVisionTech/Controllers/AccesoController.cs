@@ -102,7 +102,7 @@ namespace SistemaVisionTech.Controllers
             return Ok(resultado.Data);
         }
 
-        [AllowAnonymous]
+        [Authorize(Roles = "Administrador")]
         [HttpPost("Usuarios")]
         public async Task<IActionResult> CrearUsuario([FromBody] UsuariosCreacionDto dto)
         {
@@ -143,7 +143,7 @@ namespace SistemaVisionTech.Controllers
             return Ok(resultado.Data);
         }
 
-        [AllowAnonymous]
+        [Authorize(Roles = "Administrador")]
         [HttpPost("Perfiles")]
         public async Task<IActionResult> CrearPerfil([FromBody] PerfilesCreacionDto dto)
         {

@@ -22,9 +22,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
             _sarService = sarService;
         }
 
-        public async Task<Result<IEnumerable<VentasDto>>> ObtenerVentasAsync()
+        public async Task<Result<IEnumerable<VentasDto>>> ObtenerVentasAsync(int? page = null, int? pageSize = null)
         {
-            List<Venta> ventas = await _context.Ventas
+            var query = _context.Ventas
                 .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.EstadoVenta)
@@ -32,8 +32,17 @@ namespace SistemaVisionTech.Features.Ventas.Services
                     .ThenInclude(d => d.Producto)
                 .Include(v => v.Pagos)
                     .ThenInclude(p => p.MetodoPago)
-                .OrderByDescending(v => v.FechaVenta)
-                .ToListAsync();
+                .OrderByDescending(v => v.FechaVenta);
+
+            List<Venta> ventas;
+            if (page.HasValue && pageSize.HasValue && page.Value > 0 && pageSize.Value > 0)
+            {
+                ventas = await query.Skip((page.Value - 1) * pageSize.Value).Take(pageSize.Value).ToListAsync();
+            }
+            else
+            {
+                ventas = await query.Take(300).ToListAsync();
+            }
 
             List<int> ventaIds = ventas.Select(v => v.VentaId).ToList();
 

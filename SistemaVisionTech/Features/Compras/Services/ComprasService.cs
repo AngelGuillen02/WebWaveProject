@@ -31,6 +31,7 @@ namespace SistemaVisionTech.Features.Compras.Services
                 .Include(c => c.Pagos)
                     .ThenInclude(p => p.MetodoPago)
                 .OrderByDescending(c => c.FechaCompra)
+                .Take(300)
                 .Select(c => MapearCompraResponse(c))
                 .ToListAsync();
 

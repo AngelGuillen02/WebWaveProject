@@ -115,25 +115,15 @@ namespace SistemaVisionTech.Features.SAR.Services
             if (venta.EstadoVentaId == (int)SistemaVisionTech.Features.Ventas.Enums.EstadoVentaEnum.Anulada)
                 return Result<FacturaEmitidaResponseDto>.Fail("El documento se encuentra anulado y no admite emisión fiscal ni asignación de CAI.");
 
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
             ConfiguracionSAR? config = await _context.ConfiguracionSAR
                 .FirstOrDefaultAsync(c => c.SucursalId == sucursalId && c.Activo);
 
             if (config is null)
             {
-                // Auto-inicializamos una configuración base si no se había configurado aún para que no se bloquee la venta
-                config = new ConfiguracionSAR
-                {
-                    SucursalId = sucursalId,
-                    RTN = "08011990123456",
-                    CAI = "3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C",
-                    RangoDesde = "000-001-01-00000001",
-                    RangoHasta = "000-001-01-00005000",
-                    FechaLimiteEmision = DateTime.UtcNow.AddYears(1).Date,
-                    CorrelativoActual = 0,
-                    Activo = true
-                };
-                _context.ConfiguracionSAR.Add(config);
-                await _context.SaveChangesAsync();
+                await transaction.RollbackAsync();
+                return Result<FacturaEmitidaResponseDto>.Fail("No existe configuración SAR activa para esta sucursal. Configure el CAI, RTN y rangos de facturación en el módulo SAR antes de emitir facturas.");
             }
 
             if (DateTime.UtcNow.Date > config.FechaLimiteEmision.Date)
@@ -198,6 +188,7 @@ namespace SistemaVisionTech.Features.SAR.Services
 
             _context.FacturasEmitidas.Add(factura);
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             var dto = MapToDto(factura);
             dto.RangoDesde = config.RangoDesde;

@@ -18,8 +18,8 @@ namespace SistemaVisionTech.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Listar()
-            => HandleResult(await _svc.ListarAsync());
+        public async Task<IActionResult> Listar([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+            => HandleResult(await _svc.ListarAsync(page, pageSize));
 
         [HttpGet("{id}")]
         public async Task<IActionResult> ObtenerPorId(int id)

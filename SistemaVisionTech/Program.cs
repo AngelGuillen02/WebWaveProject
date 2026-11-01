@@ -41,16 +41,24 @@ builder.WebHost.ConfigureKestrel(options =>
     options.AddServerHeader = false;
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+var connectionString = 
+    Environment.GetEnvironmentVariable("DATABASE_URL")
+    ?? Environment.GetEnvironmentVariable("SupabaseConnection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? string.Empty;
+
 var supabaseConn = builder.Configuration.GetConnectionString("SupabaseConnection");
 if (!string.IsNullOrWhiteSpace(supabaseConn) && !supabaseConn.Contains("[TU_CONTRASEÑA]") && !supabaseConn.Contains("[TU_REF]"))
 {
     connectionString = supabaseConn;
 }
 
-var jwtKey = builder.Configuration["Jwt:Key"]!;
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
-var jwtAudience = builder.Configuration["Jwt:Audience"]!;
+var jwtKey = 
+    Environment.GetEnvironmentVariable("JWT_KEY")
+    ?? builder.Configuration["Jwt:Key"]
+    ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "SistemaVisionTech.API";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "SistemaVisionTech.Client";
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

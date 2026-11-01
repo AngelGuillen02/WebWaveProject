@@ -13,3 +13,5 @@ Thumbs.db
 ## Environment
 .env
 appsettings.Development.json
+appsettings.json
+appsettings.Production.json

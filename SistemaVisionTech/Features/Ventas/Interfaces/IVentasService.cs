@@ -5,7 +5,7 @@ namespace SistemaVisionTech.Features.Ventas.Interfaces
 {
     public interface IVentasService
     {
-        Task<Result<IEnumerable<VentasDto>>> ObtenerVentasAsync();
+        Task<Result<IEnumerable<VentasDto>>> ObtenerVentasAsync(int? page = null, int? pageSize = null);
         Task<Result<VentasDto>> ObtenerVentaPorIdAsync(int ventaId);
         Task<Result<VentasDto>> CrearVentaAsync(CrearVentaDto dto);
         Task<Result<VentasDto>> ActualizarCotizacionAsync(int ventaId, ActualizarCotizacionDto dto, string usuarioNombre);

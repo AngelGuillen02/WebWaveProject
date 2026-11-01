@@ -73,6 +73,21 @@ namespace SistemaVisionTech.Infrastructure
             modelBuilder.Entity<ProductosHistorial>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<NavNodo>().HasQueryFilter(e => e.Activo);
 
+                        // Índices de alto rendimiento y seguridad de concurrencia
+            modelBuilder.Entity<VentasDetalles>()
+                .HasIndex(d => d.VentaId).HasDatabaseName("IX_VentasDetalles_VentaId");
+            modelBuilder.Entity<PagosVenta>()
+                .HasIndex(p => p.VentaId).HasDatabaseName("IX_PagosVenta_VentaId");
+            modelBuilder.Entity<FacturasEmitidas>()
+                .HasIndex(f => f.VentaId).HasDatabaseName("IX_FacturasEmitidas_VentaId");
+            modelBuilder.Entity<FacturasEmitidas>()
+                .HasIndex(f => f.NumeroFactura).IsUnique()
+                .HasDatabaseName("UQ_FacturasEmitidas_NumeroFactura");
+            modelBuilder.Entity<CotizacionesHistorial>()
+                .HasIndex(h => h.VentaId).HasDatabaseName("IX_CotizacionesHistorial_VentaId");
+            modelBuilder.Entity<ProductosHistorial>()
+                .HasIndex(h => h.ProductoId).HasDatabaseName("IX_ProductosHistorial_ProductoId");
+
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(WebWaveDbContext).Assembly);
         }
     }

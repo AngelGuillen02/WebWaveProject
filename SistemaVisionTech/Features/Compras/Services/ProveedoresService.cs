@@ -19,6 +19,8 @@ namespace SistemaVisionTech.Features.Compras.Services
         public async Task<Result<List<ProveedorResponseDto>>> ListarAsync()
         {
             List<ProveedorResponseDto> proveedores = await _context.Proveedores
+                .AsNoTracking()
+                .OrderBy(p => p.Nombre)
                 .Select(p => MapToDto(p))
                 .ToListAsync();
 
