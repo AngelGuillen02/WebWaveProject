@@ -82,6 +82,14 @@ namespace SistemaVisionTech.Controllers
         [HttpGet("{id:int}/Cotizacion/Historial")]
         public async Task<IActionResult> ObtenerHistorialCotizacion(int id)
         {
+            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value;
+            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
+            bool esAdmin = string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "SuperUsuario", StringComparison.OrdinalIgnoreCase) ||
+                           perfilIdClaim == "1";
+            if (!esAdmin) return NotFound();
+
             Result<IEnumerable<CotizacionHistorialDto>> resultado = await _ventasService.ObtenerHistorialCotizacionAsync(id);
             return HandleResult(resultado);
         }

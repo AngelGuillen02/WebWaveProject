@@ -59,10 +59,7 @@ namespace SistemaVisionTech.Controllers
 
             if (!esAdmin)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    mensaje = "Acceso denegado: Únicamente los usuarios con rol de Administrador pueden consultar la bitácora confidencial de auditoría de productos."
-                });
+                return NotFound();
             }
 
             return HandleResult(await _svc.ObtenerHistorialAsync(id));

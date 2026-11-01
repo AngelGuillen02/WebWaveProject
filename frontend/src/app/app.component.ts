@@ -12,7 +12,7 @@ import {
   FileBarChart, Home, LogOut, Menu, Package, Search,
   Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
   AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-  Pencil, History, Ban, Layers, Download, LucideAngularModule
+  Pencil, History, Ban, Layers, Download, Filter, LucideAngularModule
 } from 'lucide-angular';
 
 interface Product {
@@ -20,6 +20,7 @@ interface Product {
   nombre?: string;
   codigo?: string;
   codigoBarras?: string;
+  descripcion?: string;
   precioVenta?: number;
   precio?: number;
   stock?: number;
@@ -121,6 +122,7 @@ interface VentaItem {
   clienteId: number;
   cliente: string;
   clienteRtn?: string;
+  rtn?: string;
   fechaVenta: string;
   total: number;
   estadoVenta: string;
@@ -175,7 +177,7 @@ export class AppComponent {
     FileBarChart, Home, LogOut, Menu, Package, Search,
     Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
     AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-    Pencil, History, Ban, Layers, Download
+    Pencil, History, Ban, Layers, Download, Filter
   };
 
   readonly api = environment.apiUrl;
@@ -185,6 +187,45 @@ export class AppComponent {
   credentials = { email: '', password: '' };
   active = 'Resumen';
   search = '';
+  searchProductos = '';
+
+  // Filtros por columna para la tabla de Facturas / Cotizaciones
+  filtroVentas = {
+    id: '',
+    tipo: 'TODOS',
+    documento: '',
+    cliente: '',
+    fecha: '',
+    cai: 'TODOS',
+    montoMin: null as number | null,
+    estado: 'TODOS'
+  };
+
+  limpiarFiltrosVentas() {
+    this.filtroVentas = {
+      id: '',
+      tipo: 'TODOS',
+      documento: '',
+      cliente: '',
+      fecha: '',
+      cai: 'TODOS',
+      montoMin: null,
+      estado: 'TODOS'
+    };
+  }
+
+  get hayFiltrosVentasActivos(): boolean {
+    return !!(
+      this.filtroVentas.id ||
+      this.filtroVentas.tipo !== 'TODOS' ||
+      this.filtroVentas.documento ||
+      this.filtroVentas.cliente ||
+      this.filtroVentas.fecha ||
+      this.filtroVentas.cai !== 'TODOS' ||
+      (this.filtroVentas.montoMin !== null && this.filtroVentas.montoMin !== undefined && this.filtroVentas.montoMin > 0) ||
+      this.filtroVentas.estado !== 'TODOS'
+    );
+  }
   sidebarOpen = false;
 
   currentUser: {
@@ -201,7 +242,12 @@ export class AppComponent {
 
   get isAdmin(): boolean {
     const role = (this.currentUser.role || '').toLowerCase();
-    return role.includes('admin') || role === 'administrador';
+    return role.includes('admin') || role === 'administrador' || role.includes('super');
+  }
+
+  get isSuperUsuario(): boolean {
+    const role = (this.currentUser.role || '').toLowerCase();
+    return role.includes('super') || role === 'administrador' || role === 'admin';
   }
 
   get isFacturador(): boolean {
@@ -2383,15 +2429,84 @@ export class AppComponent {
   }
 
   get filteredProducts() {
+    const q = (this.searchProductos || this.search || '').trim().toLowerCase();
+    if (!q) return this.products;
     return this.products.filter(p =>
-      `${p.nombre} ${p.codigo}`.toLowerCase().includes(this.search.toLowerCase())
+      (p.nombre || '').toLowerCase().includes(q) ||
+      (p.codigo || '').toLowerCase().includes(q) ||
+      (p.codigoBarras || '').toLowerCase().includes(q) ||
+      (p.descripcion || '').toLowerCase().includes(q) ||
+      (p.tipoISV || '').toLowerCase().includes(q) ||
+      String(p.precioVenta || p.precio || '').includes(q) ||
+      String(p.stock || '').includes(q)
     );
   }
 
   get filteredVentas() {
-    return this.ventas.filter(v =>
-      `${v.cliente} ${v.numeroFactura || ''} ${v.cai || ''}`.toLowerCase().includes(this.search.toLowerCase())
-    );
+    return this.ventas.filter(v => {
+      // 1. Filtro ID
+      if (this.filtroVentas.id && this.filtroVentas.id.trim()) {
+        const idSearch = this.filtroVentas.id.trim().toLowerCase().replace('#v-', '').replace('v-', '').replace('#', '');
+        const idStr = String(v.ventaId || '').toLowerCase();
+        if (!idStr.includes(idSearch)) return false;
+      }
+
+      // 2. Filtro Tipo
+      if (this.filtroVentas.tipo === 'FACTURA' && v.esCotizacion) return false;
+      if (this.filtroVentas.tipo === 'COTIZACION' && !v.esCotizacion) return false;
+
+      // 3. Filtro N° de Documento (Correlativo COT / SAR)
+      if (this.filtroVentas.documento && this.filtroVentas.documento.trim()) {
+        const docQ = this.filtroVentas.documento.trim().toLowerCase();
+        const numCot = (v.numeroCotizacion || `cot-${v.ventaId}`).toLowerCase();
+        const numFac = (v.numeroFactura || '').toLowerCase();
+        if (!numCot.includes(docQ) && !numFac.includes(docQ)) return false;
+      }
+
+      // 4. Filtro Cliente
+      if (this.filtroVentas.cliente && this.filtroVentas.cliente.trim()) {
+        const cliQ = this.filtroVentas.cliente.trim().toLowerCase();
+        const cliNombre = (v.cliente || '').toLowerCase();
+        const cliRtn = (v.rtn || '').toLowerCase();
+        if (!cliNombre.includes(cliQ) && !cliRtn.includes(cliQ)) return false;
+      }
+
+      // 5. Filtro Fecha
+      if (this.filtroVentas.fecha && this.filtroVentas.fecha.trim()) {
+        const fQ = this.filtroVentas.fecha.trim();
+        const rawDate = v.fechaVenta ? String(v.fechaVenta) : '';
+        const localDate = v.fechaVenta ? new Date(v.fechaVenta).toISOString().substring(0, 10) : '';
+        if (!rawDate.includes(fQ) && !localDate.includes(fQ)) return false;
+      }
+
+      // 6. Filtro CAI
+      if (this.filtroVentas.cai === 'CON_CAI') {
+        if (v.esCotizacion || !v.cai) return false;
+      } else if (this.filtroVentas.cai === 'SIN_CAI') {
+        if (!v.esCotizacion && v.cai) return false;
+      }
+
+      // 7. Filtro Monto / Total Mínimo
+      if (this.filtroVentas.montoMin !== null && this.filtroVentas.montoMin !== undefined && this.filtroVentas.montoMin > 0) {
+        if ((v.total || 0) < this.filtroVentas.montoMin) return false;
+      }
+
+      // 8. Filtro Estado
+      if (this.filtroVentas.estado && this.filtroVentas.estado !== 'TODOS') {
+        const estQ = this.filtroVentas.estado.toLowerCase();
+        const estVal = (v.estadoVenta || '').toLowerCase();
+        if (!estVal.includes(estQ)) return false;
+      }
+
+      // Filtro global opcional por si se usa search global
+      if (this.search && this.search.trim()) {
+        const globalQ = this.search.trim().toLowerCase();
+        const full = `${v.cliente} ${v.numeroFactura || ''} ${v.numeroCotizacion || ''} ${v.cai || ''}`.toLowerCase();
+        if (!full.includes(globalQ)) return false;
+      }
+
+      return true;
+    });
   }
 
   get recentSales() {
@@ -2574,7 +2689,7 @@ export class AppComponent {
   }
 
   loadAuditoriaLogs() {
-    if (!this.isAdmin) return;
+    if (!this.isSuperUsuario) return;
     this.cargandoAuditoria = true;
     this.http.get<any[]>(`${this.api}/Auditoria`, this.getHeaders()).subscribe({
       next: (data) => {
@@ -2591,6 +2706,7 @@ export class AppComponent {
   }
 
   abrirHistorialEntidad(tipo: string, entidadId?: number, referencia?: string) {
+    if (!this.isSuperUsuario) return;
     this.showHistorialEntidadModal = true;
     this.cargandoHistorialEntidad = true;
     this.historialEntidadTipo = tipo;
@@ -2622,6 +2738,17 @@ export class AppComponent {
 
   cerrarHistorialEntidad() {
     this.showHistorialEntidadModal = false;
+  }
+
+  parseFechaUtc(dateVal: any): Date | null {
+    if (!dateVal) return null;
+    if (dateVal instanceof Date) return dateVal;
+    let str = String(dateVal).trim();
+    if (!str.endsWith('Z') && !str.includes('+') && !/(-\d{2}:\d{2})$/.test(str)) {
+      str += 'Z';
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
   }
 
     guardarConfiguracionEmpresa() {

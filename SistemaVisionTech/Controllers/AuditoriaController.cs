@@ -19,11 +19,13 @@ namespace SistemaVisionTech.Controllers
             _context = context;
         }
 
-        private bool EsAdmin()
+        private bool EsSuperUsuario()
         {
             var rolClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
             var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
-            return string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
+            return string.Equals(rolClaim, "SuperUsuario", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(rolClaim, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
                    perfilIdClaim == "1";
         }
@@ -31,12 +33,9 @@ namespace SistemaVisionTech.Controllers
         [HttpGet]
         public async Task<IActionResult> ObtenerBitacoraCompleta()
         {
-            if (!EsAdmin())
+            if (!EsSuperUsuario())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    mensaje = "Acceso denegado: Únicamente los usuarios administradores pueden consultar la bitácora de auditoría global."
-                });
+                return NotFound();
             }
 
             // 1. Logs de productos
@@ -45,21 +44,22 @@ namespace SistemaVisionTech.Controllers
                 .Include(p => p.Producto)
                 .OrderByDescending(p => p.FechaModificacion)
                 .Take(200)
-                .Select(p => new
-                {
-                    id = p.Id,
-                    tipo = "PRODUCTO",
-                    entidadId = p.ProductoId,
-                    referencia = p.Producto != null ? p.Producto.Nombre : ("Producto #" + p.ProductoId),
-                    usuario = p.Usuario,
-                    fecha = p.FechaModificacion,
-                    accion = p.Accion,
-                    detalle = p.DetalleCambios,
-                    valorAnterior = p.PrecioAnterior != null ? ("L. " + p.PrecioAnterior.Value.ToString("N2")) : "-",
-                    valorNuevo = "L. " + p.PrecioNuevo.ToString("N2"),
-                    motivo = "Gestión de catálogo"
-                })
                 .ToListAsync();
+
+            var logsProductosFormateados = logsProductos.Select(p => new
+            {
+                id = p.Id,
+                tipo = "PRODUCTO",
+                entidadId = p.ProductoId,
+                referencia = p.Producto != null ? p.Producto.Nombre : ("Producto #" + p.ProductoId),
+                usuario = p.Usuario,
+                fecha = DateTime.SpecifyKind(p.FechaModificacion, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = p.Accion,
+                detalle = p.DetalleCambios,
+                valorAnterior = p.PrecioAnterior != null ? ("L. " + p.PrecioAnterior.Value.ToString("N2")) : "-",
+                valorNuevo = "L. " + p.PrecioNuevo.ToString("N2"),
+                motivo = "Gestión de catálogo"
+            }).ToList();
 
             // 2. Logs de cotizaciones y facturas
             var logsCotizaciones = await _context.CotizacionesHistorial
@@ -68,48 +68,50 @@ namespace SistemaVisionTech.Controllers
                     .ThenInclude(v => v!.Cliente)
                 .OrderByDescending(c => c.FechaModificacion)
                 .Take(250)
-                .Select(c => new
-                {
-                    id = c.Id,
-                    tipo = c.Accion.Contains("FACTURA") || c.Accion.Contains("SAR") || c.Accion == "FACTURADA" ? "FACTURA SAR" : "COTIZACIÓN",
-                    entidadId = c.VentaId,
-                    referencia = c.NumeroCotizacion ?? (c.Venta != null && c.Venta.NumeroCotizacion != null ? c.Venta.NumeroCotizacion : "Doc #" + c.VentaId),
-                    usuario = c.Usuario,
-                    fecha = c.FechaModificacion,
-                    accion = c.Accion,
-                    detalle = c.DetalleCambios,
-                    valorAnterior = c.TotalAnterior != null ? ("L. " + c.TotalAnterior.Value.ToString("N2")) : "-",
-                    valorNuevo = "L. " + c.TotalNuevo.ToString("N2"),
-                    motivo = c.Motivo ?? "-"
-                })
                 .ToListAsync();
 
+            var logsCotizacionesFormateados = logsCotizaciones.Select(c => new
+            {
+                id = c.Id,
+                tipo = c.Accion.Contains("FACTURA") || c.Accion.Contains("SAR") || c.Accion == "FACTURADA" ? "FACTURA SAR" : "COTIZACIÓN",
+                entidadId = c.VentaId,
+                referencia = c.NumeroCotizacion ?? (c.Venta != null && c.Venta.NumeroCotizacion != null ? c.Venta.NumeroCotizacion : "Doc #" + c.VentaId),
+                usuario = c.Usuario,
+                fecha = DateTime.SpecifyKind(c.FechaModificacion, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = c.Accion,
+                detalle = c.DetalleCambios,
+                valorAnterior = c.TotalAnterior != null ? ("L. " + c.TotalAnterior.Value.ToString("N2")) : "-",
+                valorNuevo = "L. " + c.TotalNuevo.ToString("N2"),
+                motivo = c.Motivo ?? "-"
+            }).ToList();
+
             // 3. Facturas SAR históricas emitidas directamente
-            var ventaIdsConLog = logsCotizaciones.Select(l => l.entidadId).ToHashSet();
+            var ventaIdsConLog = logsCotizaciones.Select(l => l.VentaId).ToHashSet();
             var logsFacturas = await _context.FacturasEmitidas
                 .AsNoTracking()
                 .Where(f => !ventaIdsConLog.Contains(f.VentaId))
                 .OrderByDescending(f => f.FechaEmision)
                 .Take(150)
-                .Select(f => new
-                {
-                    id = f.Id,
-                    tipo = "FACTURA SAR",
-                    entidadId = f.VentaId,
-                    referencia = f.NumeroFactura,
-                    usuario = "Facturador SAR",
-                    fecha = f.FechaEmision,
-                    accion = f.Activo ? "EMISIÓN FISCAL" : "ANULADA",
-                    detalle = "CAI: " + f.CAI + " | Cliente: " + f.NombreCliente + " (RTN: " + (f.RTNCliente ?? "Consumidor Final") + ")",
-                    valorAnterior = "-",
-                    valorNuevo = "L. " + f.Total.ToString("N2"),
-                    motivo = "Emisión fiscal autorizada"
-                })
                 .ToListAsync();
 
-            var combinado = logsProductos.Cast<object>()
-                .Concat(logsCotizaciones.Cast<object>())
-                .Concat(logsFacturas.Cast<object>())
+            var logsFacturasFormateados = logsFacturas.Select(f => new
+            {
+                id = f.Id,
+                tipo = "FACTURA SAR",
+                entidadId = f.VentaId,
+                referencia = f.NumeroFactura,
+                usuario = "Facturador SAR",
+                fecha = DateTime.SpecifyKind(f.FechaEmision, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = f.Activo ? "EMISIÓN FISCAL" : "ANULADA",
+                detalle = "CAI: " + f.CAI + " | Cliente: " + f.NombreCliente + " (RTN: " + (f.RTNCliente ?? "Consumidor Final") + ")",
+                valorAnterior = "-",
+                valorNuevo = "L. " + f.Total.ToString("N2"),
+                motivo = "Emisión fiscal autorizada"
+            }).ToList();
+
+            var combinado = logsProductosFormateados.Cast<object>()
+                .Concat(logsCotizacionesFormateados.Cast<object>())
+                .Concat(logsFacturasFormateados.Cast<object>())
                 .OrderByDescending(x => ((dynamic)x).fecha)
                 .Take(500)
                 .ToList();
@@ -120,12 +122,9 @@ namespace SistemaVisionTech.Controllers
         [HttpGet("historial")]
         public async Task<IActionResult> ObtenerHistorialEntidad([FromQuery] string? tipo, [FromQuery] int? entidadId, [FromQuery] string? referencia)
         {
-            if (!EsAdmin())
+            if (!EsSuperUsuario())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    mensaje = "Acceso denegado: Se requiere rol de Administrador para consultar el historial detallado de la entidad."
-                });
+                return NotFound();
             }
 
             tipo = (tipo ?? string.Empty).Trim().ToUpperInvariant();
@@ -162,7 +161,12 @@ namespace SistemaVisionTech.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(logsP);
+                var logsPFormat = logsP.Select(p => new {
+                    p.id, p.tipo, p.entidadId, p.referencia, p.usuario,
+                    fecha = DateTime.SpecifyKind(p.fecha, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    p.accion, p.detalle, p.valorAnterior, p.valorNuevo, p.motivo
+                }).ToList();
+                return Ok(logsPFormat);
             }
 
             // Si es Cotización o Factura
@@ -222,10 +226,20 @@ namespace SistemaVisionTech.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(logsF);
+                var logsFFormat = logsF.Select(f => new {
+                    f.id, f.tipo, f.entidadId, f.referencia, f.usuario,
+                    fecha = DateTime.SpecifyKind(f.fecha, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    f.accion, f.detalle, f.valorAnterior, f.valorNuevo, f.motivo
+                }).ToList();
+                return Ok(logsFFormat);
             }
 
-            return Ok(logsV);
+            var logsVFormat = logsV.Select(c => new {
+                c.id, c.tipo, c.entidadId, c.referencia, c.usuario,
+                fecha = DateTime.SpecifyKind(c.fecha, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                c.accion, c.detalle, c.valorAnterior, c.valorNuevo, c.motivo
+            }).ToList();
+            return Ok(logsVFormat);
         }
     }
 }

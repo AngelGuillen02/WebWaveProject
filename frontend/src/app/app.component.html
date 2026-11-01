@@ -113,7 +113,7 @@
           <lucide-icon [img]="icons.Search" [size]="17"></lucide-icon>
           <input [(ngModel)]="search" placeholder="Buscar clientes, facturas, CAI…">
         </div>
-        <button *ngIf="isAdmin" class="icon-button" (click)="abrirSARConfig()" title="Configuración SAR (Admin)">
+        <button *ngIf="isAdmin" class="icon-button" (click)="abrirSARConfig()" title="Configuración SAR">
           <lucide-icon [img]="icons.Bell" [size]="19"></lucide-icon>
           <i></i>
         </button>
@@ -323,18 +323,134 @@
             </div>
           </div>
 
-          <div class="table-wrap">
+          <!-- Barra Informativa de Filtros de la Tabla -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-bottom: none; border-radius: 10px 10px 0 0; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; font-weight: 600;">
+              <lucide-icon [img]="icons.Filter" [size]="15" style="color: #0284c7;"></lucide-icon>
+              <span>Mostrando <b>{{ filteredVentas.length }}</b> de <b>{{ ventas.length }}</b> documentos registrados</span>
+              <span *ngIf="hayFiltrosVentasActivos" style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-size: 10.5px; font-weight: 700;">
+                Filtros activos
+              </span>
+            </div>
+            <button 
+              *ngIf="hayFiltrosVentasActivos" 
+              class="btn-action danger" 
+              (click)="limpiarFiltrosVentas()" 
+              style="padding: 4px 10px; font-size: 11px; font-weight: 700;"
+              title="Restablecer todos los filtros"
+            >
+              <lucide-icon [img]="icons.X" [size]="12"></lucide-icon> Limpiar todos los filtros
+            </button>
+          </div>
+
+          <div class="table-wrap" style="border-radius: 0 0 10px 10px;">
             <table>
               <thead>
                 <tr>
-                  <th style="width: 80px;">ID</th>
-                  <th style="width: 170px;">Tipo / Documento</th>
+                  <th style="width: 85px;">ID</th>
+                  <th style="width: 175px;">Tipo / Documento</th>
                   <th>Cliente</th>
-                  <th style="width: 160px;">Fecha</th>
-                  <th style="width: 170px;">CAI Asignado</th>
+                  <th style="width: 155px;">Fecha</th>
+                  <th style="width: 160px;">CAI Asignado</th>
                   <th style="width: 130px;">Total</th>
-                  <th style="width: 110px; text-align: center;">Estado</th>
-                  <th style="width: 260px; text-align: right;">Acciones</th>
+                  <th style="width: 125px; text-align: center;">Estado</th>
+                  <th style="width: 240px; text-align: right;">Acciones</th>
+                </tr>
+                <!-- FILA DE FILTROS INDIVIDUALES POR CADA CAMPO DE LA TABLA -->
+                <tr class="table-filter-row" style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                  <!-- 1. Filtro ID -->
+                  <th style="padding: 5px 6px;">
+                    <input 
+                      type="text" 
+                      [(ngModel)]="filtroVentas.id" 
+                      placeholder="#ID" 
+                      style="width: 100%; padding: 5px 6px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: normal; background: #fff;"
+                    >
+                  </th>
+                  <!-- 2. Filtro Tipo y N° Documento -->
+                  <th style="padding: 5px 6px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                      <select 
+                        [(ngModel)]="filtroVentas.tipo" 
+                        style="width: 100%; padding: 4px 5px; font-size: 10px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: 700; background: #fff; cursor: pointer;"
+                      >
+                        <option value="TODOS">Todos los tipos</option>
+                        <option value="FACTURA">Facturas SAR</option>
+                        <option value="COTIZACION">Cotizaciones</option>
+                      </select>
+                      <input 
+                        type="text" 
+                        [(ngModel)]="filtroVentas.documento" 
+                        placeholder="N° Doc (COT / 000)" 
+                        style="width: 100%; padding: 4px 5px; font-size: 10px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: normal; background: #fff;"
+                      >
+                    </div>
+                  </th>
+                  <!-- 3. Filtro Cliente -->
+                  <th style="padding: 5px 6px;">
+                    <input 
+                      type="text" 
+                      [(ngModel)]="filtroVentas.cliente" 
+                      placeholder="Cliente o RTN..." 
+                      style="width: 100%; padding: 5px 8px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: normal; background: #fff;"
+                    >
+                  </th>
+                  <!-- 4. Filtro Fecha -->
+                  <th style="padding: 5px 6px;">
+                    <input 
+                      type="date" 
+                      [(ngModel)]="filtroVentas.fecha" 
+                      style="width: 100%; padding: 4px 5px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: normal; background: #fff;"
+                    >
+                  </th>
+                  <!-- 5. Filtro CAI -->
+                  <th style="padding: 5px 6px;">
+                    <select 
+                      [(ngModel)]="filtroVentas.cai" 
+                      style="width: 100%; padding: 5px 5px; font-size: 10.5px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: 600; background: #fff; cursor: pointer;"
+                    >
+                      <option value="TODOS">Todos</option>
+                      <option value="CON_CAI">Con CAI SAR</option>
+                      <option value="SIN_CAI">Sin CAI</option>
+                    </select>
+                  </th>
+                  <!-- 6. Filtro Monto Mínimo -->
+                  <th style="padding: 5px 6px;">
+                    <input 
+                      type="number" 
+                      [(ngModel)]="filtroVentas.montoMin" 
+                      placeholder="Min L." 
+                      style="width: 100%; padding: 5px 6px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: normal; background: #fff; text-align: right;"
+                    >
+                  </th>
+                  <!-- 7. Filtro Estado -->
+                  <th style="padding: 5px 6px;">
+                    <select 
+                      [(ngModel)]="filtroVentas.estado" 
+                      style="width: 100%; padding: 5px 5px; font-size: 10.5px; border: 1px solid #cbd5e1; border-radius: 5px; font-weight: 600; background: #fff; cursor: pointer;"
+                    >
+                      <option value="TODOS">Todos</option>
+                      <option value="Confirmada">Confirmadas</option>
+                      <option value="Cotización">Cotización</option>
+                      <option value="Pendiente">Pendientes</option>
+                      <option value="Anulada">Anuladas</option>
+                    </select>
+                  </th>
+                  <!-- 8. Botón Limpiar -->
+                  <th style="padding: 5px 6px; text-align: right;">
+                    <button 
+                      *ngIf="hayFiltrosVentasActivos" 
+                      class="btn-action danger" 
+                      (click)="limpiarFiltrosVentas()" 
+                      title="Limpiar filtros"
+                      style="padding: 5px 8px; font-size: 10.5px; font-weight: 700; width: 100%; justify-content: center;"
+                    >
+                      <lucide-icon [img]="icons.X" [size]="11"></lucide-icon> Limpiar
+                    </button>
+                    <span *ngIf="!hayFiltrosVentasActivos" style="font-size: 10px; color: #94a3b8; font-weight: normal; padding-right: 4px;">
+                      Filtros activos
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -348,7 +464,7 @@
                     </div>
                   </td>
                   <td>{{ venta.cliente }}</td>
-                  <td class="muted">{{ venta.fechaVenta | date:'dd/MM/yyyy, hh:mm a' }}</td>
+                  <td class="muted">{{ parseFechaUtc(venta.fechaVenta) | date:'dd/MM/yyyy, hh:mm a' }}</td>
                   <td>
                     <span *ngIf="venta.esCotizacion" class="muted" style="font-size:10px; font-style:italic;">No aplica (Cotización)</span>
                     <span *ngIf="!venta.esCotizacion && venta.cai" class="cai-badge" title="{{ venta.cai }}">
@@ -371,10 +487,6 @@
                       <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización">
                         <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
                       </button>
-                      <!-- HISTORIAL DE AUDITORÍA SOLO VISIBLE PARA ADMINISTRADOR -->
-                      <button *ngIf="isAdmin" class="btn-action" (click)="abrirHistorialCotizacion(venta)" title="Ver bitácora de auditoría confidencial">
-                        <lucide-icon [img]="icons.History" [size]="12"></lucide-icon> Historial
-                      </button>
                       <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action success" (click)="facturarCotizacionDesdeVentas(venta)" title="Convertir cotización en Factura Fiscal SAR oficial con CAI">
                         <lucide-icon [img]="icons.Check" [size]="12"></lucide-icon> Facturar (SAR)
                       </button>
@@ -388,9 +500,6 @@
 
                     <!-- ACCIONES PARA FACTURAS FISCALES SAR (ESTRICTAMENTE INMUTABLES: NO SE PUEDEN EDITAR) -->
                     <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap;">
-                      <button *ngIf="isAdmin" class="btn-action" (click)="abrirHistorialEntidad('FACTURA SAR', venta.ventaId, venta.numeroFactura)" title="Ver bitácora de auditoría de esta factura">
-                        <lucide-icon [img]="icons.History" [size]="12"></lucide-icon> Historial
-                      </button>
                       <button *ngIf="venta.numeroFactura" class="btn-action primary" (click)="verFactura(venta)" title="Ver factura oficial">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
                       </button>
@@ -408,6 +517,16 @@
                 </tr>
                 <tr *ngIf="!ventas.length">
                   <td colspan="8" class="empty">No hay facturas ni cotizaciones registradas todavía. ¡Haz clic en "+ Crear Factura" para realizar la primera!</td>
+                </tr>
+                <tr *ngIf="ventas.length && !filteredVentas.length">
+                  <td colspan="8" class="empty" style="text-align: center; padding: 36px 20px; color: #64748b;">
+                    <lucide-icon [img]="icons.Search" [size]="28" style="margin-bottom: 8px; opacity: 0.5;"></lucide-icon>
+                    <p style="font-weight: 700; font-size: 13px; margin: 0 0 6px;">No se encontraron documentos con los filtros de columna aplicados</p>
+                    <p style="font-size: 11.5px; color: #94a3b8; margin: 0 0 10px;">Prueba cambiando o limpiando los filtros de ID, tipo, cliente, fecha o estado.</p>
+                    <button class="outline-button" (click)="limpiarFiltrosVentas()" style="padding: 6px 14px; font-size: 12px; margin: 0 auto;">
+                      Restablecer todos los filtros
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -769,6 +888,31 @@
             + Nuevo producto
           </button>
         </div>
+
+        <!-- Barra de Búsqueda Rápida de Productos -->
+        <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 280px; position: relative; display: flex; align-items: center;">
+            <lucide-icon [img]="icons.Search" [size]="16" style="position: absolute; left: 12px; color: #94a3b8; pointer-events: none;"></lucide-icon>
+            <input 
+              type="text" 
+              [(ngModel)]="searchProductos" 
+              placeholder="Buscar producto por nombre, código de barras, SKU o descripción..." 
+              style="width: 100%; padding: 9px 36px 9px 36px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #ffffff; outline: none; transition: all 0.2s;"
+            >
+            <button 
+              *ngIf="searchProductos" 
+              (click)="searchProductos = ''" 
+              style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center;"
+              title="Limpiar búsqueda"
+            >
+              <lucide-icon [img]="icons.X" [size]="14"></lucide-icon>
+            </button>
+          </div>
+          <div style="font-size: 12px; color: #64748b; font-weight: 600;">
+            Mostrando <b>{{ filteredProducts.length }}</b> de <b>{{ products.length }}</b> productos
+          </div>
+        </div>
+
         <div class="table-wrap">
           <table>
             <thead>
@@ -797,9 +941,7 @@
                     <button class="btn-action" (click)="abrirModalEditarProducto(product)" title="Editar producto">
                       <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
                     </button>
-                    <button *ngIf="isAdmin" class="btn-action" (click)="abrirHistorialProducto(product)" title="Ver bitácora de auditoría confidencial">
-                      <lucide-icon [img]="icons.History" [size]="12"></lucide-icon> Historial
-                    </button>
+
                     <button class="btn-action danger" (click)="eliminarProducto(product.productoId!)" title="Eliminar producto">
                       <lucide-icon [img]="icons.Trash2" [size]="12"></lucide-icon>
                     </button>
@@ -808,6 +950,12 @@
               </tr>
               <tr *ngIf="!products.length">
                 <td colspan="6" class="empty">No hay productos disponibles. Haz clic en "+ Nuevo producto" para crear el primero.</td>
+              </tr>
+              <tr *ngIf="products.length && !filteredProducts.length">
+                <td colspan="6" class="empty" style="text-align: center; padding: 26px; color: #64748b;">
+                  No se encontraron productos que coincidan con "<b>{{ searchProductos }}</b>".
+                  <button class="text-button" (click)="searchProductos = ''" style="display: block; margin: 6px auto 0;">Limpiar búsqueda</button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -1240,8 +1388,8 @@
               <button class="sub-tab" [class.active]="subTabReporte === 'inventario'" (click)="subTabReporte = 'inventario'">
                 Valorización de Inventario
               </button>
-              <button *ngIf="isAdmin" class="sub-tab" [class.active]="subTabReporte === 'auditoria'" (click)="subTabReporte = 'auditoria'; loadAuditoriaLogs()">
-                Bitácora de Auditoría (Admin)
+              <button *ngIf="isSuperUsuario" class="sub-tab" [class.active]="subTabReporte === 'auditoria'" (click)="subTabReporte = 'auditoria'; loadAuditoriaLogs()">
+                Bitácora de Auditoría
               </button>
             </div>
           </div>
@@ -1628,7 +1776,7 @@
               <tbody>
                 <tr *ngFor="let item of logsAuditoriaFiltrados">
                   <td style="font-size: 11px; color: #475569; white-space: nowrap; font-weight: 600;">
-                    {{ item.fecha | date:'dd/MM/yyyy, hh:mm:ss a' }}
+                    {{ parseFechaUtc(item.fecha) | date:'dd/MM/yyyy, hh:mm:ss a' }}
                   </td>
                   <td>
                     <span class="status" [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : (item.tipo.includes('FACTURA') ? '#ecfdf5' : '#f5f3ff')" [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : (item.tipo.includes('FACTURA') ? '#047857' : '#6d28d9')" style="font-weight: 800; font-size: 9.5px;">
@@ -1710,7 +1858,7 @@
               </div>
               <div>
                 <div class="config-tab-title">Bitácora Global</div>
-                <div class="config-tab-subtitle">Auditoría confidencial</div>
+                <div class="config-tab-subtitle">Control y trazabilidad</div>
               </div>
             </button>
 
@@ -3129,7 +3277,7 @@
                 {{ historialEntidadList.length - i }}
               </td>
               <td style="font-size: 11px; color: #334155; font-weight: 600; white-space: nowrap;">
-                {{ h.fecha | date:'dd/MM/yyyy, hh:mm:ss a' }}
+                {{ parseFechaUtc(h.fecha) | date:'dd/MM/yyyy, hh:mm:ss a' }}
               </td>
               <td>
                 <span style="font-weight: 700; color: #1e293b; font-size: 11.5px;">{{ h.usuario }}</span>
