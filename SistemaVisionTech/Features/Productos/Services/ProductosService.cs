@@ -50,7 +50,7 @@ namespace SistemaVisionTech.Features.Productos.Services
             return Result<ProductoResponseDto>.Ok(dto);
         }
 
-        public async Task<Result<ProductoResponseDto>> CrearAsync(ProductoCreacionDto dto)
+        public async Task<Result<ProductoResponseDto>> CrearAsync(ProductoCreacionDto dto, string? usuario = null)
         {
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<ProductoResponseDto>.Fail("El nombre del producto es obligatorio.", isValidation: true);
@@ -95,6 +95,19 @@ namespace SistemaVisionTech.Features.Productos.Services
                 _context.Inventario.Add(inventario);
                 await _context.SaveChangesAsync();
             }
+
+            _context.ProductosHistorial.Add(new SistemaVisionTech.Infrastructure.Entities.ProductosHistorial
+            {
+                ProductoId = producto.ProductoId,
+                Usuario = string.IsNullOrWhiteSpace(usuario) ? "Administrador" : usuario,
+                FechaModificacion = DateTime.UtcNow,
+                Accion = "CREACIÓN",
+                DetalleCambios = $"Producto registrado en catálogo con stock inicial: {stockInicial}, ISV: {producto.TipoISV}.",
+                PrecioAnterior = null,
+                PrecioNuevo = producto.Precio,
+                Activo = true
+            });
+            await _context.SaveChangesAsync();
 
             var response = MapToDto(producto);
             response.Stock = stockInicial;

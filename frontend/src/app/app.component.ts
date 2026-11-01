@@ -313,6 +313,7 @@ export class AppComponent {
   abrirCrearFactura() {
     this.active = 'Facturas';
     this.subTabFacturas = 'crear';
+    this.facturaForm.tipoDocumento = 'Cotizacion';
   }
 
   volverAListadoFacturas() {
@@ -401,6 +402,14 @@ export class AppComponent {
   // Bitácora global de auditoría (Solo Administrador)
   logsAuditoriaList: any[] = [];
   cargandoAuditoria = false;
+  filtroTipoAuditoria: string = 'TODOS';
+  busquedaAuditoria: string = '';
+  showHistorialEntidadModal: boolean = false;
+  historialEntidadTitulo: string = '';
+  historialEntidadSubtitulo: string = '';
+  historialEntidadTipo: string = '';
+  historialEntidadList: any[] = [];
+  cargandoHistorialEntidad: boolean = false;
   guardandoConfiguracion = false;
   companyConfig = {
     nombre: localStorage.getItem('vt_company_nombre') || '3tech Distribuidora S. De R.L de C.V.',
@@ -520,7 +529,7 @@ export class AppComponent {
 
   // Facturación en vivo
   facturaForm = {
-    tipoDocumento: 'Factura' as 'Factura' | 'Cotizacion',
+    tipoDocumento: 'Cotizacion' as 'Factura' | 'Cotizacion',
     clienteId: 1,
     fecha: new Date().toISOString().split('T')[0],
     metodoPagoId: 1,
@@ -1007,8 +1016,34 @@ export class AppComponent {
     }
   }
 
+  esProductoDuplicado(productoId: number | string): boolean {
+    if (!productoId) return false;
+    const pid = Number(productoId);
+    const count = this.facturaForm.items.filter(item => Number(item.productoId) === pid).length;
+    return count > 1;
+  }
+
+  get tieneProductosDuplicados(): boolean {
+    const ids = this.facturaForm.items.map(i => Number(i.productoId));
+    return new Set(ids).size !== ids.length;
+  }
+
+  get siguienteCotizacionCalculada(): string {
+    const nums = this.ventas
+      .filter(v => v.esCotizacion && v.numeroCotizacion)
+      .map(v => {
+        const match = (v.numeroCotizacion || '').match(/\d+/);
+        return match ? parseInt(match[0], 10) : 0;
+      });
+    const max = nums.length > 0 ? Math.max(...nums) : 0;
+    return `COT-${(max + 1).toString().padStart(6, '0')}`;
+  }
+
   get ultimaFacturaDisplay(): string {
     if (this.facturaForm.tipoDocumento === 'Cotizacion') {
+      if (this.facturaEmitidaData?.numeroCotizacion) {
+        return this.facturaEmitidaData.numeroCotizacion;
+      }
       const conCot = this.ventas.find(v => v.esCotizacion && v.numeroCotizacion);
       return conCot?.numeroCotizacion || 'COT-000000';
     }
@@ -1021,9 +1056,10 @@ export class AppComponent {
 
   get nuevaFacturaDisplay(): string {
     if (this.facturaForm.tipoDocumento === 'Cotizacion') {
-      return this.facturaEmitida && this.facturaEmitidaData?.numeroCotizacion
-        ? this.facturaEmitidaData.numeroCotizacion
-        : 'COT-PROXIMA';
+      if (this.facturaEmitida && this.facturaEmitidaData?.numeroCotizacion) {
+        return this.facturaEmitidaData.numeroCotizacion;
+      }
+      return this.siguienteCotizacionCalculada;
     }
     return this.sarConfig?.siguienteFactura || '000-001-01-00000001';
   }
@@ -1038,14 +1074,17 @@ export class AppComponent {
   }
 
   agregarItemFactura() {
-    const firstProd = this.products[0];
-    this.facturaForm.items.push({
-      productoId: firstProd?.productoId || 1,
-      nombre: firstProd?.nombre || 'Producto',
+    // Buscar el primer producto que no esté ya en la lista de ítems para no generar duplicados
+    const idsEnUso = new Set(this.facturaForm.items.map(i => Number(i.productoId)));
+    const prodDisponible = this.products.find(p => !idsEnUso.has(Number(p.productoId))) || this.products[0];
+
+    this.facturaForm.items.unshift({
+      productoId: prodDisponible?.productoId || 1,
+      nombre: prodDisponible?.nombre || 'Producto',
       cantidad: 1,
-      precio: firstProd?.precioVenta || firstProd?.precio || 0,
+      precio: prodDisponible?.precioVenta || prodDisponible?.precio || 0,
       descuento: 0,
-      tipoISV: firstProd?.tipoISV || 'ISV15'
+      tipoISV: prodDisponible?.tipoISV || 'ISV15'
     });
   }
 
@@ -1147,6 +1186,11 @@ export class AppComponent {
       return;
     }
 
+    if (this.tieneProductosDuplicados) {
+      this.notificarError('Producto duplicado', 'No puedes repetir el mismo producto en varios renglones. Los ítems repetidos están resaltados con bordes rojos. Ajusta la cantidad del ítem existente o selecciona un producto diferente.');
+      return;
+    }
+
     this.generandoFactura = true;
     const isCotizacion = this.facturaForm.tipoDocumento === 'Cotizacion';
     const payload = {
@@ -1172,6 +1216,8 @@ export class AppComponent {
         this.facturaEmitidaData = ventaCreada;
 
         if (isCotizacion) {
+          // Actualizar inmediatamente el listado local de ventas para refrescar el correlativo al instante
+          this.ventas = [ventaCreada, ...this.ventas.filter(v => v.ventaId !== ventaCreada.ventaId)];
           this.notificarExito(
             'Cotización Generada',
             `¡Cotización ${ventaCreada.numeroCotizacion || 'COT'} generada exitosamente! Puedes editarla o consultar su historial de cambios desde la pantalla de Ventas.`
@@ -1231,7 +1277,7 @@ export class AppComponent {
     this.loadVentas();
     const firstProd = this.products.find(p => p.nombre?.toLowerCase().includes('camara') || p.nombre?.toLowerCase().includes('magnalock') || p.nombre?.toLowerCase().includes('switch')) || this.products[0];
     this.facturaForm = {
-      tipoDocumento: this.facturaForm?.tipoDocumento || 'Factura',
+      tipoDocumento: 'Cotizacion',
       clienteId: this.clientes[0]?.clienteId || 1,
       fecha: new Date().toISOString().split('T')[0],
       metodoPagoId: 1,
@@ -2507,6 +2553,26 @@ export class AppComponent {
     });
   }
 
+  get logsAuditoriaFiltrados(): any[] {
+    let list = this.logsAuditoriaList || [];
+    if (this.filtroTipoAuditoria && this.filtroTipoAuditoria !== 'TODOS') {
+      const ft = this.filtroTipoAuditoria.toUpperCase();
+      list = list.filter(item => (item.tipo || '').toUpperCase().includes(ft));
+    }
+    if (this.busquedaAuditoria && this.busquedaAuditoria.trim()) {
+      const q = this.busquedaAuditoria.trim().toLowerCase();
+      list = list.filter(item =>
+        (item.referencia || '').toLowerCase().includes(q) ||
+        (item.usuario || '').toLowerCase().includes(q) ||
+        (item.accion || '').toLowerCase().includes(q) ||
+        (item.detalle || '').toLowerCase().includes(q) ||
+        (item.valorAnterior || '').toLowerCase().includes(q) ||
+        (item.valorNuevo || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }
+
   loadAuditoriaLogs() {
     if (!this.isAdmin) return;
     this.cargandoAuditoria = true;
@@ -2522,6 +2588,40 @@ export class AppComponent {
         }
       }
     });
+  }
+
+  abrirHistorialEntidad(tipo: string, entidadId?: number, referencia?: string) {
+    this.showHistorialEntidadModal = true;
+    this.cargandoHistorialEntidad = true;
+    this.historialEntidadTipo = tipo;
+    this.historialEntidadList = [];
+
+    const ref = referencia || (entidadId ? `#${entidadId}` : '');
+    this.historialEntidadTitulo = `Historial de Auditoría — ${tipo} ${ref}`;
+    this.historialEntidadSubtitulo = `Registro cronológico de todas las modificaciones, valores anteriores y nuevos.`;
+
+    const params = `tipo=${encodeURIComponent(tipo)}&entidadId=${entidadId || ''}&referencia=${encodeURIComponent(referencia || '')}`;
+    this.http.get<any[]>(`${this.api}/Auditoria/historial?${params}`, this.getHeaders()).subscribe({
+      next: (data) => {
+        this.historialEntidadList = Array.isArray(data) ? data : [];
+        this.cargandoHistorialEntidad = false;
+      },
+      error: (err) => {
+        this.cargandoHistorialEntidad = false;
+        const local = (this.logsAuditoriaList || []).filter(l =>
+          (entidadId && l.entidadId === entidadId) || (referencia && l.referencia && l.referencia.includes(referencia))
+        );
+        if (local.length > 0) {
+          this.historialEntidadList = local;
+        } else if (!this.handleAuthError(err)) {
+          this.notificarError('Error en Historial', err.error?.mensaje || 'No se pudo cargar el historial de la entidad.');
+        }
+      }
+    });
+  }
+
+  cerrarHistorialEntidad() {
+    this.showHistorialEntidadModal = false;
   }
 
     guardarConfiguracionEmpresa() {

@@ -47,50 +47,63 @@ namespace SistemaVisionTech.Controllers
                 .Take(200)
                 .Select(p => new
                 {
+                    id = p.Id,
                     tipo = "PRODUCTO",
+                    entidadId = p.ProductoId,
                     referencia = p.Producto != null ? p.Producto.Nombre : ("Producto #" + p.ProductoId),
                     usuario = p.Usuario,
                     fecha = p.FechaModificacion,
                     accion = p.Accion,
                     detalle = p.DetalleCambios,
-                    valorAnterior = p.PrecioAnterior != null ? ("L. " + p.PrecioAnterior.ToString()) : "-",
-                    valorNuevo = "L. " + p.PrecioNuevo.ToString()
+                    valorAnterior = p.PrecioAnterior != null ? ("L. " + p.PrecioAnterior.Value.ToString("N2")) : "-",
+                    valorNuevo = "L. " + p.PrecioNuevo.ToString("N2"),
+                    motivo = "Gestión de catálogo"
                 })
                 .ToListAsync();
 
-            // 2. Logs de cotizaciones
+            // 2. Logs de cotizaciones y facturas
             var logsCotizaciones = await _context.CotizacionesHistorial
                 .AsNoTracking()
+                .Include(c => c.Venta)
+                    .ThenInclude(v => v!.Cliente)
                 .OrderByDescending(c => c.FechaModificacion)
-                .Take(200)
+                .Take(250)
                 .Select(c => new
                 {
-                    tipo = "COTIZACIÓN",
-                    referencia = c.NumeroCotizacion ?? ("Cotización #" + c.VentaId),
+                    id = c.Id,
+                    tipo = c.Accion.Contains("FACTURA") || c.Accion.Contains("SAR") || c.Accion == "FACTURADA" ? "FACTURA SAR" : "COTIZACIÓN",
+                    entidadId = c.VentaId,
+                    referencia = c.NumeroCotizacion ?? (c.Venta != null && c.Venta.NumeroCotizacion != null ? c.Venta.NumeroCotizacion : "Doc #" + c.VentaId),
                     usuario = c.Usuario,
                     fecha = c.FechaModificacion,
                     accion = c.Accion,
                     detalle = c.DetalleCambios,
-                    valorAnterior = "L. " + c.TotalAnterior.ToString(),
-                    valorNuevo = "L. " + c.TotalNuevo.ToString()
+                    valorAnterior = c.TotalAnterior != null ? ("L. " + c.TotalAnterior.Value.ToString("N2")) : "-",
+                    valorNuevo = "L. " + c.TotalNuevo.ToString("N2"),
+                    motivo = c.Motivo ?? "-"
                 })
                 .ToListAsync();
 
-            // 3. Logs de facturación fiscal SAR
+            // 3. Facturas SAR históricas emitidas directamente
+            var ventaIdsConLog = logsCotizaciones.Select(l => l.entidadId).ToHashSet();
             var logsFacturas = await _context.FacturasEmitidas
                 .AsNoTracking()
+                .Where(f => !ventaIdsConLog.Contains(f.VentaId))
                 .OrderByDescending(f => f.FechaEmision)
-                .Take(200)
+                .Take(150)
                 .Select(f => new
                 {
+                    id = f.Id,
                     tipo = "FACTURA SAR",
+                    entidadId = f.VentaId,
                     referencia = f.NumeroFactura,
-                    usuario = f.NombreCliente,
+                    usuario = "Facturador SAR",
                     fecha = f.FechaEmision,
                     accion = f.Activo ? "EMISIÓN FISCAL" : "ANULADA",
                     detalle = "CAI: " + f.CAI + " | Cliente: " + f.NombreCliente + " (RTN: " + (f.RTNCliente ?? "Consumidor Final") + ")",
                     valorAnterior = "-",
-                    valorNuevo = "L. " + f.Total.ToString()
+                    valorNuevo = "L. " + f.Total.ToString("N2"),
+                    motivo = "Emisión fiscal autorizada"
                 })
                 .ToListAsync();
 
@@ -98,10 +111,121 @@ namespace SistemaVisionTech.Controllers
                 .Concat(logsCotizaciones.Cast<object>())
                 .Concat(logsFacturas.Cast<object>())
                 .OrderByDescending(x => ((dynamic)x).fecha)
-                .Take(400)
+                .Take(500)
                 .ToList();
 
             return Ok(combinado);
+        }
+
+        [HttpGet("historial")]
+        public async Task<IActionResult> ObtenerHistorialEntidad([FromQuery] string? tipo, [FromQuery] int? entidadId, [FromQuery] string? referencia)
+        {
+            if (!EsAdmin())
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    mensaje = "Acceso denegado: Se requiere rol de Administrador para consultar el historial detallado de la entidad."
+                });
+            }
+
+            tipo = (tipo ?? string.Empty).Trim().ToUpperInvariant();
+            referencia = (referencia ?? string.Empty).Trim();
+
+            // Si es Producto
+            if (tipo.Contains("PRODUCT") || (!tipo.Contains("FACTURA") && !tipo.Contains("COTIZ") && entidadId.HasValue && entidadId.Value > 0 && !referencia.StartsWith("COT-") && !referencia.StartsWith("000-")))
+            {
+                var queryProd = _context.ProductosHistorial
+                    .AsNoTracking()
+                    .Include(p => p.Producto)
+                    .AsQueryable();
+
+                if (entidadId.HasValue && entidadId.Value > 0)
+                    queryProd = queryProd.Where(p => p.ProductoId == entidadId.Value);
+                else if (!string.IsNullOrEmpty(referencia))
+                    queryProd = queryProd.Where(p => p.Producto != null && p.Producto.Nombre.Contains(referencia));
+
+                var logsP = await queryProd
+                    .OrderByDescending(p => p.FechaModificacion)
+                    .Select(p => new
+                    {
+                        id = p.Id,
+                        tipo = "PRODUCTO",
+                        entidadId = p.ProductoId,
+                        referencia = p.Producto != null ? p.Producto.Nombre : ("Producto #" + p.ProductoId),
+                        usuario = p.Usuario,
+                        fecha = p.FechaModificacion,
+                        accion = p.Accion,
+                        detalle = p.DetalleCambios,
+                        valorAnterior = p.PrecioAnterior != null ? ("L. " + p.PrecioAnterior.Value.ToString("N2")) : "-",
+                        valorNuevo = "L. " + p.PrecioNuevo.ToString("N2"),
+                        motivo = "Gestión de catálogo"
+                    })
+                    .ToListAsync();
+
+                return Ok(logsP);
+            }
+
+            // Si es Cotización o Factura
+            var queryCot = _context.CotizacionesHistorial
+                .AsNoTracking()
+                .Include(c => c.Venta)
+                .AsQueryable();
+
+            if (entidadId.HasValue && entidadId.Value > 0)
+            {
+                queryCot = queryCot.Where(c => c.VentaId == entidadId.Value);
+            }
+            else if (!string.IsNullOrEmpty(referencia))
+            {
+                queryCot = queryCot.Where(c => c.NumeroCotizacion == referencia || (c.Venta != null && c.Venta.NumeroCotizacion == referencia));
+            }
+
+            var logsV = await queryCot
+                .OrderByDescending(c => c.FechaModificacion)
+                .Select(c => new
+                {
+                    id = c.Id,
+                    tipo = c.Accion.Contains("FACTURA") || c.Accion.Contains("SAR") || c.Accion == "FACTURADA" ? "FACTURA SAR" : "COTIZACIÓN",
+                    entidadId = c.VentaId,
+                    referencia = c.NumeroCotizacion ?? (c.Venta != null && c.Venta.NumeroCotizacion != null ? c.Venta.NumeroCotizacion : "Doc #" + c.VentaId),
+                    usuario = c.Usuario,
+                    fecha = c.FechaModificacion,
+                    accion = c.Accion,
+                    detalle = c.DetalleCambios,
+                    valorAnterior = c.TotalAnterior != null ? ("L. " + c.TotalAnterior.Value.ToString("N2")) : "-",
+                    valorNuevo = "L. " + c.TotalNuevo.ToString("N2"),
+                    motivo = c.Motivo ?? "-"
+                })
+                .ToListAsync();
+
+            // Si no hubo entradas en CotizacionesHistorial pero sí en FacturasEmitidas
+            if (!logsV.Any() && (!string.IsNullOrEmpty(referencia) || entidadId.HasValue))
+            {
+                var queryFac = _context.FacturasEmitidas.AsNoTracking().AsQueryable();
+                if (entidadId.HasValue) queryFac = queryFac.Where(f => f.VentaId == entidadId.Value);
+                if (!string.IsNullOrEmpty(referencia)) queryFac = queryFac.Where(f => f.NumeroFactura == referencia);
+
+                var logsF = await queryFac
+                    .Select(f => new
+                    {
+                        id = f.Id,
+                        tipo = "FACTURA SAR",
+                        entidadId = f.VentaId,
+                        referencia = f.NumeroFactura,
+                        usuario = "Facturador SAR",
+                        fecha = f.FechaEmision,
+                        accion = f.Activo ? "EMISIÓN FISCAL" : "ANULADA",
+                        detalle = "CAI: " + f.CAI + " | Cliente: " + f.NombreCliente + " (RTN: " + (f.RTNCliente ?? "Consumidor Final") + ")",
+                        valorAnterior = "-",
+                        valorNuevo = "L. " + f.Total.ToString("N2"),
+                        motivo = "Emisión fiscal autorizada"
+                    })
+                    .ToListAsync();
+
+                return Ok(logsF);
+            }
+
+            return Ok(logsV);
         }
     }
 }

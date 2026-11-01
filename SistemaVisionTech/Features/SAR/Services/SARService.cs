@@ -187,6 +187,21 @@ namespace SistemaVisionTech.Features.SAR.Services
             };
 
             _context.FacturasEmitidas.Add(factura);
+
+            _context.CotizacionesHistorial.Add(new SistemaVisionTech.Infrastructure.Entities.CotizacionesHistorial
+            {
+                VentaId = ventaId,
+                NumeroCotizacion = numeroFactura,
+                Usuario = "Facturador SAR",
+                FechaModificacion = DateTime.UtcNow,
+                Accion = "ASIGNACIÓN CAI SAR",
+                DetalleCambios = $"Asignado CAI: {config.CAI} y correlativo fiscal: {numeroFactura}. Rango autorizado: {config.RangoDesde} a {config.RangoHasta}.",
+                TotalAnterior = venta.Total,
+                TotalNuevo = factura.Total,
+                Motivo = "Emisión fiscal autorizada por SAR",
+                Activo = true
+            });
+
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 

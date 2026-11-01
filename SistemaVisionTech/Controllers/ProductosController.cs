@@ -27,10 +27,16 @@ namespace SistemaVisionTech.Controllers
 
         [HttpPost]
         public async Task<IActionResult> Crear([FromBody] ProductoCreacionDto dto)
-            => HandleCreatedResult(
-                await _svc.CrearAsync(dto),
+        {
+            string usuario = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Administrador";
+
+            return HandleCreatedResult(
+                await _svc.CrearAsync(dto, usuario),
                 nameof(ObtenerPorId),
                 r => new { id = r.ProductoId });
+        }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Editar(int id, [FromBody] ProductoCreacionDto dto)

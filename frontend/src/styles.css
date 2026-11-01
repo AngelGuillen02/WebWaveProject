@@ -352,3 +352,39 @@
   border: 3px solid #ffffff;
   box-shadow: 0 0 0 2px #bae6fd;
 }
+
+/* BOTÓN SUPERIOR PARA AGREGAR ÍTEMS ARRIBA */
+.btn-add-item-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.btn-add-item-top:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+/* PREVISUALIZACIÓN DE FACTURA FIJA (STICKY) */
+.factura-preview-column {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+/* RESALTADO EN ROJO DE ÍTEM DUPLICADO */
+.item-card.item-duplicated {
+  border: 2px solid #ef4444 !important;
+  background: #fff5f5 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}

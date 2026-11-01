@@ -246,6 +246,20 @@ namespace SistemaVisionTech.Features.Ventas.Services
                     });
                 }
 
+                _context.CotizacionesHistorial.Add(new CotizacionesHistorial
+                {
+                    VentaId = venta.VentaId,
+                    NumeroCotizacion = null,
+                    Usuario = !string.IsNullOrWhiteSpace(dto.UsuarioNombre) ? dto.UsuarioNombre : "Usuario",
+                    FechaModificacion = DateTime.UtcNow,
+                    Accion = "EMISIÓN FACTURA",
+                    DetalleCambios = $"Emisión de Factura Fiscal con {dto.Detalles.Count} ítem(s). Cliente: {cliente.Nombre} (RTN: {cliente.RTN ?? "Consumidor Final"}). Total: L. {totalVenta:N2}.",
+                    TotalAnterior = null,
+                    TotalNuevo = totalVenta,
+                    Motivo = "Facturación y venta formal",
+                    Activo = true
+                });
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -631,6 +645,20 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 {
                     factura.Activo = false;
                 }
+
+                _context.CotizacionesHistorial.Add(new CotizacionesHistorial
+                {
+                    VentaId = ventaId,
+                    NumeroCotizacion = factura?.NumeroFactura ?? $"Venta #{ventaId}",
+                    Usuario = "Administrador",
+                    FechaModificacion = DateTime.UtcNow,
+                    Accion = "ANULACIÓN FACTURA",
+                    DetalleCambios = $"Factura SAR anulada. Se restituyeron {venta.Detalles.Count} ítem(s) al stock de inventario. Total cancelado: L. {venta.Total:N2}.",
+                    TotalAnterior = venta.Total,
+                    TotalNuevo = 0,
+                    Motivo = "Anulación fiscal de documento",
+                    Activo = true
+                });
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
