@@ -443,11 +443,11 @@ export class AppComponent {
   guardandoEdicionCotizacion = false;
   cotizacionEditando: any = null;
   editarCotizacionForm: {
-    clienteId: number;
+    clienteId: number | null;
     motivo: string;
     items: FacturaItemRow[];
   } = {
-    clienteId: 1,
+    clienteId: null as number | null,
     motivo: '',
     items: []
   };
@@ -621,7 +621,7 @@ export class AppComponent {
   };
 
   nuevaVenta = {
-    clienteId: 1,
+    clienteId: null as number | null,
     productoId: 1,
     cantidad: 1,
     metodoPagoId: 1,
@@ -642,7 +642,7 @@ export class AppComponent {
   // Facturación en vivo
   facturaForm = {
     tipoDocumento: 'Cotizacion' as 'Factura' | 'Cotizacion',
-    clienteId: 1,
+    clienteId: null as number | null,
     fecha: AppComponent.getFechaHoyHonduras(),
     metodoPagoId: 1,
     moneda: 'Lempiras (HNL)',
@@ -994,7 +994,7 @@ export class AppComponent {
         this.clientes = Array.isArray(data) ? data : [];
         if (this.clientes.length > 0) {
           if (!this.nuevaVenta.clienteId) this.nuevaVenta.clienteId = this.clientes[0].clienteId;
-          if (!this.facturaForm.clienteId) this.facturaForm.clienteId = this.clientes[0].clienteId;
+          // Por defecto la factura es Consumidor Final
         }
       },
       error: (err) => {
@@ -1151,8 +1151,10 @@ export class AppComponent {
   }
 
   // Facturación en vivo
-  get clienteSeleccionado(): Cliente | undefined {
-    return this.clientes.find(c => c.clienteId == this.facturaForm.clienteId);
+  get clienteSeleccionado(): any {
+    const c = this.clientes.find(cl => cl.clienteId == this.facturaForm.clienteId);
+    if (c) return c;
+    return { nombre: 'Consumidor Final', rtn: '0000-0000-00000', email: '—' };
   }
 
   get metodoPagoNombre(): string {
@@ -1342,7 +1344,7 @@ export class AppComponent {
     this.generandoFactura = true;
     const isCotizacion = this.facturaForm.tipoDocumento === 'Cotizacion';
     const payload = {
-      clienteId: Number(this.facturaForm.clienteId),
+      clienteId: Number(this.facturaForm.clienteId) || (this.clientes.find(c => (c.nombre && c.nombre.toLowerCase().includes('consumidor final')) || (c.rtn && c.rtn.includes('0000')))?.clienteId || 0),
       sucursalId: 1,
       usuarioNombre: this.currentUser?.name || 'Usuario',
       metodoPagoId: Number(this.facturaForm.metodoPagoId),
@@ -1426,7 +1428,7 @@ export class AppComponent {
     const firstProd = this.products.find(p => p.nombre?.toLowerCase().includes('camara') || p.nombre?.toLowerCase().includes('magnalock') || p.nombre?.toLowerCase().includes('switch')) || this.products[0];
     this.facturaForm = {
       tipoDocumento: 'Cotizacion',
-      clienteId: this.clientes[0]?.clienteId || 1,
+      clienteId: null,
       fecha: AppComponent.getFechaHoyHonduras(),
       metodoPagoId: 1,
       moneda: 'Lempiras (HNL)',
@@ -1605,6 +1607,9 @@ export class AppComponent {
             .preview-summary-total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; border-top: 2px solid #0f172a; padding-top: 6px; margin-top: 4px; color: #0f172a; }
             .preview-footer-words { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 10px 14px; border-radius: 8px; margin-top: 14px; font-size: 11px; }
             .badge-cotizacion { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; display: inline-block; }
+            .factura-paper-sheet { position: relative !important; overflow: hidden !important; }
+            .watermark-anulada { position: absolute !important; top: 48% !important; left: 50% !important; transform: translate(-50%, -50%) rotate(-28deg) !important; pointer-events: none !important; user-select: none !important; display: flex !important; align-items: center !important; justify-content: center !important; border: 8px solid rgba(220, 38, 38, 0.35) !important; border-radius: 18px !important; padding: 16px 52px !important; background: rgba(254, 226, 226, 0.15) !important; z-index: 99 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .watermark-anulada span { font-family: 'Manrope', sans-serif !important; font-size: 78px !important; font-weight: 900 !important; color: rgba(220, 38, 38, 0.32) !important; letter-spacing: 0.18em !important; text-transform: uppercase !important; line-height: 1 !important; }
             @page { margin: 12mm; size: auto; }
           </style>
         </head>
@@ -2663,7 +2668,40 @@ export class AppComponent {
           };
           this.showFacturaModal = true;
         } else {
-          this.notificarInfo('Sin Factura', 'Esta venta aún no tiene una factura fiscal emitida.');
+          this.http.get<any>(`${this.api}/Ventas/${venta.ventaId}`, this.getHeaders()).subscribe({
+            next: (v) => {
+              const d = v || venta;
+              this.facturaSeleccionada = {
+                numeroFactura: d.numeroFactura || `VENTA-#${d.ventaId}`,
+                cai: d.cai || (this.sarConfig?.cai || '—'),
+                fechaEmision: d.fechaFactura || d.fechaVenta,
+                nombreCliente: d.cliente || 'Consumidor Final',
+                rtnCliente: d.clienteRtn || '00000000000000',
+                total: d.total || 0,
+                montoExento: d.montoExento || 0,
+                montoGravado15: d.montoGravado15 || ((d.total || 0) / 1.15),
+                isv15: d.isv15 || ((d.total || 0) - ((d.total || 0) / 1.15)),
+                rangoDesde: this.sarConfig?.rangoDesde || '000-001-01-00000001',
+                rangoHasta: this.sarConfig?.rangoHasta || '000-001-01-00005000',
+                fechaLimiteEmision: this.sarConfig?.fechaLimiteEmision || '2027-12-31',
+                detalles: (d.detalles || []).map((det: any) => ({
+                  productoId: det.productoId,
+                  nombre: det.producto || det.nombre || `Producto #${det.productoId}`,
+                  cantidad: det.cantidad,
+                  precio: det.precio,
+                  total: det.total || (det.cantidad * det.precio),
+                  descuento: 0,
+                  tipoISV: 'ISV15'
+                })),
+                venta: d,
+                estadoVenta: d.estadoVenta
+              };
+              this.showFacturaModal = true;
+            },
+            error: () => {
+              this.notificarInfo('Sin Factura', 'Esta venta aún no tiene una factura fiscal emitida.');
+            }
+          });
         }
       }
     });

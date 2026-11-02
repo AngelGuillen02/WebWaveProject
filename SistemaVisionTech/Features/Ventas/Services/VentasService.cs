@@ -94,11 +94,35 @@ namespace SistemaVisionTech.Features.Ventas.Services
             if (dto.Detalles.GroupBy(d => d.ProductoId).Any(g => g.Count() > 1))
                 return Result<VentasDto>.Fail("No se puede repetir el mismo producto en los renglones de detalle.", isValidation: true);
 
-            Cliente? cliente = await _context.Clientes
-                .FirstOrDefaultAsync(c => c.ClienteId == dto.ClienteId);
+            Cliente? cliente = null;
+            if (dto.ClienteId > 0)
+            {
+                cliente = await _context.Clientes
+                    .FirstOrDefaultAsync(c => c.ClienteId == dto.ClienteId);
+            }
 
             if (cliente is null)
-                return Result<VentasDto>.Fail($"El cliente con Id {dto.ClienteId} no existe.");
+            {
+                cliente = await _context.Clientes
+                    .FirstOrDefaultAsync(c => c.Nombre == "Consumidor Final" || c.RTN == "0000-0000-00000" || c.RTN == "00000000000000");
+
+                if (cliente is null)
+                {
+                    cliente = new Cliente
+                    {
+                        Nombre = "Consumidor Final",
+                        RTN = "0000-0000-00000",
+                        Email = "consumidorfinal@visiontech.hn",
+                        Telefono = "0000-0000",
+                        Direccion = "Honduras",
+                        Activo = true
+                    };
+                    _context.Clientes.Add(cliente);
+                    await _context.SaveChangesAsync();
+                }
+
+                dto.ClienteId = cliente.ClienteId;
+            }
 
             List<int> productosIds = dto.Detalles.Select(d => d.ProductoId).ToList();
 

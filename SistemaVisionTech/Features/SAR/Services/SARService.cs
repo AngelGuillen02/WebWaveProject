@@ -175,7 +175,7 @@ namespace SistemaVisionTech.Features.SAR.Services
                 NumeroFactura = numeroFactura,
                 CAI = config.CAI,
                 FechaEmision = DateTime.UtcNow,
-                RTNCliente = venta.Cliente?.RTN ?? venta.Rtn,
+                RTNCliente = !string.IsNullOrWhiteSpace(venta.Cliente?.RTN) ? venta.Cliente.RTN : (!string.IsNullOrWhiteSpace(venta.Rtn) ? venta.Rtn : "0000-0000-00000"),
                 NombreCliente = string.IsNullOrWhiteSpace(venta.Cliente?.Nombre) ? "Consumidor Final" : venta.Cliente.Nombre,
                 MontoExento = exento,
                 MontoGravado15 = gravado15,

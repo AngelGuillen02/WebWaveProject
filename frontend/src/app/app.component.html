@@ -517,7 +517,7 @@
 
                     <!-- ACCIONES PARA FACTURAS FISCALES SAR (ESTRICTAMENTE INMUTABLES: NO SE PUEDEN EDITAR) -->
                     <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                      <button *ngIf="venta.numeroFactura" class="btn-action primary" (click)="verFactura(venta)" title="Ver factura oficial">
+                      <button *ngIf="venta.numeroFactura || esVentaAnulada(venta)" class="btn-action primary" (click)="verFactura(venta)" [title]="venta.numeroFactura ? 'Ver factura oficial' : 'Ver comprobante'">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
                       </button>
                       <button *ngIf="!venta.numeroFactura && !esVentaAnulada(venta)" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
@@ -594,13 +594,14 @@
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <label>Cliente:</label>
                 <div style="display:flex; gap:10px; align-items:center;">
-                  <span style="font-size:11px; color:#6b7280;">RTN: <b>{{ clienteSeleccionado?.rtn || '00000000000000' }}</b></span>
+                  <span style="font-size:11px; color:#6b7280;">RTN: <b>{{ clienteSeleccionado?.rtn || '0000-0000-00000' }}</b></span>
                   <a style="font-size:11px; color:#0284c7; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</a>
                 </div>
               </div>
               <select [(ngModel)]="facturaForm.clienteId">
-                <option *ngFor="let c of clientes" [value]="c.clienteId">
-                  {{ c.nombre }} (RTN: {{ c.rtn || 'Consumidor Final' }})
+                <option [ngValue]="null">Consumidor Final (RTN: 0000-0000-00000)</option>
+                <option *ngFor="let c of clientes" [ngValue]="c.clienteId">
+                  {{ c.nombre }} (RTN: {{ c.rtn || '0000-0000-00000' }})
                 </option>
               </select>
             </div>
@@ -740,7 +741,11 @@
 
           <!-- COLUMNA DERECHA: PREVISUALIZACIÓN DE FACTURA / COTIZACIÓN EN TIEMPO REAL -->
           <div class="factura-preview-column">
-            <div class="factura-paper-sheet" id="invoice-preview-area">
+            <div class="factura-paper-sheet" id="invoice-preview-area" style="position:relative; overflow:hidden;">
+              <!-- Leyenda de fondo (Marca de Agua) si está anulada -->
+              <div *ngIf="esVentaAnulada(facturaEmitidaData)" class="watermark-anulada">
+                <span>ANULADA</span>
+              </div>
               <!-- Encabezado con número de documento y logo -->
               <div class="preview-brand-row" [style.borderBottomColor]="facturaForm.tipoDocumento === 'Cotizacion' ? '#0284c7' : '#1e3a8a'">
                 <div>
@@ -759,10 +764,12 @@
                     </span>
                   </div>
                 </div>
-                <div style="text-align:right;">
-                  <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:54px; max-width:180px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
-                  <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
-                  <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
+                <div style="text-align:right; max-width:320px;">
+                  <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:52px; max-width:170px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
+                  <div style="font-size:10px; color:#0f172a; font-weight:800; line-height:1.2;">{{ companyConfig.nombre }}</div>
+                  <div style="font-size:9px; color:#334155; font-weight:600; margin-top:2px;">RTN: {{ companyConfig.rtn || sarConfig?.rtn }}</div>
+                  <div style="font-size:8.5px; color:#64748b; margin-top:1px; line-height:1.3;">{{ companyConfig.direccion }}</div>
+                  <div style="font-size:8.5px; color:#64748b; margin-top:1px;">Correo: {{ companyConfig.email }}</div>
                 </div>
               </div>
 
@@ -2367,7 +2374,11 @@
       </button>
     </div>
     <div class="modal-body" style="padding:16px 20px;">
-      <div class="factura-paper-sheet" id="invoice-modal-print-area" style="box-shadow:none; border:1px solid #e2e8f0; padding:24px 22px;">
+      <div class="factura-paper-sheet" id="invoice-modal-print-area" style="box-shadow:none; border:1px solid #e2e8f0; padding:24px 22px; position:relative; overflow:hidden;">
+        <!-- Leyenda de fondo (Marca de Agua) si está anulada -->
+        <div *ngIf="esVentaAnulada(facturaSeleccionada)" class="watermark-anulada">
+          <span>ANULADA</span>
+        </div>
         <!-- Encabezado con número de documento y logo -->
         <div class="preview-brand-row" style="border-bottom-color:#0ea5e9;">
           <div>
@@ -2381,10 +2392,12 @@
               Fecha: {{ parseFechaUtc(facturaSeleccionada?.fechaEmision || facturaSeleccionada?.venta?.fechaVenta) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
             </div>
           </div>
-          <div style="text-align:right;">
-            <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:54px; max-width:180px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
-            <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
-            <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
+          <div style="text-align:right; max-width:320px;">
+            <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:52px; max-width:170px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
+            <div style="font-size:10px; color:#0f172a; font-weight:800; line-height:1.2;">{{ companyConfig.nombre }}</div>
+            <div style="font-size:9px; color:#334155; font-weight:600; margin-top:2px;">RTN: {{ companyConfig.rtn || sarConfig?.rtn }}</div>
+            <div style="font-size:8.5px; color:#64748b; margin-top:1px; line-height:1.3;">{{ companyConfig.direccion }}</div>
+            <div style="font-size:8.5px; color:#64748b; margin-top:1px;">Correo: {{ companyConfig.email }}</div>
           </div>
         </div>
 
@@ -2396,7 +2409,7 @@
 
         <!-- Caja Fiscal SAR Oficial -->
         <div class="preview-cai-box">
-          <div><b>RTN Empresa:</b> {{ sarConfig?.rtn || '08011990123456' }}</div>
+          <div><b>RTN Empresa:</b> {{ companyConfig.rtn || sarConfig?.rtn || '18049025265441' }}</div>
           <div style="word-break:break-all; margin:3px 0;"><b>CAI:</b> {{ facturaSeleccionada?.cai || sarConfig?.cai }}</div>
           <div><b>Rango Autorizado:</b> {{ facturaSeleccionada?.rangoDesde || sarConfig?.rangoDesde || '000-001-01-00000001' }} al {{ facturaSeleccionada?.rangoHasta || sarConfig?.rangoHasta || '000-001-01-00005000' }}</div>
           <div><b>Fecha Límite de Emisión:</b> {{ (facturaSeleccionada?.fechaLimiteEmision || sarConfig?.fechaLimiteEmision) ? ((facturaSeleccionada?.fechaLimiteEmision || sarConfig?.fechaLimiteEmision) | date:'dd/MM/yyyy') : '31/12/2027' }}</div>
@@ -3305,7 +3318,11 @@
       </button>
     </div>
     <div class="modal-body" style="padding:16px 20px;">
-      <div class="factura-paper-sheet" id="cotizacion-modal-print-area" style="box-shadow:none; border:1px solid #bae6fd; padding:24px 22px;">
+      <div class="factura-paper-sheet" id="cotizacion-modal-print-area" style="box-shadow:none; border:1px solid #bae6fd; padding:24px 22px; position:relative; overflow:hidden;">
+        <!-- Leyenda de fondo (Marca de Agua) si está anulada -->
+        <div *ngIf="esVentaAnulada(cotizacionSeleccionada)" class="watermark-anulada">
+          <span>ANULADA</span>
+        </div>
         <!-- Encabezado con número de documento y logo -->
         <div class="preview-brand-row" style="border-bottom-color:#0284c7;">
           <div>
@@ -3319,10 +3336,12 @@
               Fecha: {{ parseFechaUtc(cotizacionSeleccionada?.fechaVenta) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
             </div>
           </div>
-          <div style="text-align:right;">
-            <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:54px; max-width:180px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
-            <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
-            <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
+          <div style="text-align:right; max-width:320px;">
+            <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:52px; max-width:170px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
+            <div style="font-size:10px; color:#0f172a; font-weight:800; line-height:1.2;">{{ companyConfig.nombre }}</div>
+            <div style="font-size:9px; color:#334155; font-weight:600; margin-top:2px;">RTN: {{ companyConfig.rtn || sarConfig?.rtn }}</div>
+            <div style="font-size:8.5px; color:#64748b; margin-top:1px; line-height:1.3;">{{ companyConfig.direccion }}</div>
+            <div style="font-size:8.5px; color:#64748b; margin-top:1px;">Correo: {{ companyConfig.email }}</div>
           </div>
         </div>
 
