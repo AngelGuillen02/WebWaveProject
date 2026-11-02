@@ -5,10 +5,10 @@
     </div>
     <p class="eyebrow">WEBWAVE BUSINESS</p>
     <h1>Todo tu negocio,<br><em>en movimiento.</em></h1>
-        <form (ngSubmit)="login()">
+        <form (ngSubmit)="login()" autocomplete="off">
       <label>
         Correo electrónico
-        <input name="email" type="email" [(ngModel)]="credentials.email" placeholder="admin&#64;visiontech.com" required [disabled]="loading">
+        <input name="email" type="email" [(ngModel)]="credentials.email" placeholder="" required [disabled]="loading" autocomplete="off">
       </label>
       <label>
         Contraseña
@@ -17,11 +17,11 @@
             name="password" 
             [type]="mostrarPasswordLogin ? 'text' : 'password'" 
             [(ngModel)]="credentials.password" 
-            placeholder="••••••••" 
+            placeholder="" 
             required 
             [disabled]="loading"
             style="width: 100%; padding-right: 44px;"
-            autocomplete="current-password"
+            autocomplete="new-password"
           >
           <button 
             type="button" 
@@ -258,7 +258,7 @@
                   {{ sarConfig?.vigente ? '✓ VIGENTE' : 'REVISAR' }}
                 </span>
               </div>
-              <code style="font-size:10px; color:#187352; word-break:break-all;">{{ sarConfig?.cai || 'No configurado' }}</code>
+              <code style="font-size:10px; color:#0284c7; word-break:break-all;">{{ sarConfig?.cai || 'No configurado' }}</code>
             </div>
             <div>
               <span class="muted">Rango autorizado:</span><br>
@@ -316,7 +316,7 @@
           </div>
 
           <!-- Banner Informativo del CAI Actual -->
-          <div style="background:#eef7f3; border:1px solid #c8e7d7; padding:12px 18px; border-radius:8px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div style="background:#f0f9ff; border:1px solid #bae6fd; padding:12px 18px; border-radius:8px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <div>
               <span class="tag-cai" style="margin-right:8px;">CAI ACTIVO</span>
               <strong style="font-family:'Manrope',sans-serif; font-weight:700; font-size:11px;">{{ sarConfig?.cai || '3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C' }}</strong>
@@ -684,7 +684,7 @@
                 <div class="form-group" style="margin-bottom:2px;">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                     <label style="font-size:10.5px; margin-bottom:2px;">Producto:</label>
-                    <a style="font-size:10px; color:#187352; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoProducto()">+ Crear nuevo</a>
+                    <a style="font-size:10px; color:#0284c7; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoProducto()">+ Crear nuevo</a>
                   </div>
                   <select [(ngModel)]="item.productoId" (change)="onProductoCambio(item)" style="padding:5px 8px; font-size:11.5px;">
                     <option *ngFor="let p of products" [value]="p.productoId">
@@ -967,7 +967,7 @@
                 <td class="muted">{{ product.codigo || '—' }}</td>
                 <td><b>{{ (product.precioVenta || 0) | currency:'HNL ':'symbol':'1.2-2' }}</b></td>
                 <td>
-                  <b [style.color]="(product.stock || 0) > 0 ? '#187352' : '#c53929'">
+                  <b [style.color]="(product.stock || 0) > 0 ? '#0284c7' : '#c53929'">
                     {{ product.stock || 0 }} unidades
                   </b>
                 </td>
@@ -1097,7 +1097,7 @@
                   </span>
                 </td>
                 <td style="text-align: right;">
-                  <b [style.color]="m.tipoMovimiento === 'ENTRADA' ? '#187352' : '#dc2626'">
+                  <b [style.color]="m.tipoMovimiento === 'ENTRADA' ? '#0284c7' : '#dc2626'">
                     {{ m.tipoMovimiento === 'ENTRADA' ? '+' : '-' }}{{ m.cantidad }} unidades
                   </b>
                 </td>
@@ -1158,7 +1158,7 @@
             <tbody>
               <tr *ngFor="let c of filteredClientes">
                 <td><b>{{ c.nombre }}</b></td>
-                <td><code style="color:#187352;">{{ c.rtn || '08011990123456' }}</code></td>
+                <td><code style="color:#0284c7;">{{ c.rtn || '08011990123456' }}</code></td>
                 <td>{{ c.telefono || '—' }}</td>
                 <td>{{ c.email || '—' }}</td>
                 <td><span class="status">{{ c.tipoCliente || 'Natural' }}</span></td>
@@ -1390,9 +1390,9 @@
               <small>Ventas con Tarjeta</small>
               <strong>L. {{ (estadoCaja.totalVentasTarjeta || 0) | number:'1.2-2' }}</strong>
             </div>
-            <div class="caja-metric" style="background:#f0fdf4; border-color:#bbf7d0;">
-              <small style="color:#166534;">Total Esperado en Caja</small>
-              <strong style="color:#15803d;">L. {{ ((estadoCaja.montoApertura || 0) + (estadoCaja.totalVentasEfectivo || 0)) | number:'1.2-2' }}</strong>
+            <div class="caja-metric" style="background:#f0f9ff; border-color:#bae6fd;">
+              <small style="color:#0369a1;">Total Esperado en Caja</small>
+              <strong style="color:#0284c7;">L. {{ ((estadoCaja.montoApertura || 0) + (estadoCaja.totalVentasEfectivo || 0)) | number:'1.2-2' }}</strong>
             </div>
           </div>
         </div>
@@ -1427,7 +1427,7 @@
                 <td><b>L. {{ (h.montoEfectivoFinal || 0) | number:'1.2-2' }}</b></td>
                 <td>L. {{ (h.totalVentasEfectivo || 0) | number:'1.2-2' }}</td>
                 <td>
-                  <span [style.color]="(h.diferencia || 0) === 0 ? '#187352' : ((h.diferencia || 0) > 0 ? '#0284c7' : '#dc2626')" style="font-weight:700;">
+                  <span [style.color]="(h.diferencia || 0) === 0 ? '#0284c7' : ((h.diferencia || 0) > 0 ? '#0284c7' : '#dc2626')" style="font-weight:700;">
                     L. {{ (h.diferencia || 0) | number:'1.2-2' }}
                   </span>
                 </td>
@@ -1578,7 +1578,7 @@
             </div>
 
             <div style="display: flex; gap: 10px;">
-              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #166534; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarVentasSARExcel()" title="Exportar a Microsoft Excel (.xlsx)">
+              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #0284c7; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarVentasSARExcel()" title="Exportar a Microsoft Excel (.xlsx)">
                 <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon>
                 Exportar Excel (.xlsx)
               </button>
@@ -1720,7 +1720,7 @@
                   <span>(+) FONDO INICIAL DE APERTURA:</span>
                   <b>L. {{ (cierreSeleccionadoReporte.montoApertura || 0) | number:'1.2-2' }}</b>
                 </div>
-                <div style="display: flex; justify-content: space-between; color: #166534;">
+                <div style="display: flex; justify-content: space-between; color: #0369a1;">
                   <span>(+) VENTAS EN EFECTIVO REGISTRADAS:</span>
                   <b>L. {{ (cierreSeleccionadoReporte.totalVentasEfectivo || 0) | number:'1.2-2' }}</b>
                 </div>
@@ -1736,11 +1736,11 @@
                   <span>(=) EFECTIVO TEÓRICO EN CAJA:</span>
                   <span>L. {{ ((cierreSeleccionadoReporte.montoApertura || 0) + (cierreSeleccionadoReporte.totalVentasEfectivo || 0)) | number:'1.2-2' }}</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; background: #f0fdf4; padding: 6px; border-radius: 4px; font-weight: 800; color: #15803d;">
+                <div style="display: flex; justify-content: space-between; background: #f0f9ff; padding: 6px; border-radius: 4px; font-weight: 800; color: #0284c7;">
                   <span>(=) EFECTIVO FÍSICO ARQUEADO:</span>
                   <span>L. {{ (cierreSeleccionadoReporte.montoEfectivoFinal || 0) | number:'1.2-2' }}</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px; border-radius: 4px; font-weight: 800;" [style.color]="(cierreSeleccionadoReporte.diferencia || 0) === 0 ? '#166534' : ((cierreSeleccionadoReporte.diferencia || 0) > 0 ? '#0284c7' : '#dc2626')" [style.background]="(cierreSeleccionadoReporte.diferencia || 0) === 0 ? '#f0fdf4' : '#fef2f2'">
+                <div style="display: flex; justify-content: space-between; padding: 6px; border-radius: 4px; font-weight: 800;" [style.color]="(cierreSeleccionadoReporte.diferencia || 0) === 0 ? '#0284c7' : ((cierreSeleccionadoReporte.diferencia || 0) > 0 ? '#0284c7' : '#dc2626')" [style.background]="(cierreSeleccionadoReporte.diferencia || 0) === 0 ? '#f0f9ff' : '#fef2f2'">
                   <span>DIFERENCIA (ARQUEO VS SISTEMA):</span>
                   <span>{{ (cierreSeleccionadoReporte.diferencia || 0) >= 0 ? '+' : '' }}L. {{ (cierreSeleccionadoReporte.diferencia || 0) | number:'1.2-2' }} ({{ (cierreSeleccionadoReporte.diferencia || 0) === 0 ? 'CUADRADA' : ((cierreSeleccionadoReporte.diferencia || 0) > 0 ? 'SOBRANTE' : 'FALTANTE') }})</span>
                 </div>
@@ -1795,7 +1795,7 @@
             </div>
 
             <div style="display: flex; gap: 10px;">
-              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #166534; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarInventarioExcel()" title="Exportar a Microsoft Excel (.xlsx)">
+              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #0284c7; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarInventarioExcel()" title="Exportar a Microsoft Excel (.xlsx)">
                 <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon>
                 Exportar Excel (.xlsx)
               </button>
@@ -1854,7 +1854,7 @@
                     <td><b>{{ item.codigo }}</b></td>
                     <td><b>{{ item.nombre }}</b></td>
                     <td>
-                      <span class="tag-cai" [style.background]="item.stock > 10 ? '#f0fdf4' : '#fef2f2'" [style.color]="item.stock > 10 ? '#15803d' : '#b91c1c'">
+                      <span class="tag-cai" [style.background]="item.stock > 10 ? '#f0f9ff' : '#fef2f2'" [style.color]="item.stock > 10 ? '#0284c7' : '#b91c1c'">
                         {{ item.stock }} unds
                       </span>
                     </td>
@@ -1906,6 +1906,9 @@
                   <option value="FACTURA">Facturas SAR</option>
                   <option value="COTIZ">Cotizaciones</option>
                   <option value="PRODUCTO">Productos</option>
+                  <option value="COMPRA">Compras</option>
+                  <option value="CAJA">Caja y Arqueos</option>
+                  <option value="KARDEX">Kardex / Inventario</option>
                 </select>
               </div>
               <span class="muted" style="font-size: 11.5px;">Mostrando: <b>{{ logsAuditoriaFiltrados.length }}</b> registros</span>
@@ -1943,14 +1946,17 @@
                     {{ parseFechaUtc(item.fecha) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
                   </td>
                   <td>
-                    <span class="status" [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : (item.tipo.includes('FACTURA') ? '#ecfdf5' : '#f5f3ff')" [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : (item.tipo.includes('FACTURA') ? '#047857' : '#6d28d9')" style="font-weight: 800; font-size: 9.5px;">
+                    <span class="status" 
+                      [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : (item.tipo.includes('FACTURA') ? '#e0f2fe' : (item.tipo.includes('COMPRA') ? '#fef3c7' : (item.tipo.includes('CAJA') ? '#ccfbf1' : (item.tipo.includes('KARDEX') ? '#ede9fe' : '#f5f3ff'))))" 
+                      [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : (item.tipo.includes('FACTURA') ? '#0284c7' : (item.tipo.includes('COMPRA') ? '#b45309' : (item.tipo.includes('CAJA') ? '#0f766e' : (item.tipo.includes('KARDEX') ? '#6d28d9' : '#475569'))))" 
+                      style="font-weight: 800; font-size: 9.5px;">
                       {{ item.tipo }}
                     </span>
                   </td>
                   <td><b style="color: #0f172a; font-size: 12px;">{{ item.referencia }}</b></td>
                   <td><span class="muted" style="font-weight: 600; color: #334155;">{{ item.usuario }}</span></td>
                   <td>
-                    <span class="status" [style.background]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') ? '#fee2e2' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#dcfce7' : '#f1f5f9')" [style.color]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') ? '#b91c1c' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#15803d' : '#334155')" style="font-weight: 800; font-size: 9.5px;">
+                    <span class="status" [style.background]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') ? '#fee2e2' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#e0f2fe' : '#f1f5f9')" [style.color]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') ? '#b91c1c' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#0369a1' : '#334155')" style="font-weight: 800; font-size: 9.5px;">
                       {{ item.accion }}
                     </span>
                   </td>
@@ -1958,7 +1964,7 @@
                   <td style="text-align: right; color: #e11d48; text-decoration: line-through; font-size: 11.5px; font-weight: 600;">
                     {{ item.valorAnterior }}
                   </td>
-                  <td style="text-align: right; font-weight: 800; color: #059669; font-size: 11.5px;">
+                  <td style="text-align: right; font-weight: 800; color: #0284c7; font-size: 11.5px;">
                     {{ item.valorNuevo }}
                   </td>
                   <td style="text-align: center;">
@@ -2208,7 +2214,7 @@
                   <div *ngFor="let item of logsAuditoriaList" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); border-left: 4px solid #0284c7;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
                       <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="status" [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : '#f0fdf4'" [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : '#15803d'" style="font-weight: 800; font-size: 10px;">
+                        <span class="status" [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : '#e0f2fe'" [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : '#0369a1'" style="font-weight: 800; font-size: 10px;">
                           {{ item.tipo }}
                         </span>
                         <b style="color: #0f172a; font-size: 12.5px;">{{ item.referencia }}</b>
@@ -2220,7 +2226,7 @@
                     <div *ngIf="item.valorAnterior !== '-' || item.valorNuevo !== '-'" style="display: flex; gap: 14px; align-items: center; margin: 6px 0; background: #f8fafc; padding: 6px 10px; border-radius: 6px; font-size: 11px;">
                       <div><span style="color: #64748b;">Anterior:</span> <b style="color: #e11d48; text-decoration: line-through;">{{ item.valorAnterior }}</b></div>
                       <div style="color: #94a3b8;">&rarr;</div>
-                      <div><span style="color: #64748b;">Nuevo:</span> <b style="color: #059669;">{{ item.valorNuevo }}</b></div>
+                      <div><span style="color: #64748b;">Nuevo:</span> <b style="color: #0284c7;">{{ item.valorNuevo }}</b></div>
                     </div>
 
                     <div style="font-size: 11.5px; color: #475569; white-space: pre-wrap; line-height: 1.4; background: #fcfcfc; padding: 6px 8px; border-radius: 4px; border: 1px solid #f1f5f9;">
@@ -2312,8 +2318,8 @@
       </button>
     </div>
     <div class="modal-body">
-      <div style="background:#eef7f3; border:1px solid #cbe6d8; padding:10px 14px; border-radius:8px; font-size:11px; display:flex; align-items:center; gap:8px;">
-        <lucide-icon [img]="icons.CheckCircle2" [size]="16" style="color:#187352;"></lucide-icon>
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; padding:10px 14px; border-radius:8px; font-size:11px; display:flex; align-items:center; gap:8px;">
+        <lucide-icon [img]="icons.CheckCircle2" [size]="16" style="color:#0284c7;"></lucide-icon>
         <span>Módulo protegido: Exclusivo para usuarios con rol de <b>Administrador</b>.</span>
       </div>
 
@@ -2798,8 +2804,8 @@
       </button>
     </div>
     <div class="modal-body">
-      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:16px;">
-        <p style="margin:0; font-size:13px; color:#166534; line-height:1.4;">
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px; margin-bottom:16px;">
+        <p style="margin:0; font-size:13px; color:#0369a1; line-height:1.4;">
           <strong>Sucursal Central - Turno Operativo</strong><br>
           Ingresa el monto de efectivo base con el que inicias operaciones el día de hoy para dar cambio.
         </p>
@@ -3516,7 +3522,7 @@
                  style="display: flex; gap: 14px; align-items: center; margin: 8px 0; background: #f8fafc; padding: 8px 12px; border-radius: 6px; font-size: 11px;">
               <div><span style="color: #64748b;">Precio Anterior:</span> <b style="color: #e11d48; text-decoration: line-through;">L. {{ item.precioAnterior | number:'1.2-2' }}</b></div>
               <div style="color: #94a3b8;">&rarr;</div>
-              <div><span style="color: #64748b;">Precio Nuevo:</span> <b style="color: #059669;">L. {{ item.precioNuevo | number:'1.2-2' }}</b></div>
+              <div><span style="color: #64748b;">Precio Nuevo:</span> <b style="color: #0284c7;">L. {{ item.precioNuevo | number:'1.2-2' }}</b></div>
             </div>
 
             <div style="font-size: 11.5px; color: #475569; white-space: pre-wrap; line-height: 1.45; background: #fcfcfc; border-left: 3px solid #38bdf8; padding: 6px 10px; border-radius: 0 4px 4px 0;">
@@ -3589,14 +3595,14 @@
                 <span style="font-weight: 700; color: #1e293b; font-size: 11.5px;">{{ h.usuario }}</span>
               </td>
               <td>
-                <span class="status" [style.background]="h.accion.includes('ELIMIN') || h.accion.includes('ANUL') ? '#fee2e2' : (h.accion.includes('FACTURA') || h.accion.includes('SAR') ? '#dcfce7' : (h.accion.includes('CREAC') ? '#e0f2fe' : '#fef3c7'))" [style.color]="h.accion.includes('ELIMIN') || h.accion.includes('ANUL') ? '#b91c1c' : (h.accion.includes('FACTURA') || h.accion.includes('SAR') ? '#15803d' : (h.accion.includes('CREAC') ? '#0369a1' : '#b45309'))" style="font-weight: 800; font-size: 9.5px;">
+                <span class="status" [style.background]="h.accion.includes('ELIMIN') || h.accion.includes('ANUL') ? '#fee2e2' : (h.accion.includes('FACTURA') || h.accion.includes('SAR') ? '#e0f2fe' : (h.accion.includes('CREAC') ? '#e0f2fe' : '#fef3c7'))" [style.color]="h.accion.includes('ELIMIN') || h.accion.includes('ANUL') ? '#b91c1c' : (h.accion.includes('FACTURA') || h.accion.includes('SAR') ? '#0369a1' : (h.accion.includes('CREAC') ? '#0369a1' : '#b45309'))" style="font-weight: 800; font-size: 9.5px;">
                   {{ h.accion }}
                 </span>
               </td>
               <td style="text-align: right; color: #e11d48; text-decoration: line-through; font-size: 11.5px; font-weight: 600;">
                 {{ h.valorAnterior }}
               </td>
-              <td style="text-align: right; font-weight: 800; color: #059669; font-size: 11.5px;">
+              <td style="text-align: right; font-weight: 800; color: #0284c7; font-size: 11.5px;">
                 {{ h.valorNuevo }}
               </td>
               <td style="font-size: 11.5px; color: #334155; line-height: 1.45;">

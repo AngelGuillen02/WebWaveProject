@@ -21,13 +21,14 @@ namespace SistemaVisionTech.Controllers
 
         private bool EsSuperUsuario()
         {
-            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value;
             var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
             return string.Equals(rolClaim, "SuperUsuario", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(rolClaim, "SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
-                   perfilIdClaim == "1";
+                   perfilIdClaim == "1" ||
+                   (rolClaim != null && (rolClaim.Contains("Admin", StringComparison.OrdinalIgnoreCase) || rolClaim.Contains("Super", StringComparison.OrdinalIgnoreCase)));
         }
 
         [HttpGet]
@@ -109,11 +110,86 @@ namespace SistemaVisionTech.Controllers
                 motivo = "Emisión fiscal autorizada"
             }).ToList();
 
+            // 4. Logs de Cierres y Arqueos de Caja
+            var logsCaja = await _context.CierresCaja
+                .AsNoTracking()
+                .Include(c => c.Usuario)
+                .OrderByDescending(c => c.FechaApertura)
+                .Take(150)
+                .ToListAsync();
+
+            var logsCajaFormateados = logsCaja.Select(c => new
+            {
+                id = c.Id,
+                tipo = "CAJA",
+                entidadId = c.Id,
+                referencia = "Turno Caja #" + c.Id,
+                usuario = c.Usuario != null ? c.Usuario.Nombre : ("Cajero #" + c.UsuarioId),
+                fecha = DateTime.SpecifyKind(c.FechaCierre ?? c.FechaApertura, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = c.Estado == "Abierto" ? "APERTURA CAJA" : "CIERRE Y ARQUEO",
+                detalle = c.Estado == "Abierto"
+                    ? $"Apertura de caja con fondo inicial de L. {c.MontoApertura:N2}."
+                    : $"Cierre de caja. Efectivo físico: L. {(c.MontoEfectivoFinal ?? 0):N2} | Ventas en efectivo: L. {c.TotalVentasEfectivo:N2} | Diferencia: L. {(c.Diferencia ?? 0):N2}.",
+                valorAnterior = $"Fondo: L. {c.MontoApertura:N2}",
+                valorNuevo = $"Arqueo: L. {(c.MontoEfectivoFinal ?? c.MontoApertura):N2}",
+                motivo = (c.Diferencia ?? 0) == 0 ? "Arqueo cuadrado sin diferencia" : ((c.Diferencia ?? 0) > 0 ? $"Sobrante de L. {c.Diferencia:N2}" : $"Faltante de L. {Math.Abs(c.Diferencia ?? 0):N2}")
+            }).ToList();
+
+            // 5. Logs de Compras a Proveedores
+            var logsCompras = await _context.Compras
+                .AsNoTracking()
+                .Include(c => c.Proveedor)
+                .OrderByDescending(c => c.FechaCompra)
+                .Take(150)
+                .ToListAsync();
+
+            var logsComprasFormateados = logsCompras.Select(c => new
+            {
+                id = c.CompraId,
+                tipo = "COMPRA",
+                entidadId = c.CompraId,
+                referencia = $"OC-#{c.CompraId:D5}",
+                usuario = "Gestión Almacén",
+                fecha = DateTime.SpecifyKind(c.FechaCompra, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = c.EstadoCompraId == 3 ? "COMPRA ANULADA" : (c.EstadoCompraId == 2 ? "MERCADERÍA RECIBIDA" : "ORDEN DE COMPRA"),
+                detalle = $"Proveedor: {c.Proveedor?.Nombre ?? "Proveedor"} | Total de orden ingresado a stock.",
+                valorAnterior = "-",
+                valorNuevo = "L. " + c.Total.ToString("N2"),
+                motivo = c.EstadoCompraId == 3 ? "Anulación de orden de compra" : "Reabastecimiento de inventario"
+            }).ToList();
+
+            // 6. Logs de Kardex y Movimientos de Inventario
+            var logsKardex = await _context.HistorialMovimientoInventario
+                .AsNoTracking()
+                .Include(m => m.Inventario)
+                    .ThenInclude(i => i!.Producto)
+                .OrderByDescending(m => m.FechaMovimiento)
+                .Take(150)
+                .ToListAsync();
+
+            var logsKardexFormateados = logsKardex.Select(m => new
+            {
+                id = m.MovimientoId,
+                tipo = "KARDEX",
+                entidadId = m.InventarioId,
+                referencia = m.Inventario != null && m.Inventario.Producto != null ? m.Inventario.Producto.Nombre : ($"Inventario #{m.InventarioId}"),
+                usuario = "Control Stock",
+                fecha = DateTime.SpecifyKind(m.FechaMovimiento, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = $"KARDEX {m.TipoMovimiento.ToUpper()}",
+                detalle = $"Movimiento de Kardex: {m.TipoMovimiento} de {m.Cantidad} unidades en inventario. Origen: {m.OrigenTipo ?? "Sistema"}.",
+                valorAnterior = "-",
+                valorNuevo = $"{m.Cantidad} unds",
+                motivo = $"Ajuste/Movimiento de stock {m.TipoMovimiento}"
+            }).ToList();
+
             var combinado = logsProductosFormateados.Cast<object>()
                 .Concat(logsCotizacionesFormateados.Cast<object>())
                 .Concat(logsFacturasFormateados.Cast<object>())
+                .Concat(logsCajaFormateados.Cast<object>())
+                .Concat(logsComprasFormateados.Cast<object>())
+                .Concat(logsKardexFormateados.Cast<object>())
                 .OrderByDescending(x => ((dynamic)x).fecha)
-                .Take(500)
+                .Take(600)
                 .ToList();
 
             return Ok(combinado);
@@ -167,6 +243,109 @@ namespace SistemaVisionTech.Controllers
                     p.accion, p.detalle, p.valorAnterior, p.valorNuevo, p.motivo
                 }).ToList();
                 return Ok(logsPFormat);
+            }
+
+            // Si es Caja
+            if (tipo.Contains("CAJA"))
+            {
+                var queryCaja = _context.CierresCaja
+                    .AsNoTracking()
+                    .Include(c => c.Usuario)
+                    .AsQueryable();
+
+                if (entidadId.HasValue && entidadId.Value > 0)
+                    queryCaja = queryCaja.Where(c => c.Id == entidadId.Value);
+
+                var listCaja = await queryCaja
+                    .OrderByDescending(c => c.FechaApertura)
+                    .Take(50)
+                    .ToListAsync();
+
+                var listCajaFormat = listCaja.Select(c => new
+                {
+                    id = c.Id,
+                    tipo = "CAJA",
+                    entidadId = c.Id,
+                    referencia = "Turno Caja #" + c.Id,
+                    usuario = c.Usuario != null ? c.Usuario.Nombre : ("Cajero #" + c.UsuarioId),
+                    fecha = DateTime.SpecifyKind(c.FechaCierre ?? c.FechaApertura, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    accion = c.Estado == "Abierto" ? "APERTURA CAJA" : "CIERRE Y ARQUEO",
+                    detalle = c.Estado == "Abierto"
+                        ? $"Apertura de turno operativo con fondo de L. {c.MontoApertura:N2}."
+                        : $"Cierre de caja. Efectivo físico arqueado: L. {(c.MontoEfectivoFinal ?? 0):N2} | Ventas en efectivo: L. {c.TotalVentasEfectivo:N2} | Diferencia calculada: L. {(c.Diferencia ?? 0):N2}.",
+                    valorAnterior = $"Fondo: L. {c.MontoApertura:N2}",
+                    valorNuevo = $"Arqueo: L. {(c.MontoEfectivoFinal ?? c.MontoApertura):N2}",
+                    motivo = (c.Diferencia ?? 0) == 0 ? "Cuadratura conforme" : ((c.Diferencia ?? 0) > 0 ? "Sobrante de caja" : "Faltante de caja")
+                }).ToList();
+                return Ok(listCajaFormat);
+            }
+
+            // Si es Compra
+            if (tipo.Contains("COMPRA"))
+            {
+                var queryComp = _context.Compras
+                    .AsNoTracking()
+                    .Include(c => c.Proveedor)
+                    .Include(c => c.Detalles)
+                    .AsQueryable();
+
+                if (entidadId.HasValue && entidadId.Value > 0)
+                    queryComp = queryComp.Where(c => c.CompraId == entidadId.Value);
+
+                var listComp = await queryComp
+                    .OrderByDescending(c => c.FechaCompra)
+                    .Take(50)
+                    .ToListAsync();
+
+                var listCompFormat = listComp.Select(c => new
+                {
+                    id = c.CompraId,
+                    tipo = "COMPRA",
+                    entidadId = c.CompraId,
+                    referencia = $"OC-#{c.CompraId:D5}",
+                    usuario = "Almacén / Compras",
+                    fecha = DateTime.SpecifyKind(c.FechaCompra, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    accion = c.EstadoCompraId == 3 ? "COMPRA ANULADA" : (c.EstadoCompraId == 2 ? "MERCADERÍA RECIBIDA" : "ORDEN REGISTRADA"),
+                    detalle = $"Proveedor: {c.Proveedor?.Nombre ?? "Proveedor"} | {c.Detalles.Count} productos registrados en orden.",
+                    valorAnterior = "-",
+                    valorNuevo = "L. " + c.Total.ToString("N2"),
+                    motivo = c.EstadoCompraId == 3 ? "Anulación de orden" : "Ingreso de mercadería"
+                }).ToList();
+                return Ok(listCompFormat);
+            }
+
+            // Si es Kardex
+            if (tipo.Contains("KARDEX"))
+            {
+                var queryK = _context.HistorialMovimientoInventario
+                    .AsNoTracking()
+                    .Include(m => m.Inventario)
+                        .ThenInclude(i => i!.Producto)
+                    .AsQueryable();
+
+                if (entidadId.HasValue && entidadId.Value > 0)
+                    queryK = queryK.Where(m => m.InventarioId == entidadId.Value || m.MovimientoId == entidadId.Value);
+
+                var listK = await queryK
+                    .OrderByDescending(m => m.FechaMovimiento)
+                    .Take(50)
+                    .ToListAsync();
+
+                var listKFormat = listK.Select(m => new
+                {
+                    id = m.MovimientoId,
+                    tipo = "KARDEX",
+                    entidadId = m.InventarioId,
+                    referencia = m.Inventario != null && m.Inventario.Producto != null ? m.Inventario.Producto.Nombre : ($"Inventario #{m.InventarioId}"),
+                    usuario = "Control Stock",
+                    fecha = DateTime.SpecifyKind(m.FechaMovimiento, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    accion = $"KARDEX {m.TipoMovimiento.ToUpper()}",
+                    detalle = $"Kardex: {m.TipoMovimiento} de {m.Cantidad} unidades. Origen: {m.OrigenTipo ?? "Sistema"}.",
+                    valorAnterior = "-",
+                    valorNuevo = $"{m.Cantidad} unds",
+                    motivo = $"Auditoría de inventario {m.TipoMovimiento}"
+                }).ToList();
+                return Ok(listKFormat);
             }
 
             // Si es Cotización o Factura

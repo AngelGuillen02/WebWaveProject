@@ -2860,8 +2860,13 @@ export class AppComponent {
       // 8. Filtro Estado
       if (this.filtroVentas.estado && this.filtroVentas.estado !== 'TODOS') {
         const estQ = this.filtroVentas.estado.toLowerCase();
-        const estVal = (v.estadoVenta || '').toLowerCase();
-        if (!estVal.includes(estQ)) return false;
+        if (estQ.includes('anula')) {
+          if (!this.esVentaAnulada(v)) return false;
+        } else {
+          if (this.esVentaAnulada(v)) return false;
+          const estVal = (v.estadoVenta || '').toLowerCase();
+          if (!estVal.includes(estQ)) return false;
+        }
       }
 
       // Filtro global opcional por si se usa search global
