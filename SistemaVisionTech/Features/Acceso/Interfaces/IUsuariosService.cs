@@ -8,7 +8,7 @@ namespace SistemaVisionTech.Features.Acceso.Interfaces
         Task<Result<IEnumerable<UsuariosDto>>> ObtenerUsuariosAsync();
         Task<Result<UsuariosDto>> ObtenerUsuarioPorIdAsync(int usuarioId);
         Task<Result<UsuariosDto>> CrearUsuarioAsync(UsuariosCreacionDto dto);
-        Task<Result<UsuariosDto>> ActualizarUsuarioAsync(int usuarioId, UsuariosActualizacionDto dto);
+        Task<Result<UsuariosDto>> ActualizarUsuarioAsync(int usuarioId, UsuariosActualizacionDto dto, bool esAdmin = false);
         Task<Result> EliminarUsuarioAsync(int usuarioId);
     }
 }

@@ -113,7 +113,22 @@ namespace SistemaVisionTech.Controllers
         [HttpPut("Usuarios/{id:int}")]
         public async Task<IActionResult> ActualizarUsuario(int id, [FromBody] UsuariosActualizacionDto dto)
         {
-            Result<UsuariosDto> resultado = await _usuariosService.ActualizarUsuarioAsync(id, dto);
+            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role")?.Value;
+            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
+            var subClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier || c.Type == "sub" || c.Type == "id")?.Value;
+            int.TryParse(subClaim, out int currentUserId);
+
+            bool esAdmin = string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                           perfilIdClaim == "1";
+
+            // Control estricto anti-IDOR: Si no es Administrador, solo puede actualizar su propio perfil
+            if (!esAdmin && currentUserId != id)
+            {
+                return Forbid();
+            }
+
+            Result<UsuariosDto> resultado = await _usuariosService.ActualizarUsuarioAsync(id, dto, esAdmin);
             return HandleResult(resultado);
         }
 

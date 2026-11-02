@@ -141,9 +141,20 @@ namespace SistemaVisionTech.Features.Ventas.Services
             foreach (var detalle in dto.Detalles)
             {
                 Producto producto = productos.First(p => p.ProductoId == detalle.ProductoId);
-                decimal precioUnitario = detalle.PrecioUnitario > 0 ? detalle.PrecioUnitario : producto.Precio;
+
+                // Integridad financiera: En facturas fiscales SAR oficiales el precio se toma obligatoriamente del catálogo del servidor.
+                // En cotizaciones proforma se permite precio unitario personalizado siempre que sea mayor a cero.
+                decimal precioUnitario = dto.EsCotizacion && detalle.PrecioUnitario > 0
+                    ? detalle.PrecioUnitario
+                    : producto.Precio;
+
                 decimal subtotal = precioUnitario * detalle.Cantidad;
-                decimal totalLinea = Math.Max(0, subtotal - detalle.Descuento);
+
+                // Validación estricta de descuento: No negativo, no mayor al subtotal de la línea, y con tope máximo del 25% por renglón
+                decimal descuentoSolicitado = Math.Max(0, detalle.Descuento);
+                decimal descuentoMaximo = Math.Round(subtotal * 0.25m, 2);
+                decimal descuento = Math.Min(descuentoSolicitado, descuentoMaximo);
+                decimal totalLinea = Math.Max(0, subtotal - descuento);
 
                 detallesEntidad.Add(new VentasDetalles
                 {

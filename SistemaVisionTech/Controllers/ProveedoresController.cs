@@ -32,6 +32,10 @@ namespace SistemaVisionTech.Controllers
                 nameof(ObtenerPorId),
                 r => new { id = r.ProveedorId });
 
+        [HttpPost("Importar")]
+        public async Task<IActionResult> ImportarLote([FromBody] List<ProveedorCreacionDto> dtos)
+            => HandleResult(await _svc.ImportarLoteAsync(dtos));
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Editar(int id, [FromBody] ProveedorCreacionDto dto)
             => HandleResult(await _svc.EditarAsync(id, dto));

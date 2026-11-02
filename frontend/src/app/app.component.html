@@ -146,6 +146,9 @@
         </div>
         <div style="display:flex; gap:10px;">
           <ng-container *ngIf="active === 'Facturas'">
+            <button *ngIf="subTabFacturas === 'listado'" class="outline-button" (click)="exportarFacturasExcel()" title="Descargar facturas en Excel">
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+            </button>
             <button *ngIf="subTabFacturas === 'listado'" class="primary-small" (click)="abrirCrearFactura()">
               <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon> + Nueva Factura
             </button>
@@ -1119,7 +1122,15 @@
             <h3>Clientes</h3>
             <p>{{ clientes.length }} clientes registrados en base de datos</p>
           </div>
-          <button class="primary-small" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="outline-button" (click)="exportarClientesExcel()" title="Descargar clientes en formato Excel">
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+            </button>
+            <button class="outline-button" (click)="abrirModalImportar('Clientes')" title="Importar clientes masivamente desde Excel/CSV">
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
+            </button>
+            <button class="primary-small" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
+          </div>
         </div>
         <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
           <div style="flex: 1; min-width: 280px; position: relative; display: flex; align-items: center;">
@@ -1196,7 +1207,12 @@
             <h3>Órdenes de Compra a Proveedores</h3>
             <p>{{ compras.length }} órdenes de abastecimiento de mercancía e insumos</p>
           </div>
-          <button class="primary-small" (click)="abrirModalNuevaCompra()">+ Nueva Orden de Compra</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="outline-button" (click)="exportarComprasExcel()" title="Descargar órdenes de compra en Excel">
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+            </button>
+            <button class="primary-small" (click)="abrirModalNuevaCompra()">+ Nueva Orden de Compra</button>
+          </div>
         </div>
         <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
           <div style="flex: 1; min-width: 280px; position: relative; display: flex; align-items: center;">
@@ -1277,7 +1293,15 @@
             <h3>Directorio de Proveedores</h3>
             <p>{{ proveedores.length }} proveedores ópticos y distribuidores autorizados</p>
           </div>
-          <button class="primary-small" (click)="abrirModalNuevoProveedor()">+ Nuevo Proveedor</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="outline-button" (click)="exportarProveedoresExcel()" title="Descargar proveedores en formato Excel">
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+            </button>
+            <button class="outline-button" (click)="abrirModalImportar('Proveedores')" title="Importar proveedores masivamente desde Excel/CSV">
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
+            </button>
+            <button class="primary-small" (click)="abrirModalNuevoProveedor()">+ Nuevo Proveedor</button>
+          </div>
         </div>
         <div style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 12px 20px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
           <div style="flex: 1; min-width: 280px; position: relative; display: flex; align-items: center;">
@@ -3621,4 +3645,144 @@
       <button class="outline-button" (click)="cerrarHistorialEntidad()">Cerrar</button>
     </div>
   </div>
+
+<!-- ========================================================================= -->
+<!-- MODAL DINÁMICO DE IMPORTACIÓN MASIVA (EXCEL / CSV)                       -->
+<!-- ========================================================================= -->
+<div *ngIf="showImportModal" class="modal-backdrop">
+  <div class="modal" style="max-width: 840px; width: 95%;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: #ffffff; padding: 18px 24px; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="background: rgba(255,255,255,0.15); padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+          <lucide-icon [img]="icons.Upload" [size]="20" style="color: #ffffff;"></lucide-icon>
+        </div>
+        <div>
+          <h3 style="margin: 0; color: #ffffff; font-size: 17px; font-weight: 700;">Importar {{ importModalTipo }} en Lote</h3>
+          <p style="margin: 2px 0 0 0; color: #94a3b8; font-size: 12px;">Cargue sus registros masivamente mediante archivos Excel (.xlsx) o CSV</p>
+        </div>
+      </div>
+      <button (click)="cerrarModalImportar()" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px; display: flex; align-items: center;" title="Cerrar modal">
+        <lucide-icon [img]="icons.X" [size]="20"></lucide-icon>
+      </button>
+    </div>
+
+    <div class="modal-body" style="padding: 24px; background: #ffffff; max-height: calc(85vh - 140px); overflow-y: auto;">
+      <!-- Pasos de Importación -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 22px;">
+        <!-- Paso 1 -->
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="background: #0284c7; color: #ffffff; font-size: 11px; font-weight: 800; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">1</span>
+            <strong style="font-size: 13px; color: #0f172a;">Descargar Plantilla</strong>
+          </div>
+          <p style="font-size: 11.5px; color: #64748b; margin: 0 0 10px 0; line-height: 1.4;">Descargue el formato oficial con las columnas y datos de ejemplo listos.</p>
+          <button type="button" class="outline-button" (click)="descargarPlantillaExcel(importModalTipo)" style="width: 100%; justify-content: center; font-size: 12px; padding: 7px 12px;">
+            <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Descargar Plantilla (.xlsx)
+          </button>
+        </div>
+
+        <!-- Paso 2 -->
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="background: #0284c7; color: #ffffff; font-size: 11px; font-weight: 800; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">2</span>
+            <strong style="font-size: 13px; color: #0f172a;">Cargar Archivo</strong>
+          </div>
+          <p style="font-size: 11.5px; color: #64748b; margin: 0 0 10px 0; line-height: 1.4;">Seleccione su archivo Excel o CSV completado para procesar.</p>
+          <label style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 12px; background: #0284c7; color: #ffffff; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; text-align: center;">
+            <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> {{ archivoSeleccionadoNombre ? 'Cambiar Archivo' : 'Seleccionar Archivo' }}
+            <input type="file" accept=".xlsx, .xls, .csv" (change)="onArchivoImportarSeleccionado($event)" style="display: none;">
+          </label>
+        </div>
+      </div>
+
+      <!-- Nombre del archivo seleccionado -->
+      <div *ngIf="archivoSeleccionadoNombre" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 16px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <lucide-icon [img]="icons.FileText" [size]="16" style="color: #0284c7;"></lucide-icon>
+          <span style="font-size: 12.5px; font-weight: 600; color: #1e3a8a;">{{ archivoSeleccionadoNombre }}</span>
+        </div>
+        <span style="background: #dbeafe; color: #1e40af; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px;">
+          {{ registrosImportarPreview.length }} registros detectados
+        </span>
+      </div>
+
+      <!-- Previsualización de Datos -->
+      <div *ngIf="registrosImportarPreview.length > 0">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <h4 style="margin: 0; font-size: 13px; font-weight: 700; color: #0f172a;">Vista Previa de Filas a Importar</h4>
+          <span style="font-size: 11.5px; color: #64748b;">Mostrando hasta 20 filas preliminares</span>
+        </div>
+
+        <div style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <table class="data-table" style="margin: 0; font-size: 11.5px; width: 100%;">
+            <thead>
+              <tr style="background: #f1f5f9; position: sticky; top: 0; z-index: 1;">
+                <th style="width: 40px; text-align: center;">#</th>
+                <th *ngFor="let col of columnasPreview">{{ col }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Si es Productos -->
+              <ng-container *ngIf="importModalTipo === 'Productos'">
+                <tr *ngFor="let item of registrosImportarPreview.slice(0, 20); let i = index">
+                  <td style="text-align: center; color: #64748b; font-weight: 600;">{{ i + 1 }}</td>
+                  <td style="font-weight: 600; color: #0f172a;">{{ item.nombre }}</td>
+                  <td><code>{{ item.codigoBarras || '—' }}</code></td>
+                  <td style="font-weight: 700; color: #0284c7;">L. {{ item.precio | number:'1.2-2' }}</td>
+                  <td style="font-weight: 600;">{{ item.stockInicial }} uds.</td>
+                  <td><span class="tag-cai">{{ item.tipoISV }}</span></td>
+                  <td style="color: #64748b; max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ item.descripcion || '—' }}</td>
+                </tr>
+              </ng-container>
+
+              <!-- Si es Clientes -->
+              <ng-container *ngIf="importModalTipo === 'Clientes'">
+                <tr *ngFor="let item of registrosImportarPreview.slice(0, 20); let i = index">
+                  <td style="text-align: center; color: #64748b; font-weight: 600;">{{ i + 1 }}</td>
+                  <td style="font-weight: 600; color: #0f172a;">{{ item.nombre }}</td>
+                  <td><code>{{ item.rtn || 'Consumidor Final' }}</code></td>
+                  <td>{{ item.telefono || '—' }}</td>
+                  <td>{{ item.email || '—' }}</td>
+                  <td style="color: #64748b; max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ item.direccion || '—' }}</td>
+                  <td><span class="tag-cai">{{ item.tipoCliente }}</span></td>
+                </tr>
+              </ng-container>
+
+              <!-- Si es Proveedores -->
+              <ng-container *ngIf="importModalTipo === 'Proveedores'">
+                <tr *ngFor="let item of registrosImportarPreview.slice(0, 20); let i = index">
+                  <td style="text-align: center; color: #64748b; font-weight: 600;">{{ i + 1 }}</td>
+                  <td style="font-weight: 600; color: #0f172a;">{{ item.nombre }}</td>
+                  <td><code>{{ item.rtn || '—' }}</code></td>
+                  <td>{{ item.contacto || '—' }}</td>
+                  <td>{{ item.telefono || '—' }}</td>
+                  <td>{{ item.email || '—' }}</td>
+                  <td style="color: #64748b; max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ item.direccion || '—' }}</td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; border-radius: 0 0 12px 12px;">
+      <button type="button" class="outline-button" (click)="cerrarModalImportar()" [disabled]="importandoDatos">
+        Cancelar
+      </button>
+
+      <button 
+        type="button" 
+        class="primary-button" 
+        (click)="procesarImportacion()" 
+        [disabled]="importandoDatos || registrosImportarPreview.length === 0"
+        style="padding: 9px 20px; font-size: 13px;"
+      >
+        <lucide-icon *ngIf="importandoDatos" [img]="icons.RotateCcw" [size]="16" class="spin"></lucide-icon>
+        <lucide-icon *ngIf="!importandoDatos" [img]="icons.Check" [size]="16"></lucide-icon>
+        <span>{{ importandoDatos ? 'Guardando registros...' : ('Confirmar e Importar (' + registrosImportarPreview.length + ' registros)') }}</span>
+      </button>
+    </div>
+  </div>
+</div>
 </div>

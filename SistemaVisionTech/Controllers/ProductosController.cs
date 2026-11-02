@@ -38,6 +38,16 @@ namespace SistemaVisionTech.Controllers
                 r => new { id = r.ProductoId });
         }
 
+        [HttpPost("Importar")]
+        public async Task<IActionResult> ImportarLote([FromBody] List<ProductoCreacionDto> dtos)
+        {
+            string usuario = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Administrador";
+
+            return HandleResult(await _svc.ImportarLoteAsync(dtos, usuario));
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> Editar(int id, [FromBody] ProductoCreacionDto dto)
         {
@@ -58,9 +68,7 @@ namespace SistemaVisionTech.Controllers
                            perfilIdClaim == "1";
 
             if (!esAdmin)
-            {
                 return NotFound();
-            }
 
             return HandleResult(await _svc.ObtenerHistorialAsync(id));
         }
@@ -68,9 +76,10 @@ namespace SistemaVisionTech.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
         {
-            var usuario = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "name")?.Value
-                          ?? User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value
-                          ?? "Usuario";
+            string usuario = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Administrador";
+
             return HandleResult(await _svc.EliminarAsync(id, usuario));
         }
     }

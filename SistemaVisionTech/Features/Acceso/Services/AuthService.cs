@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Acceso.Dtos.Auth;
 using SistemaVisionTech.Features.Acceso.Interfaces;
@@ -12,20 +14,36 @@ namespace SistemaVisionTech.Features.Acceso.Services
     {
         private readonly WebWaveDbContext _context;
         private readonly IJwtTokenService _jwtTokenService;
+        private readonly ILogger<AuthService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuthService(WebWaveDbContext context, IJwtTokenService jwtTokenService)
+        public AuthService(
+            WebWaveDbContext context,
+            IJwtTokenService jwtTokenService,
+            ILogger<AuthService> logger,
+            IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
             _jwtTokenService = jwtTokenService;
+            _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto dto)
         {
+            var ip = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "Desconocida";
+
             if (string.IsNullOrWhiteSpace(dto.Email))
+            {
+                _logger.LogWarning("Intento de login con email vacío desde IP: {Ip}", ip);
                 return Result<LoginResponseDto>.Fail("El email es obligatorio.", isValidation: true);
+            }
 
             if (string.IsNullOrWhiteSpace(dto.Contraseña))
+            {
+                _logger.LogWarning("Intento de login con contraseña vacía para {Email} desde IP: {Ip}", dto.Email, ip);
                 return Result<LoginResponseDto>.Fail("La contraseña es obligatoria.", isValidation: true);
+            }
 
             string email = dto.Email.Trim();
             string emailLower = email.ToLower();
@@ -36,8 +54,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 .FirstOrDefaultAsync(u => u.Email == email || u.Email == emailLower);
 
             if (usuario is null || !BCryptNet.Verify(dto.Contraseña, usuario.Contraseña))
-                return Result<LoginResponseDto>.Fail(
-                    "Credenciales incorrectas.", isValidation: true);
+            {
+                _logger.LogWarning("FALLO DE AUTENTICACIÓN: Credenciales inválidas para el correo '{Email}' desde IP: {Ip}", email, ip);
+                return Result<LoginResponseDto>.Fail("Credenciales incorrectas.", isValidation: true);
+            }
+
+            _logger.LogInformation("LOGIN EXITOSO: Usuario {Email} (ID: {UsuarioId}, Perfil: {Perfil}) autenticado desde IP: {Ip}",
+                usuario.Email, usuario.UsuarioId, usuario.Perfil?.Nombre ?? "Sin Perfil", ip);
 
             LoginTokenResult tokenResult = _jwtTokenService.GenerarToken(
                 usuario.UsuarioId,

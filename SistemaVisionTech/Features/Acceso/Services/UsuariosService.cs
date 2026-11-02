@@ -100,7 +100,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             return resultado;
         }
 
-        public async Task<Result<UsuariosDto>> ActualizarUsuarioAsync(int usuarioId, UsuariosActualizacionDto dto)
+        public async Task<Result<UsuariosDto>> ActualizarUsuarioAsync(int usuarioId, UsuariosActualizacionDto dto, bool esAdmin = false)
         {
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<UsuariosDto>.Fail("El nombre es obligatorio.", isValidation: true);
@@ -123,15 +123,20 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result<UsuariosDto>.Fail(
                     $"Ya existe otro usuario con el email '{dto.Email}'.");
 
-            bool perfilExiste = await _context.Perfiles
-                .AnyAsync(p => p.PerfilId == dto.PerfilId);
+            // Solo administradores pueden alterar el rol o perfil asignado a un usuario
+            if (esAdmin && dto.PerfilId > 0 && dto.PerfilId != usuario.PerfilId)
+            {
+                bool perfilExiste = await _context.Perfiles
+                    .AnyAsync(p => p.PerfilId == dto.PerfilId);
 
-            if (!perfilExiste)
-                return Result<UsuariosDto>.Fail($"El perfil con Id {dto.PerfilId} no existe.");
+                if (!perfilExiste)
+                    return Result<UsuariosDto>.Fail($"El perfil con Id {dto.PerfilId} no existe.");
+
+                usuario.PerfilId = dto.PerfilId;
+            }
 
             usuario.Nombre = dto.Nombre.Trim();
             usuario.Email = dto.Email.Trim().ToLower();
-            usuario.PerfilId = dto.PerfilId;
 
             if (!string.IsNullOrWhiteSpace(dto.Contraseña))
             {

@@ -1,7 +1,7 @@
 import { environment } from '../environments/environment';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Component, inject, HostListener } from '@angular/core';
+import { Component, inject, HostListener, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
@@ -12,7 +12,7 @@ import {
   FileBarChart, Home, LogOut, Menu, Package, Search,
   Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
   AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-  Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, LucideAngularModule
+  Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet, LucideAngularModule
 } from 'lucide-angular';
 
 interface Product {
@@ -169,7 +169,7 @@ export interface FacturaItemRow {
   imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './app.component.html'
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   static getFechaHoyHonduras(): string {
     const ahora = new Date();
     return new Intl.DateTimeFormat('en-CA', {
@@ -190,7 +190,7 @@ export class AppComponent {
     FileBarChart, Home, LogOut, Menu, Package, Search,
     Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
     AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-    Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff
+    Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet
   };
 
   readonly api = environment.apiUrl;
@@ -691,9 +691,28 @@ export class AppComponent {
     return this.stats.filter(s => s.label !== 'Estado de Caja' || this.puedeVerModulo('Caja'));
   }
 
+  // =========================================================================
+  // GESTIÓN DE IMPORTACIÓN Y EXPORTACIÓN DE TABLAS
+  // =========================================================================
+  showImportModal = false;
+  importModalTipo: 'Productos' | 'Clientes' | 'Proveedores' = 'Productos';
+  importandoDatos = false;
+  registrosImportarPreview: any[] = [];
+  archivoSeleccionadoNombre = '';
+  columnasPreview: string[] = [];
+
   constructor() {
     if (!this.loginMode) {
       this.loadData();
+    }
+  }
+
+  ngOnInit() {
+    if (this.loginMode) {
+      this.http.get(`${this.api}/Acceso/TestConexion`).subscribe({
+        next: () => {},
+        error: () => {}
+      });
     }
   }
 
@@ -3325,5 +3344,374 @@ export class AppComponent {
       month: '2-digit',
       year: 'numeric'
     });
+  }
+
+  // =========================================================================
+  // MÉTODOS DE IMPORTACIÓN Y EXPORTACIÓN DE TABLAS
+  // =========================================================================
+  abrirModalImportar(tipo: 'Productos' | 'Clientes' | 'Proveedores') {
+    this.importModalTipo = tipo;
+    this.registrosImportarPreview = [];
+    this.columnasPreview = [];
+    this.archivoSeleccionadoNombre = '';
+    this.showImportModal = true;
+  }
+
+  cerrarModalImportar() {
+    this.showImportModal = false;
+    this.registrosImportarPreview = [];
+    this.columnasPreview = [];
+    this.archivoSeleccionadoNombre = '';
+  }
+
+  descargarPlantillaExcel(tipo: 'Productos' | 'Clientes' | 'Proveedores') {
+    let data: any[] = [];
+    let nombreArchivo = '';
+
+    if (tipo === 'Productos') {
+      nombreArchivo = 'Plantilla_Importar_Productos_VisionTech.xlsx';
+      data = [
+        {
+          'Nombre': 'Lente Oftálmico Antirreflejo Blue Protect',
+          'CodigoBarras': 'OPT-7421001',
+          'Precio': 850.00,
+          'StockInicial': 25,
+          'TipoISV': 'ISV15',
+          'Descripcion': 'Cristales orgánicos con tratamiento antirreflejante y filtro luz azul'
+        },
+        {
+          'Nombre': 'Armazón Oftálmico Titanium Flex',
+          'CodigoBarras': 'OPT-7421002',
+          'Precio': 1450.00,
+          'StockInicial': 15,
+          'TipoISV': 'ISV15',
+          'Descripcion': 'Montura metálica ultraligera para caballero'
+        }
+      ];
+    } else if (tipo === 'Clientes') {
+      nombreArchivo = 'Plantilla_Importar_Clientes_VisionTech.xlsx';
+      data = [
+        {
+          'Nombre': 'Juan Carlos Rodriguez',
+          'RTN': '0801-1988-12345',
+          'Telefono': '9876-5432',
+          'Email': 'juan.rodriguez@gmail.com',
+          'Direccion': 'Tegucigalpa, Col. Kennedy Bloque 12 Casa 4',
+          'TipoCliente': 'Natural'
+        },
+        {
+          'Nombre': 'Inversiones Médicas de Honduras S.A.',
+          'RTN': '0801-9002-345678',
+          'Telefono': '2235-8899',
+          'Email': 'compras@inversionesmedicas.hn',
+          'Direccion': 'San Pedro Sula, Blvd. Morazán',
+          'TipoCliente': 'Juridico'
+        }
+      ];
+    } else if (tipo === 'Proveedores') {
+      nombreArchivo = 'Plantilla_Importar_Proveedores_VisionTech.xlsx';
+      data = [
+        {
+          'Nombre': 'Distribuidora Óptica Visión S.A.',
+          'RTN': '0801-9003-456789',
+          'Contacto': 'Lic. Laura Reyes',
+          'Telefono': '2234-5678',
+          'Email': 'contacto@distribuidoravision.hn',
+          'Direccion': 'San Pedro Sula, Barrio Guamilito 5ta Ave.'
+        },
+        {
+          'Nombre': 'Lentes y Cristales de Centroamérica',
+          'RTN': '0801-9010-887766',
+          'Contacto': 'Ing. Roberto Paz',
+          'Telefono': '9944-1122',
+          'Email': 'ventas@cristalesca.com',
+          'Direccion': 'Tegucigalpa, Parque Empresarial Las Hadas'
+        }
+      ];
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Plantilla_${tipo}`);
+    XLSX.writeFile(wb, nombreArchivo);
+    this.notificarInfo('Plantilla Descargada', `Se ha generado la plantilla Excel de ${tipo}. Llénala con tus registros e impórtala.`);
+  }
+
+  onArchivoImportarSeleccionado(event: any) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    this.archivoSeleccionadoNombre = file.name;
+    const reader = new FileReader();
+
+    reader.onload = (e: any) => {
+      try {
+        const bstr = e.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rawJson: any[] = XLSX.utils.sheet_to_json(ws);
+
+        if (!rawJson || rawJson.length === 0) {
+          this.notificarAdvertencia('Archivo Vacío', 'No se encontraron filas con datos en el archivo seleccionado.');
+          this.registrosImportarPreview = [];
+          this.columnasPreview = [];
+          return;
+        }
+
+        if (this.importModalTipo === 'Productos') {
+          this.registrosImportarPreview = rawJson.map(row => {
+            const getVal = (...keys: string[]) => {
+              for (const k of keys) {
+                const foundKey = Object.keys(row).find(x => x.trim().toLowerCase() === k.toLowerCase());
+                if (foundKey && row[foundKey] !== undefined) return row[foundKey];
+              }
+              return undefined;
+            };
+
+            const nombre = String(getVal('Nombre', 'Producto', 'DescripcionProducto', 'Item') || '').trim();
+            const precio = parseFloat(String(getVal('Precio', 'PrecioVenta', 'Precio Venta', 'Valor') || '0')) || 0;
+            const stock = parseInt(String(getVal('StockInicial', 'Stock', 'Cantidad', 'Stock Inicial', 'Existencias') || '0'), 10) || 0;
+            const codigo = String(getVal('CodigoBarras', 'Codigo', 'Código', 'SKU', 'Codigo Barras') || '').trim();
+            const tipoISV = String(getVal('TipoISV', 'ISV', 'Impuesto') || 'ISV15').trim();
+            const desc = String(getVal('Descripcion', 'Descripción', 'Detalle') || '').trim();
+
+            return {
+              nombre,
+              precio,
+              stockInicial: stock,
+              codigoBarras: codigo || null,
+              tipoISV: tipoISV || 'ISV15',
+              descripcion: desc
+            };
+          }).filter(p => !!p.nombre);
+          this.columnasPreview = ['Nombre', 'Código/SKU', 'Precio (L.)', 'Stock Inicial', 'ISV', 'Descripción'];
+        } else if (this.importModalTipo === 'Clientes') {
+          this.registrosImportarPreview = rawJson.map(row => {
+            const getVal = (...keys: string[]) => {
+              for (const k of keys) {
+                const foundKey = Object.keys(row).find(x => x.trim().toLowerCase() === k.toLowerCase());
+                if (foundKey && row[foundKey] !== undefined) return row[foundKey];
+              }
+              return undefined;
+            };
+
+            const nombre = String(getVal('Nombre', 'Cliente', 'Nombre Completo', 'Razon Social') || '').trim();
+            const rtn = String(getVal('RTN', 'Rtn', 'Identidad', 'DNI') || '').trim();
+            const telefono = String(getVal('Telefono', 'Teléfono', 'Celular', 'Movil') || '').trim();
+            const email = String(getVal('Email', 'Correo', 'Correo Electrónico') || '').trim();
+            const direccion = String(getVal('Direccion', 'Dirección', 'Ubicacion') || '').trim();
+            const tipoCliente = String(getVal('TipoCliente', 'Tipo Cliente', 'Tipo') || 'Natural').trim();
+
+            return {
+              nombre,
+              rtn: rtn || null,
+              telefono,
+              email,
+              direccion,
+              tipoCliente: tipoCliente || 'Natural'
+            };
+          }).filter(c => !!c.nombre);
+          this.columnasPreview = ['Nombre', 'RTN', 'Teléfono', 'Email', 'Dirección', 'Tipo'];
+        } else if (this.importModalTipo === 'Proveedores') {
+          this.registrosImportarPreview = rawJson.map(row => {
+            const getVal = (...keys: string[]) => {
+              for (const k of keys) {
+                const foundKey = Object.keys(row).find(x => x.trim().toLowerCase() === k.toLowerCase());
+                if (foundKey && row[foundKey] !== undefined) return row[foundKey];
+              }
+              return undefined;
+            };
+
+            const nombre = String(getVal('Nombre', 'Proveedor', 'Empresa', 'Razon Social') || '').trim();
+            const rtn = String(getVal('RTN', 'Rtn') || '').trim();
+            const contacto = String(getVal('Contacto', 'Persona Contacto', 'Atencion') || '').trim();
+            const telefono = String(getVal('Telefono', 'Teléfono', 'Celular') || '').trim();
+            const email = String(getVal('Email', 'Correo', 'Correo Electrónico') || '').trim();
+            const direccion = String(getVal('Direccion', 'Dirección', 'Ubicacion') || '').trim();
+
+            return {
+              nombre,
+              rtn: rtn || null,
+              contacto,
+              telefono,
+              email,
+              direccion
+            };
+          }).filter(pr => !!pr.nombre);
+          this.columnasPreview = ['Empresa', 'RTN', 'Contacto', 'Teléfono', 'Email', 'Dirección'];
+        }
+
+        if (this.registrosImportarPreview.length === 0) {
+          this.notificarAdvertencia('Sin registros válidos', 'No se pudieron extraer registros con nombre válido del archivo.');
+        } else {
+          this.notificarInfo('Vista Previa Lista', `Se detectaron ${this.registrosImportarPreview.length} registros listos para importar.`);
+        }
+      } catch (err: any) {
+        this.notificarError('Error de Lectura', 'No se pudo leer el archivo Excel/CSV. Verifique el formato.');
+      }
+    };
+
+    reader.readAsBinaryString(file);
+  }
+
+  procesarImportacion() {
+    if (!this.registrosImportarPreview || this.registrosImportarPreview.length === 0) {
+      this.notificarAdvertencia('Sin registros', 'Seleccione un archivo con registros para importar.');
+      return;
+    }
+
+    this.importandoDatos = true;
+    const url = `${this.api}/${this.importModalTipo}/Importar`;
+
+    this.http.post<any>(url, this.registrosImportarPreview, this.getHeaders()).subscribe({
+      next: (res) => {
+        this.importandoDatos = false;
+        this.showImportModal = false;
+        const insertados = res?.insertados ?? this.registrosImportarPreview.length;
+        const omitidos = res?.omitidos ?? 0;
+        this.notificarExito('Importación Exitosa', `Se procesaron los datos: ${insertados} registrados, ${omitidos} omitidos por duplicidad o validación.`);
+
+        if (this.importModalTipo === 'Productos') {
+          this.loadProducts();
+          this.loadInventory();
+        } else if (this.importModalTipo === 'Clientes') {
+          this.loadClientes();
+        } else if (this.importModalTipo === 'Proveedores') {
+          this.loadProveedores();
+        }
+        this.registrosImportarPreview = [];
+        this.archivoSeleccionadoNombre = '';
+      },
+      error: (err) => {
+        this.importandoDatos = false;
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error en Importación', err.error?.mensaje || 'Ocurrió un error al guardar los registros en el sistema.');
+        }
+      }
+    });
+  }
+
+  exportarProductosExcel() {
+    const data = (this.filteredProducts || this.products).map((p, idx) => ({
+      'No.': idx + 1,
+      'ID': p.productoId,
+      'Código / SKU': p.codigo || p.codigoBarras || '-',
+      'Nombre': p.nombre,
+      'Descripción': p.descripcion || '-',
+      'Precio Venta (L.)': Number((p.precioVenta ?? p.precio ?? 0).toFixed(2)),
+      'Stock Actual': p.stock ?? 0,
+      'Tipo ISV': p.tipoISV || 'ISV15',
+      'Estado': p.activo !== false ? 'Activo' : 'Inactivo'
+    }));
+
+    if (data.length === 0) {
+      this.notificarAdvertencia('Sin productos', 'No hay productos disponibles para exportar.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+    XLSX.writeFile(wb, `Catalogo_Productos_VisionTech_${new Date().toISOString().split('T')[0]}.xlsx`);
+    this.notificarExito('Productos Exportados', 'El catálogo de productos se ha descargado en formato Excel.');
+  }
+
+  exportarClientesExcel() {
+    const data = (this.filteredClientes || this.clientes).map((c, idx) => ({
+      'No.': idx + 1,
+      'ID': c.clienteId,
+      'Nombre Completo': c.nombre,
+      'RTN Fiscal': c.rtn || 'Consumidor Final',
+      'Teléfono': c.telefono || '-',
+      'Correo Electrónico': c.email || '-',
+      'Dirección': c.direccion || '-',
+      'Tipo Cliente': c.tipoCliente || 'Natural',
+      'Estado': c.activo !== false ? 'Activo' : 'Inactivo'
+    }));
+
+    if (data.length === 0) {
+      this.notificarAdvertencia('Sin clientes', 'No hay clientes disponibles para exportar.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+    XLSX.writeFile(wb, `Directorio_Clientes_VisionTech_${new Date().toISOString().split('T')[0]}.xlsx`);
+    this.notificarExito('Clientes Exportados', 'El directorio de clientes se ha descargado en formato Excel.');
+  }
+
+  exportarProveedoresExcel() {
+    const data = (this.filteredProveedores || this.proveedores).map((pr, idx) => ({
+      'No.': idx + 1,
+      'ID': pr.proveedorId,
+      'Empresa / Proveedor': pr.nombre,
+      'RTN Fiscal': pr.rtn || '-',
+      'Persona Contacto': pr.contacto || '-',
+      'Teléfono': pr.telefono || '-',
+      'Correo Electrónico': pr.email || '-',
+      'Dirección': pr.direccion || '-',
+      'Estado': pr.activo !== false ? 'Activo' : 'Inactivo'
+    }));
+
+    if (data.length === 0) {
+      this.notificarAdvertencia('Sin proveedores', 'No hay proveedores disponibles para exportar.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Proveedores');
+    XLSX.writeFile(wb, `Directorio_Proveedores_VisionTech_${new Date().toISOString().split('T')[0]}.xlsx`);
+    this.notificarExito('Proveedores Exportados', 'El directorio de proveedores se ha descargado en formato Excel.');
+  }
+
+  exportarFacturasExcel() {
+    const data = (this.filteredVentas || this.ventas).map((v, idx) => ({
+      'No.': idx + 1,
+      'ID Venta': v.ventaId,
+      'Tipo Documento': v.esCotizacion || v.estadoVenta === 'Cotizacion' ? 'Cotización' : 'Factura Fiscal',
+      'No. Documento': v.numeroFactura || v.numeroCotizacion || (`COT-` + v.ventaId),
+      'Cliente': v.cliente,
+      'RTN Cliente': v.clienteRtn || '0000-0000-00000',
+      'CAI': v.cai || '-',
+      'Fecha': new Date(v.fechaFactura || v.fechaVenta).toLocaleDateString('es-HN'),
+      'Total (L.)': Number((v.total || 0).toFixed(2)),
+      'Estado': v.estadoVenta
+    }));
+
+    if (data.length === 0) {
+      this.notificarAdvertencia('Sin ventas', 'No hay registros de facturas/ventas para exportar.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Facturas_Ventas');
+    XLSX.writeFile(wb, `Historial_Facturas_VisionTech_${new Date().toISOString().split('T')[0]}.xlsx`);
+    this.notificarExito('Facturas Exportadas', 'El historial de facturas y ventas se ha descargado en formato Excel.');
+  }
+
+  exportarComprasExcel() {
+    const data = (this.filteredCompras || this.compras).map((c, idx) => ({
+      'No.': idx + 1,
+      'ID Orden (#OC)': c.compraId,
+      'Proveedor': c.proveedor,
+      'Fecha Registro': new Date(c.fechaCompra).toLocaleDateString('es-HN'),
+      'Total (L.)': Number((c.total || 0).toFixed(2)),
+      'Estado': c.estadoCompra
+    }));
+
+    if (data.length === 0) {
+      this.notificarAdvertencia('Sin compras', 'No hay órdenes de compra registradas para exportar.');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Compras');
+    XLSX.writeFile(wb, `Ordenes_Compra_VisionTech_${new Date().toISOString().split('T')[0]}.xlsx`);
+    this.notificarExito('Compras Exportadas', 'Las órdenes de compra se han descargado en formato Excel.');
   }
 }

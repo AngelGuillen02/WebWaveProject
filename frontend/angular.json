@@ -23,7 +23,8 @@
               "xlsx"
             ],
             "assets": [
-              "src/favicon.ico"
+              "src/favicon.ico",
+              "src/assets"
             ],
             "styles": [
               "src/styles.css"

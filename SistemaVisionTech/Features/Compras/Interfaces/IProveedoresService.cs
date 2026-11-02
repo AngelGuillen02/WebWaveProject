@@ -9,6 +9,7 @@ namespace SistemaVisionTech.Features.Compras.Interfaces
         Task<Result<ProveedorResponseDto>> ObtenerPorIdAsync(int id);
         Task<Result<ProveedorResponseDto>> CrearAsync(ProveedorCreacionDto dto);
         Task<Result<ProveedorResponseDto>> EditarAsync(int id, ProveedorCreacionDto dto);
+        Task<Result<ImportacionLoteResultadoDto>> ImportarLoteAsync(List<ProveedorCreacionDto> dtos);
         Task<Result<bool>> EliminarAsync(int id);
     }
 }

@@ -18,13 +18,13 @@ namespace SistemaVisionTech.Features.Compras.Services
 
         public async Task<Result<List<ProveedorResponseDto>>> ListarAsync()
         {
-            List<ProveedorResponseDto> proveedores = await _context.Proveedores
+            List<Proveedores> proveedores = await _context.Proveedores
                 .AsNoTracking()
                 .OrderBy(p => p.Nombre)
-                .Select(p => MapToDto(p))
                 .ToListAsync();
 
-            return Result<List<ProveedorResponseDto>>.Ok(proveedores);
+            return Result<List<ProveedorResponseDto>>.Ok(
+                proveedores.Select(MapToDto).ToList());
         }
 
         public async Task<Result<ProveedorResponseDto>> ObtenerPorIdAsync(int id)
@@ -87,6 +87,63 @@ namespace SistemaVisionTech.Features.Compras.Services
             await _context.SaveChangesAsync();
 
             return Result<ProveedorResponseDto>.Ok(MapToDto(proveedor));
+        }
+
+        public async Task<Result<ImportacionLoteResultadoDto>> ImportarLoteAsync(List<ProveedorCreacionDto> dtos)
+        {
+            var resultado = new ImportacionLoteResultadoDto
+            {
+                TotalRecibidos = dtos.Count
+            };
+
+            if (dtos == null || dtos.Count == 0)
+                return Result<ImportacionLoteResultadoDto>.Fail("No se proporcionaron proveedores para importar.", isValidation: true);
+
+            var rtnsExistentes = await _context.Proveedores
+                .Where(p => !string.IsNullOrEmpty(p.RTN))
+                .Select(p => p.RTN!.Trim())
+                .ToHashSetAsync();
+
+            var rtnsEnLote = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var dto in dtos)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Nombre))
+                {
+                    resultado.Omitidos++;
+                    resultado.Mensajes.Add("Omitido: Proveedor con nombre vacío.");
+                    continue;
+                }
+
+                string rtn = dto.RTN?.Trim() ?? string.Empty;
+                if (!string.IsNullOrEmpty(rtn))
+                {
+                    if (rtnsExistentes.Contains(rtn) || rtnsEnLote.Contains(rtn))
+                    {
+                        resultado.Omitidos++;
+                        resultado.Mensajes.Add($"Omitido: RTN '{rtn}' ya registrado.");
+                        continue;
+                    }
+                    rtnsEnLote.Add(rtn);
+                }
+
+                var proveedor = new Proveedores
+                {
+                    Nombre = dto.Nombre.Trim(),
+                    Direccion = dto.Direccion?.Trim(),
+                    Telefono = dto.Telefono?.Trim(),
+                    Email = dto.Email?.Trim(),
+                    Contacto = dto.Contacto?.Trim(),
+                    RTN = string.IsNullOrWhiteSpace(rtn) ? null : rtn,
+                    Activo = true
+                };
+
+                _context.Proveedores.Add(proveedor);
+                resultado.Insertados++;
+            }
+
+            await _context.SaveChangesAsync();
+            return Result<ImportacionLoteResultadoDto>.Ok(resultado);
         }
 
         public async Task<Result<bool>> EliminarAsync(int id)

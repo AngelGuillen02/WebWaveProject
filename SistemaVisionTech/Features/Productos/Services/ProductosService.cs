@@ -176,6 +176,92 @@ namespace SistemaVisionTech.Features.Productos.Services
             return Result<ProductoResponseDto>.Ok(response);
         }
 
+        public async Task<Result<ImportacionLoteResultadoDto>> ImportarLoteAsync(List<ProductoCreacionDto> dtos, string? usuario = null)
+        {
+            var resultado = new ImportacionLoteResultadoDto
+            {
+                TotalRecibidos = dtos.Count
+            };
+
+            if (dtos == null || dtos.Count == 0)
+                return Result<ImportacionLoteResultadoDto>.Fail("No se proporcionaron registros para importar.", isValidation: true);
+
+            string usuarioAudit = string.IsNullOrWhiteSpace(usuario) ? "Administrador" : usuario;
+
+            var codigosExistentes = await _context.Productos
+                .Where(p => !string.IsNullOrEmpty(p.CodigoBarras))
+                .Select(p => p.CodigoBarras!.Trim().ToUpper())
+                .ToHashSetAsync();
+
+            var codigosEnLote = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var dto in dtos)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Nombre))
+                {
+                    resultado.Omitidos++;
+                    resultado.Mensajes.Add("Omitido: Producto con nombre vacío.");
+                    continue;
+                }
+
+                string codigo = dto.CodigoBarras?.Trim() ?? string.Empty;
+                if (!string.IsNullOrEmpty(codigo))
+                {
+                    string codigoUpper = codigo.ToUpperInvariant();
+                    if (codigosExistentes.Contains(codigoUpper) || codigosEnLote.Contains(codigoUpper))
+                    {
+                        resultado.Omitidos++;
+                        resultado.Mensajes.Add($"Omitido: Código de barras '{codigo}' ya existe en el sistema o en el archivo.");
+                        continue;
+                    }
+                    codigosEnLote.Add(codigoUpper);
+                }
+
+                decimal precio = dto.Precio > 0 ? dto.Precio : 1.00m;
+                int stockInicial = dto.StockInicial.HasValue && dto.StockInicial.Value >= 0 ? dto.StockInicial.Value : 0;
+
+                var producto = new Producto
+                {
+                    Nombre = dto.Nombre.Trim(),
+                    Descripcion = dto.Descripcion?.Trim() ?? string.Empty,
+                    Precio = precio,
+                    TieneNumeroSerie = dto.TieneNumeroSerie,
+                    TieneLote = dto.TieneLote,
+                    CodigoBarras = string.IsNullOrWhiteSpace(codigo) ? null : codigo,
+                    TipoISV = string.IsNullOrWhiteSpace(dto.TipoISV) ? "ISV15" : dto.TipoISV.Trim(),
+                    Activo = true
+                };
+
+                _context.Productos.Add(producto);
+                await _context.SaveChangesAsync();
+
+                var inventario = new Inventarios
+                {
+                    ProductoId = producto.ProductoId,
+                    Cantidad = stockInicial,
+                    FechaIngreso = DateTime.UtcNow
+                };
+                _context.Inventario.Add(inventario);
+
+                _context.ProductosHistorial.Add(new ProductosHistorial
+                {
+                    ProductoId = producto.ProductoId,
+                    Usuario = usuarioAudit,
+                    FechaModificacion = DateTime.UtcNow,
+                    Accion = "IMPORTACION_MASIVA",
+                    DetalleCambios = $"Producto importado en lote con stock inicial: {stockInicial}, ISV: {producto.TipoISV}.",
+                    PrecioAnterior = null,
+                    PrecioNuevo = producto.Precio,
+                    Activo = true
+                });
+
+                resultado.Insertados++;
+            }
+
+            await _context.SaveChangesAsync();
+            return Result<ImportacionLoteResultadoDto>.Ok(resultado);
+        }
+
         public async Task<Result<List<SistemaVisionTech.Infrastructure.Entities.ProductosHistorial>>> ObtenerHistorialAsync(int productoId)
         {
             var logs = await _context.ProductosHistorial
