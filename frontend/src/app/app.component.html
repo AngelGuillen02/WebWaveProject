@@ -232,7 +232,7 @@
                     <span *ngIf="!v.numeroFactura" class="muted">Sin factura</span>
                   </td>
                   <td><b>L. {{ (v.total || 0) | number:'1.2-2' }}</b></td>
-                  <td><span class="status">{{ v.estadoVenta }}</span></td>
+                  <td><span class="status" [class.anulado]="esVentaAnulada(v)" [class.pending]="!esVentaAnulada(v) && v.estadoVenta === 'Pendiente'">{{ esVentaAnulada(v) ? 'Anulada' : v.estadoVenta }}</span></td>
                 </tr>
                 <tr *ngIf="!ventas.length">
                   <td colspan="5" class="empty">Aún no hay ventas registradas. ¡Haz clic en Facturas para emitir la primera!</td>
@@ -485,44 +485,53 @@
                   </td>
                   <td><b>L. {{ (venta.total || 0) | number:'1.2-2' }}</b></td>
                   <td>
-                    <span *ngIf="venta.esCotizacion" class="badge-cotizacion">
+                    <span *ngIf="esVentaAnulada(venta)" class="status anulado" style="font-weight: 800; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px;">
+                      <lucide-icon [img]="icons.Ban" [size]="11"></lucide-icon> Anulada
+                    </span>
+                    <span *ngIf="!esVentaAnulada(venta) && venta.esCotizacion" class="badge-cotizacion">
                       {{ venta.estadoVenta }}
                     </span>
-                    <span *ngIf="!venta.esCotizacion" class="status" [class.pending]="venta.estadoVenta === 'Pendiente'" [class.anulado]="venta.estadoVenta === 'Anulada'">
+                    <span *ngIf="!esVentaAnulada(venta) && !venta.esCotizacion" class="status" [class.pending]="venta.estadoVenta === 'Pendiente'">
                       {{ venta.estadoVenta }}
                     </span>
                   </td>
                   <td>
                     <!-- ACCIONES PARA COTIZACIONES (PERMITEN EDICIÓN Y BITÁCORA DE AUDITORÍA) -->
-                    <div *ngIf="venta.esCotizacion" style="display:flex; gap:5px; flex-wrap:wrap;">
-                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización">
+                    <div *ngIf="venta.esCotizacion" style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
+                      <button *ngIf="!esVentaAnulada(venta)" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización">
                         <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
                       </button>
-                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action success" (click)="facturarCotizacionDesdeVentas(venta)" title="Convertir cotización en Factura Fiscal SAR oficial con CAI">
+                      <button *ngIf="!esVentaAnulada(venta)" class="btn-action success" (click)="facturarCotizacionDesdeVentas(venta)" title="Convertir cotización en Factura Fiscal SAR oficial con CAI">
                         <lucide-icon [img]="icons.Check" [size]="12"></lucide-icon> Facturar (SAR)
                       </button>
                       <button class="btn-action" (click)="verCotizacion(venta)" title="Ver / Imprimir cotización">
                         <lucide-icon [img]="icons.FileText" [size]="12"></lucide-icon> Ver
                       </button>
-                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Cotización">
+                      <button *ngIf="!esVentaAnulada(venta)" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Cotización">
                         <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anular
                       </button>
+                      <span *ngIf="esVentaAnulada(venta)" style="background:#fee2e2; color:#dc2626; font-size:10.5px; font-weight:800; padding:4px 8px; border-radius:5px; border:1px solid #fecaca; display:inline-flex; align-items:center; gap:4px;">
+                        <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anulada
+                      </span>
                     </div>
 
                     <!-- ACCIONES PARA FACTURAS FISCALES SAR (ESTRICTAMENTE INMUTABLES: NO SE PUEDEN EDITAR) -->
-                    <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
                       <button *ngIf="venta.numeroFactura" class="btn-action primary" (click)="verFactura(venta)" title="Ver factura oficial">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
                       </button>
-                      <button *ngIf="!venta.numeroFactura && venta.estadoVenta !== 'Anulada'" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
+                      <button *ngIf="!venta.numeroFactura && !esVentaAnulada(venta)" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
                         + Facturar CAI
                       </button>
-                      <button *ngIf="venta.estadoVenta === 'Pendiente'" class="btn-action success" (click)="confirmarVenta(venta.ventaId)" title="Confirmar Venta">
+                      <button *ngIf="venta.estadoVenta === 'Pendiente' && !esVentaAnulada(venta)" class="btn-action success" (click)="confirmarVenta(venta.ventaId)" title="Confirmar Venta">
                         <lucide-icon [img]="icons.Check" [size]="12"></lucide-icon> Confirmar
                       </button>
-                      <button *ngIf="venta.estadoVenta !== 'Anulada'" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Factura Fiscal">
+                      <button *ngIf="!esVentaAnulada(venta)" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Factura Fiscal">
                         <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anular
                       </button>
+                      <span *ngIf="esVentaAnulada(venta)" style="background:#fee2e2; color:#dc2626; font-size:10.5px; font-weight:800; padding:4px 8px; border-radius:5px; border:1px solid #fecaca; display:inline-flex; align-items:center; gap:4px;">
+                        <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anulada
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -742,11 +751,16 @@
                     {{ facturaEmitida ? ((facturaForm.tipoDocumento === 'Cotizacion' ? facturaEmitidaData?.numeroCotizacion : facturaEmitidaData?.numeroFactura) || nuevaFacturaDisplay) : nuevaFacturaDisplay }}
                   </div>
                   <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
-                    Fecha: {{ facturaForm.fecha | date:'MM/dd/yyyy, h:mm:ss a' }}
+                    <span *ngIf="facturaEmitida && (facturaEmitidaData?.fechaEmision || facturaEmitidaData?.fechaVenta)">
+                      Fecha: {{ parseFechaUtc(facturaEmitidaData.fechaEmision || facturaEmitidaData.fechaVenta) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
+                    </span>
+                    <span *ngIf="!facturaEmitida">
+                      Fecha: {{ parseFechaUtc(facturaForm.fecha) | date:'dd/MM/yyyy':'-0600' }}
+                    </span>
                   </div>
                 </div>
                 <div style="text-align:right;">
-                  <img src="assets/logo.png" alt="Vision Tech" style="height:48px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.style.display='none'">
+                  <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:54px; max-width:180px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
                   <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
                   <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
                 </div>
@@ -777,6 +791,11 @@
                   <div><span style="color:#64748b;">Correo:</span> {{ clienteSeleccionado?.email || '—' }}</div>
                   <div><span style="color:#64748b;">Método de Pago:</span> <b>{{ metodoPagoNombre }}</b></div>
                 </div>
+              </div>
+
+              <!-- Nota del documento (debajo de Información del Cliente) -->
+              <div *ngIf="facturaForm.notas || companyConfig.notaDocumento" class="preview-note-box" style="margin-top:-8px; margin-bottom:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:9px 12px; font-size:10.5px; color:#334155; line-height:1.45;">
+                <b style="color:#0f172a;">Nota del documento:</b> {{ facturaForm.notas || companyConfig.notaDocumento }}
               </div>
 
               <!-- Detalles de la Factura (Tabla de Ítems en Vivo) -->
@@ -847,11 +866,7 @@
               <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:10px; font-size:10px;">
                 <div style="margin-bottom:6px;">
                   <b>Notas al pie de factura:</b><br>
-                  <span style="color:#64748b;">{{ facturaForm.notasPie || 'Sin notas al pie de factura' }}</span>
-                </div>
-                <div style="margin-bottom:6px;">
-                  <b>Notas:</b><br>
-                  <span style="color:#64748b;">{{ facturaForm.notas || 'No hay notas adicionales' }}</span>
+                  <span style="color:#64748b;">{{ facturaForm.notasPie || companyConfig.notaPie || 'Sin notas al pie de factura' }}</span>
                 </div>
               </div>
 
@@ -865,7 +880,8 @@
 
               <!-- Pie de documento oficial y botones de impresión -->
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:10px; color:#64748b;">
-                <span>Documento: {{ facturaForm.fecha | date:'MM/dd/yyyy, h:mm:ss a' }}</span>
+                <span *ngIf="facturaEmitida && (facturaEmitidaData?.fechaEmision || facturaEmitidaData?.fechaVenta)">Documento: {{ parseFechaUtc(facturaEmitidaData.fechaEmision || facturaEmitidaData.fechaVenta) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}</span>
+                <span *ngIf="!facturaEmitida">Documento: {{ parseFechaUtc(facturaForm.fecha) | date:'dd/MM/yyyy':'-0600' }}</span>
                 <div style="display:flex; align-items:center; gap:8px;">
                   <ng-container *ngIf="facturaEmitida">
                     <button class="btn-action" (click)="descargarFacturaEnVivoPDF()" title="Descargar PDF">
@@ -1349,7 +1365,7 @@
                 {{ estadoCaja.estado === 'Abierto' ? '● TURNO EN CURSO: CAJA ABIERTA' : '○ CAJA CERRADA' }}
               </span>
               <span *ngIf="estadoCaja.fechaApertura" style="margin-left:12px; font-size:11px; color:#64748b;">
-                Apertura: {{ estadoCaja.fechaApertura | date:'dd/MM/yyyy, hh:mm a' }}
+                Apertura: {{ parseFechaUtc(estadoCaja.fechaApertura) | date:'dd/MM/yyyy, hh:mm a':'-0600' }}
               </span>
             </div>
           </div>
@@ -1611,14 +1627,14 @@
                 </thead>
                 <tbody>
                   <tr *ngFor="let v of ventasFiltradasSAR">
-                    <td class="muted">{{ (v.fechaFactura || v.fechaVenta) | date:'dd/MM/yyyy' }}</td>
+                    <td class="muted">{{ parseFechaUtc(v.fechaFactura || v.fechaVenta) | date:'dd/MM/yyyy':'-0600' }}</td>
                     <td><b class="tag-factura">{{ v.numeroFactura }}</b></td>
                     <td class="muted">{{ v.clienteRtn || '00000000000000' }}</td>
                     <td><b>{{ v.cliente }}</b></td>
                     <td>L. {{ (v.montoGravado15 || ((v.total || 0) / 1.15)) | number:'1.2-2' }}</td>
                     <td>L. {{ (v.isv15 || ((v.total || 0) - ((v.total || 0) / 1.15))) | number:'1.2-2' }}</td>
                     <td><b>L. {{ (v.total || 0) | number:'1.2-2' }}</b></td>
-                    <td><span class="status">{{ v.estadoVenta }}</span></td>
+                    <td><span class="status" [class.anulado]="esVentaAnulada(v)" [class.pending]="!esVentaAnulada(v) && v.estadoVenta === 'Pendiente'">{{ esVentaAnulada(v) ? 'Anulada' : v.estadoVenta }}</span></td>
                   </tr>
                   <tr *ngIf="!ventasFiltradasSAR.length">
                     <td colspan="8" class="empty">No se encontraron facturas fiscales registradas para el período {{ reporteMesVentas }}/{{ reporteAnoVentas }}.</td>
@@ -1641,7 +1657,7 @@
                 <select [(ngModel)]="cierreSeleccionadoReporteId" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; font-weight: 600; min-width: 280px;">
                   <option [value]="0">Último Cierre de Turno</option>
                   <option *ngFor="let h of historialCaja" [value]="h.id">
-                    Cierre #{{ h.id }} - {{ h.fechaApertura | date:'dd/MM/yyyy hh:mm a' }} (L. {{ (h.montoEfectivoFinal || 0) | number:'1.2-2' }})
+                    Cierre #{{ h.id }} - {{ parseFechaUtc(h.fechaApertura) | date:'dd/MM/yyyy, hh:mm a':'-0600' }} (L. {{ (h.montoEfectivoFinal || 0) | number:'1.2-2' }})
                   </option>
                 </select>
               </div>
@@ -1675,11 +1691,11 @@
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span>FECHA/HORA APERTURA:</span>
-                  <span>{{ cierreSeleccionadoReporte.fechaApertura | date:'dd/MM/yyyy, hh:mm:ss a' }}</span>
+                  <span>{{ parseFechaUtc(cierreSeleccionadoReporte.fechaApertura) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span>FECHA/HORA CIERRE:</span>
-                  <span>{{ cierreSeleccionadoReporte.fechaCierre ? (cierreSeleccionadoReporte.fechaCierre | date:'dd/MM/yyyy, hh:mm:ss a') : 'Turno Activo' }}</span>
+                  <span>{{ cierreSeleccionadoReporte.fechaCierre ? (parseFechaUtc(cierreSeleccionadoReporte.fechaCierre) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600') : 'Turno Activo' }}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span>RESPONSABLE DE TURNO:</span>
@@ -2362,14 +2378,20 @@
               {{ facturaSeleccionada?.numeroFactura || '000-001-01-00000001' }}
             </div>
             <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
-              Fecha: {{ (facturaSeleccionada?.fechaEmision || facturaSeleccionada?.venta?.fechaVenta) | date:'MM/dd/yyyy, h:mm:ss a' }}
+              Fecha: {{ parseFechaUtc(facturaSeleccionada?.fechaEmision || facturaSeleccionada?.venta?.fechaVenta) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
             </div>
           </div>
           <div style="text-align:right;">
-            <img src="assets/logo.png" alt="Vision Tech" style="height:48px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.style.display='none'">
+            <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:54px; max-width:180px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
             <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
             <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
           </div>
+        </div>
+
+        <!-- Banner de Factura Anulada -->
+        <div *ngIf="esVentaAnulada(facturaSeleccionada)" style="background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; padding:8px 12px; margin:10px 0; color:#b91c1c; font-weight:800; font-size:12px; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <lucide-icon [img]="icons.Ban" [size]="16"></lucide-icon>
+          DOCUMENTO FISCAL ANULADO &bull; SIN VALOR TRIBUTARIO
         </div>
 
         <!-- Caja Fiscal SAR Oficial -->
@@ -2389,6 +2411,11 @@
             <div><span style="color:#64748b;">Correo:</span> {{ facturaSeleccionada?.email || facturaSeleccionada?.venta?.clienteEmail || '—' }}</div>
             <div><span style="color:#64748b;">Método de Pago:</span> <b>{{ facturaSeleccionada?.metodoPago || 'Efectivo' }}</b></div>
           </div>
+        </div>
+
+        <!-- Nota del documento (debajo de Información del Cliente) -->
+        <div *ngIf="facturaSeleccionada?.notas || companyConfig.notaDocumento" class="preview-note-box" style="margin-top:-8px; margin-bottom:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:9px 12px; font-size:10.5px; color:#334155; line-height:1.45;">
+          <b style="color:#0f172a;">Nota del documento:</b> {{ facturaSeleccionada?.notas || companyConfig.notaDocumento }}
         </div>
 
         <!-- Detalles de la Factura (Tabla de Ítems) -->
@@ -2466,7 +2493,7 @@
         <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:10px; font-size:10px;">
           <div style="margin-bottom:4px;">
             <b>Notas al pie de factura:</b><br>
-            <span style="color:#64748b;">Gracias por su compra en Sistema Vision Tech. Garantía de fábrica en equipos de seguridad y electrónica.</span>
+            <span style="color:#64748b;">{{ facturaSeleccionada?.notasPie || companyConfig.notaPie }}</span>
           </div>
         </div>
 
@@ -3289,14 +3316,20 @@
               {{ cotizacionSeleccionada?.numeroCotizacion || ('COT-' + cotizacionSeleccionada?.ventaId) }}
             </div>
             <div style="font-size:10px; color:#94a3b8; margin-top:2px;">
-              Fecha: {{ cotizacionSeleccionada?.fechaVenta | date:'MM/dd/yyyy, h:mm:ss a' }}
+              Fecha: {{ parseFechaUtc(cotizacionSeleccionada?.fechaVenta) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
             </div>
           </div>
           <div style="text-align:right;">
-            <img src="assets/logo.png" alt="Vision Tech" style="height:48px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.style.display='none'">
+            <img [src]="companyConfig.logoUrl || 'assets/logo.png'" alt="Vision Tech" style="max-height:54px; max-width:180px; object-fit:contain; border-radius:4px; margin-bottom:4px;" onerror="this.src='assets/logo.png'">
             <div style="font-size:9px; color:#64748b; font-weight:600;">{{ companyConfig.nombre }}</div>
             <div style="font-size:8.5px; color:#94a3b8;">Seguridad Electrónica & Tecnología</div>
           </div>
+        </div>
+
+        <!-- Banner de Cotización Anulada -->
+        <div *ngIf="esVentaAnulada(cotizacionSeleccionada)" style="background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; padding:8px 12px; margin:10px 0; color:#b91c1c; font-weight:800; font-size:12px; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <lucide-icon [img]="icons.Ban" [size]="16"></lucide-icon>
+          ESTA COTIZACIÓN HA SIDO ANULADA
         </div>
 
         <!-- Aviso Proforma -->
@@ -3314,9 +3347,22 @@
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10.5px;">
             <div><span style="color:#64748b;">Cliente:</span> <b>{{ cotizacionSeleccionada?.cliente || 'Consumidor Final' }}</b></div>
             <div><span style="color:#64748b;">RTN:</span> <b>{{ cotizacionSeleccionada?.clienteRtn || '0000-0000-00000' }}</b></div>
-            <div><span style="color:#64748b;">Estado:</span> <span class="badge-cotizacion">{{ cotizacionSeleccionada?.estadoVenta }}</span></div>
+            <div>
+              <span style="color:#64748b;">Estado:</span> 
+              <span *ngIf="esVentaAnulada(cotizacionSeleccionada)" class="status anulado" style="font-weight: 800; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                <lucide-icon [img]="icons.Ban" [size]="11"></lucide-icon> Anulada
+              </span>
+              <span *ngIf="!esVentaAnulada(cotizacionSeleccionada)" class="badge-cotizacion">
+                {{ cotizacionSeleccionada?.estadoVenta }}
+              </span>
+            </div>
             <div><span style="color:#64748b;">Moneda:</span> <b>Lempiras (HNL)</b></div>
           </div>
+        </div>
+
+        <!-- Nota del documento (debajo de Información del Cliente) -->
+        <div *ngIf="cotizacionSeleccionada?.notas || companyConfig.notaDocumento" class="preview-note-box" style="margin-top:-8px; margin-bottom:14px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:9px 12px; font-size:10.5px; color:#0369a1; line-height:1.45;">
+          <b style="color:#0284c7;">Nota del documento:</b> {{ cotizacionSeleccionada?.notas || companyConfig.notaDocumento }}
         </div>
 
         <!-- Detalles de la Cotización -->
@@ -3367,6 +3413,13 @@
               <span>Total Cotizado:</span>
               <span>L. {{ (cotizacionSeleccionada?.total || 0) | number:'1.2-2' }}</span>
             </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px; border-top:1px solid #bae6fd; padding-top:10px; font-size:10px;">
+          <div style="margin-bottom:4px;">
+            <b style="color:#0284c7;">Notas al pie de cotización:</b><br>
+            <span style="color:#64748b;">{{ cotizacionSeleccionada?.notasPie || companyConfig.notaPie }}</span>
           </div>
         </div>
 

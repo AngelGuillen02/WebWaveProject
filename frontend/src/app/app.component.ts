@@ -170,6 +170,19 @@ export interface FacturaItemRow {
   templateUrl: './app.component.html'
 })
 export class AppComponent {
+  static getFechaHoyHonduras(): string {
+    const ahora = new Date();
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Tegucigalpa',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(ahora);
+  }
+
+  getFechaHoyHonduras(): string {
+    return AppComponent.getFechaHoyHonduras();
+  }
   private http = inject(HttpClient);
 
   readonly icons = {
@@ -630,7 +643,7 @@ export class AppComponent {
   facturaForm = {
     tipoDocumento: 'Cotizacion' as 'Factura' | 'Cotizacion',
     clienteId: 1,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: AppComponent.getFechaHoyHonduras(),
     metodoPagoId: 1,
     moneda: 'Lempiras (HNL)',
     notas: '',
@@ -932,15 +945,47 @@ export class AppComponent {
     this.http.get<any[]>(`${this.api}/Ventas`, this.getHeaders()).subscribe({
       next: (data) => {
         this.ventas = Array.isArray(data) ? data : [];
-        const totalMes = this.ventas.reduce((acc, v) => acc + (v.total || 0), 0);
-        this.stats[0].value = `L. ${totalMes.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        this.calcularStatsVentas();
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
           this.ventas = [];
+          this.stats[0].value = 'L. 0.00';
         }
       }
     });
+  }
+
+  esVentaAnulada(v: any): boolean {
+    if (!v) return false;
+    const est = String(v.estadoVenta || v.estado || (v.venta && v.venta.estadoVenta) || '').toLowerCase();
+    return est.includes('anula') || est.includes('cancel') || v.estadoVentaId === 3 || (v.venta && v.venta.estadoVentaId === 3);
+  }
+
+  calcularStatsVentas() {
+    const hoyHonduras = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Tegucigalpa' }));
+    const mesActual = hoyHonduras.getMonth();
+    const anoActual = hoyHonduras.getFullYear();
+
+    const facturasMes = (this.ventas || []).filter(v => {
+      // Excluir cotizaciones formalmente: solo facturas de venta
+      const esCotizacion = v.esCotizacion || v.estadoVenta === 'Cotizacion' || (!v.numeroFactura && !!v.numeroCotizacion);
+      // Excluir ventas anuladas
+      const esAnulada = this.esVentaAnulada(v);
+      if (esCotizacion || esAnulada) return false;
+
+      // Evaluar la fecha de la factura en el huso de Honduras
+      const rawFecha = v.fechaFactura || v.fechaVenta;
+      if (!rawFecha) return false;
+      const fechaDoc = this.parseFechaUtc(rawFecha);
+      if (!fechaDoc) return false;
+
+      const fechaLocal = new Date(fechaDoc.toLocaleString('en-US', { timeZone: 'America/Tegucigalpa' }));
+      return fechaLocal.getMonth() === mesActual && fechaLocal.getFullYear() === anoActual;
+    });
+
+    const totalMes = facturasMes.reduce((acc, v) => acc + (Number(v.total) || 0), 0);
+    this.stats[0].value = `L. ${totalMes.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   loadClientes() {
@@ -1382,7 +1427,7 @@ export class AppComponent {
     this.facturaForm = {
       tipoDocumento: 'Cotizacion',
       clienteId: this.clientes[0]?.clienteId || 1,
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: AppComponent.getFechaHoyHonduras(),
       metodoPagoId: 1,
       moneda: 'Lempiras (HNL)',
       notas: '',
@@ -1551,6 +1596,7 @@ export class AppComponent {
             .preview-brand-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0ea5e9; padding-bottom: 14px; margin-bottom: 16px; }
             .preview-cai-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 11px; line-height: 1.6; color: #334155; }
             .preview-client-box { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+            .preview-note-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; margin-bottom: 14px; font-size: 10.5px; line-height: 1.45; color: #334155; }
             .preview-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 11.5px; }
             .preview-table th { background: #f8fafc; border-bottom: 1.5px solid #cbd5e1; padding: 8px 6px; text-align: left; font-size: 11px !important; font-weight: 700 !important; color: #475569 !important; }
             .preview-table td { padding: 8px 6px; border-bottom: 1px solid #f1f5f9; font-size: 11.5px; }
@@ -1632,7 +1678,7 @@ export class AppComponent {
       this.notificarAdvertencia('Normativa SAR', 'Las facturas fiscales emitidas no pueden ser editadas por normativa SAR. Solo las cotizaciones admiten modificaciones.');
       return;
     }
-    if (venta.estadoVenta === 'Anulada') {
+    if (this.esVentaAnulada(venta)) {
       this.notificarAdvertencia('Cotización Anulada', 'No se puede editar una cotización que ha sido anulada.');
       return;
     }
@@ -1762,6 +1808,10 @@ export class AppComponent {
   }
 
   async facturarCotizacionDesdeVentas(venta: any) {
+    if (this.esVentaAnulada(venta)) {
+      this.notificarAdvertencia('Cotización Anulada', 'No se puede facturar una cotización que ha sido anulada.');
+      return;
+    }
     const { value: formValues } = await Swal.fire({
       title: 'Facturar Cotización (SAR)',
       html: `
@@ -3048,6 +3098,9 @@ export class AppComponent {
     if (!dateVal) return null;
     if (dateVal instanceof Date) return dateVal;
     let str = String(dateVal).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return new Date(str + 'T12:00:00Z');
+    }
     if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}/.test(str)) {
       str = str.replace(' ', 'T');
     }

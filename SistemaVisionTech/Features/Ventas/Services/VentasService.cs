@@ -48,7 +48,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
 
             List<FacturasEmitidas> facturas = await _context.FacturasEmitidas
                 .AsNoTracking()
-                .Where(f => ventaIds.Contains(f.VentaId) && f.Activo)
+                .Where(f => ventaIds.Contains(f.VentaId))
                 .ToListAsync();
 
             Dictionary<int, FacturasEmitidas> facturasDict = facturas
@@ -78,7 +78,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
 
             FacturasEmitidas? factura = await _context.FacturasEmitidas
                 .AsNoTracking()
-                .FirstOrDefaultAsync(f => f.VentaId == ventaId && f.Activo);
+                .FirstOrDefaultAsync(f => f.VentaId == ventaId);
 
             return Result<VentasDto>.Ok(MapearVentaResponse(venta, factura));
         }
@@ -727,9 +727,25 @@ namespace SistemaVisionTech.Features.Ventas.Services
 
         private static VentasDto MapearVentaResponse(Venta v, FacturasEmitidas? factura = null)
         {
-            string estadoTexto = v.EsCotizacion
-                ? (v.EstadoVentaId == 3 ? "Anulada" : "Cotización")
-                : (v.EstadoVenta?.Nombre ?? (v.EstadoVentaId == 2 ? "Confirmada" : (v.EstadoVentaId == 3 ? "Anulada" : "Pendiente")));
+            string estadoTexto;
+            if (v.EstadoVentaId == (int)EstadoVentaEnum.Anulada || v.EstadoVentaId == 3 ||
+                (v.EstadoVenta?.Nombre != null && (
+                    v.EstadoVenta.Nombre.Equals("Cancelado", StringComparison.OrdinalIgnoreCase) ||
+                    v.EstadoVenta.Nombre.Equals("Cancelada", StringComparison.OrdinalIgnoreCase) ||
+                    v.EstadoVenta.Nombre.Equals("Anulada", StringComparison.OrdinalIgnoreCase) ||
+                    v.EstadoVenta.Nombre.Equals("Anulado", StringComparison.OrdinalIgnoreCase)
+                )))
+            {
+                estadoTexto = "Anulada";
+            }
+            else if (v.EsCotizacion)
+            {
+                estadoTexto = "Cotización";
+            }
+            else
+            {
+                estadoTexto = v.EstadoVenta?.Nombre ?? (v.EstadoVentaId == 2 ? "Confirmada" : "Pendiente");
+            }
 
             return new VentasDto
             {
