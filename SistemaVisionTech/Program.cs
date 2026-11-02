@@ -77,9 +77,18 @@ if (!string.IsNullOrWhiteSpace(connectionString) &&
 var jwtKey = 
     Environment.GetEnvironmentVariable("JWT_KEY")
     ?? builder.Configuration["Jwt:Key"]
+    ?? builder.Configuration["Jwt__Key"]
     ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "SistemaVisionTech.API";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "SistemaVisionTech.Client";
+var jwtIssuer = 
+    Environment.GetEnvironmentVariable("JWT_ISSUER")
+    ?? builder.Configuration["Jwt:Issuer"]
+    ?? builder.Configuration["Jwt__Issuer"]
+    ?? "SistemaVisionTech.API";
+var jwtAudience = 
+    Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+    ?? builder.Configuration["Jwt:Audience"]
+    ?? builder.Configuration["Jwt__Audience"]
+    ?? "SistemaVisionTech.Client";
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -17,10 +17,27 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public LoginTokenResult GenerarToken(int usuarioId, string nombre, string email, int perfilId, string perfilNombre)
         {
-            string jwtKey = _configuration["Jwt:Key"]!;
-            string issuer = _configuration["Jwt:Issuer"]!;
-            string audience = _configuration["Jwt:Audience"]!;
-            int expires = int.Parse(_configuration["Jwt:ExpiresInMinutes"] ?? "480");
+            string jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
+                ?? _configuration["Jwt:Key"]
+                ?? _configuration["Jwt__Key"]
+                ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
+
+            string issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+                ?? _configuration["Jwt:Issuer"]
+                ?? _configuration["Jwt__Issuer"]
+                ?? "SistemaVisionTech.API";
+
+            string audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+                ?? _configuration["Jwt:Audience"]
+                ?? _configuration["Jwt__Audience"]
+                ?? "SistemaVisionTech.Client";
+
+            string expiresStr = Environment.GetEnvironmentVariable("JWT_EXPIRES_IN_MINUTES")
+                ?? _configuration["Jwt:ExpiresInMinutes"]
+                ?? _configuration["Jwt__ExpiresInMinutes"]
+                ?? "480";
+
+            int expires = int.TryParse(expiresStr, out int exp) ? exp : 480;
 
             SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(jwtKey));
             SigningCredentials creds = new(key, SecurityAlgorithms.HmacSha256);
@@ -31,9 +48,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 new Claim(JwtRegisteredClaimNames.Email, email),
                 new Claim(JwtRegisteredClaimNames.Name,  nombre),
                 new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, perfilNombre),
+                new Claim(ClaimTypes.Role, perfilNombre ?? "Usuario"),
                 new Claim("PerfilId", perfilId.ToString())  
-
             ];
 
             DateTime expiracion = DateTime.UtcNow.AddMinutes(expires);

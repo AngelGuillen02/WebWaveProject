@@ -62,12 +62,14 @@ namespace SistemaVisionTech.Features.Acceso.Services
             _logger.LogInformation("LOGIN EXITOSO: Usuario {Email} (ID: {UsuarioId}, Perfil: {Perfil}) autenticado desde IP: {Ip}",
                 usuario.Email, usuario.UsuarioId, usuario.Perfil?.Nombre ?? "Sin Perfil", ip);
 
+            string nombrePerfil = usuario.Perfil?.Nombre ?? "Administrador";
+
             LoginTokenResult tokenResult = _jwtTokenService.GenerarToken(
                 usuario.UsuarioId,
                 usuario.Nombre,
                 usuario.Email,
                 usuario.PerfilId,
-                usuario.Perfil.Nombre);
+                nombrePerfil);
 
             return Result<LoginResponseDto>.Ok(new LoginResponseDto
             {
@@ -76,7 +78,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 UsuarioId = usuario.UsuarioId,
                 Nombre = usuario.Nombre,
                 Email = usuario.Email,
-                Perfil = usuario.Perfil.Nombre
+                Perfil = nombrePerfil
             });
         }
     }
