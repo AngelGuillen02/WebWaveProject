@@ -98,7 +98,7 @@ namespace SistemaVisionTech.Features.SAR.Services
         public async Task<Result<FacturaEmitidaResponseDto>> EmitirFacturaAsync(int ventaId, int sucursalId, string? usuario = null)
         {
             FacturasEmitidas? facturaExistente = await _context.FacturasEmitidas
-                .FirstOrDefaultAsync(f => f.VentaId == ventaId && f.Activo);
+                .FirstOrDefaultAsync(f => f.VentaId == ventaId);
 
             if (facturaExistente != null)
                 return Result<FacturaEmitidaResponseDto>.Ok(MapToDto(facturaExistente));
@@ -215,7 +215,7 @@ namespace SistemaVisionTech.Features.SAR.Services
         public async Task<Result<FacturaEmitidaResponseDto>> ObtenerFacturaAsync(int ventaId)
         {
             FacturasEmitidas? factura = await _context.FacturasEmitidas
-                .FirstOrDefaultAsync(f => f.VentaId == ventaId && f.Activo);
+                .FirstOrDefaultAsync(f => f.VentaId == ventaId);
 
             if (factura is null)
                 return Result<FacturaEmitidaResponseDto>.Fail("No se encontró factura emitida para esta venta.");
