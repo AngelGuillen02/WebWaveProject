@@ -265,6 +265,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
             try
             {
                 _context.Ventas.Add(venta);
+                await _context.SaveChangesAsync(); // Asigna venta.VentaId en la base de datos
 
                 foreach (var detalle in dto.Detalles)
                 {
@@ -301,7 +302,8 @@ namespace SistemaVisionTech.Features.Ventas.Services
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                return Result<VentasDto>.Fail($"Error al registrar la factura fiscal: {ex.Message}");
+                var innerMsg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                return Result<VentasDto>.Fail($"Error al registrar la factura fiscal: {innerMsg}");
             }
 
             // Si se solicitó concretar y facturar con CAI del SAR

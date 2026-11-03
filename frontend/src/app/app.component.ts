@@ -796,6 +796,23 @@ export class AppComponent implements OnInit {
     return false;
   }
 
+  obtenerMensajeError(err: any, fallback: string = 'Ha ocurrido un error inesperado.'): string {
+    if (!err) return fallback;
+    if (typeof err === 'string') return err;
+    if (typeof err.error === 'string') return err.error;
+    if (err.error?.mensaje) return err.error.mensaje;
+    if (err.error?.message) return err.error.message;
+    if (err.error?.error) return err.error.error;
+    if (err.error?.errors && typeof err.error.errors === 'object') {
+      const keys = Object.keys(err.error.errors);
+      if (keys.length > 0) {
+        const first = err.error.errors[keys[0]];
+        return Array.isArray(first) ? first.join(', ') : String(first);
+      }
+    }
+    return err.message || fallback;
+  }
+
   login() {
     this.loading = true;
     this.error = '';
@@ -2354,7 +2371,8 @@ export class AppComponent implements OnInit {
       error: (err) => {
         this.guardandoUsuario = false;
         if (!this.handleAuthError(err)) {
-          this.notificarError('Error al Crear Usuario', 'Error al crear usuario: ' + (err.error?.mensaje || err.message));
+          const detalle = this.obtenerMensajeError(err, 'No se pudo registrar el usuario.');
+          this.notificarError('No se pudo crear el usuario', detalle);
         }
       }
     });
@@ -2377,7 +2395,8 @@ export class AppComponent implements OnInit {
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
-          this.notificarError('Error al Eliminar', 'Error al eliminar usuario: ' + (err.error?.mensaje || err.message));
+          const detalle = this.obtenerMensajeError(err, 'No se pudo eliminar el usuario.');
+          this.notificarError('Error al Eliminar', detalle);
         }
       }
     });

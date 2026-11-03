@@ -33,6 +33,9 @@ namespace SistemaVisionTech.Features.SAR.Services
             ConfiguracionSAR? configExistente = await _context.ConfiguracionSAR
                 .FirstOrDefaultAsync(c => c.SucursalId == dto.SucursalId && c.Activo);
 
+            int nuevoInicio = ExtraerNumeroCorrelativo(dto.RangoDesde);
+            int nuevoLimite = ExtraerNumeroCorrelativo(dto.RangoHasta);
+
             if (configExistente != null)
             {
                 configExistente.RTN = dto.RTN.Trim();
@@ -41,9 +44,10 @@ namespace SistemaVisionTech.Features.SAR.Services
                 configExistente.RangoHasta = dto.RangoHasta.Trim();
                 configExistente.FechaLimiteEmision = dto.FechaLimiteEmision;
 
-                if (dto.ResetearCorrelativo)
+                // Si se solicita resetear O si el correlativo anterior quedó fuera del nuevo rango autorizado
+                if (dto.ResetearCorrelativo || configExistente.CorrelativoActual < (nuevoInicio - 1) || configExistente.CorrelativoActual >= nuevoLimite)
                 {
-                    configExistente.CorrelativoActual = 0;
+                    configExistente.CorrelativoActual = nuevoInicio > 0 ? nuevoInicio - 1 : 0;
                 }
 
                 await _context.SaveChangesAsync();
@@ -134,7 +138,7 @@ namespace SistemaVisionTech.Features.SAR.Services
             int inicioDesde = ExtraerNumeroCorrelativo(config.RangoDesde);
             string prefijo = ExtraerPrefijo(config.RangoDesde);
 
-            int siguienteCorrelativo = config.CorrelativoActual <= 0
+            int siguienteCorrelativo = config.CorrelativoActual < inicioDesde
                 ? (inicioDesde > 0 ? inicioDesde : 1)
                 : config.CorrelativoActual + 1;
 
@@ -260,8 +264,8 @@ namespace SistemaVisionTech.Features.SAR.Services
             int inicio = ExtraerNumeroCorrelativo(c.RangoDesde);
             int limite = ExtraerNumeroCorrelativo(c.RangoHasta);
             string prefijo = ExtraerPrefijo(c.RangoDesde);
-            int siguiente = c.CorrelativoActual <= 0 ? (inicio > 0 ? inicio : 1) : c.CorrelativoActual + 1;
-            int disponibles = limite > 0 ? Math.Max(0, limite - c.CorrelativoActual) : 9999;
+            int siguiente = c.CorrelativoActual < inicio ? (inicio > 0 ? inicio : 1) : c.CorrelativoActual + 1;
+            int disponibles = limite >= siguiente ? (limite - siguiente + 1) : 0;
             bool vigente = DateTime.UtcNow.Date <= c.FechaLimiteEmision.Date && (limite <= 0 || c.CorrelativoActual < limite);
 
             return new ConfiguracionSARDto

@@ -182,12 +182,36 @@ namespace SistemaVisionTech.Controllers
                 motivo = $"Ajuste/Movimiento de stock {m.TipoMovimiento}"
             }).ToList();
 
+            // 7. Logs de Gestión de Usuarios y Accesos
+            var logsUsuarios = await _context.Usuarios
+                .AsNoTracking()
+                .Include(u => u.Perfil)
+                .OrderByDescending(u => u.UsuarioId)
+                .Take(100)
+                .ToListAsync();
+
+            var logsUsuariosFormateados = logsUsuarios.Select(u => new
+            {
+                id = u.UsuarioId,
+                tipo = "USUARIOS",
+                entidadId = u.UsuarioId,
+                referencia = u.Email,
+                usuario = "Administrador",
+                fecha = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = u.Activo ? "USUARIO ACTIVO" : "USUARIO DADO DE BAJA",
+                detalle = $"Cuenta: {u.Nombre} ({u.Email}) | Rol: {(u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil")}",
+                valorAnterior = "-",
+                valorNuevo = u.Activo ? "Activo" : "Inactivo",
+                motivo = u.Activo ? "Usuario habilitado para acceso al sistema" : "Baja lógica de usuario"
+            }).ToList();
+
             var combinado = logsProductosFormateados.Cast<object>()
                 .Concat(logsCotizacionesFormateados.Cast<object>())
                 .Concat(logsFacturasFormateados.Cast<object>())
                 .Concat(logsCajaFormateados.Cast<object>())
                 .Concat(logsComprasFormateados.Cast<object>())
                 .Concat(logsKardexFormateados.Cast<object>())
+                .Concat(logsUsuariosFormateados.Cast<object>())
                 .OrderByDescending(x => ((dynamic)x).fecha)
                 .Take(600)
                 .ToList();
