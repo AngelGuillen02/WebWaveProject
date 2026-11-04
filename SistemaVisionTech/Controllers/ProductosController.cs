@@ -73,6 +73,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(await _svc.ObtenerHistorialAsync(id));
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
         {

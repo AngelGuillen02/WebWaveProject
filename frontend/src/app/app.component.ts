@@ -271,7 +271,7 @@ export class AppComponent implements OnInit {
 
   get isFacturador(): boolean {
     const role = (this.currentUser.role || '').toLowerCase();
-    return role.includes('factur') || role.includes('ventas') || role.includes('vendedor');
+    return role.includes('factur') || role.includes('venta') || role.includes('vendedor');
   }
 
   get isCajero(): boolean {
@@ -425,6 +425,8 @@ export class AppComponent implements OnInit {
   }
 
   volverAListadoFacturas() {
+    this.modoEdicionCotizacion = false;
+    this.cotizacionEditando = null;
     this.subTabFacturas = 'listado';
     this.loadVentas();
   }
@@ -440,6 +442,7 @@ export class AppComponent implements OnInit {
 
   // Modales de Cotizaciones y Auditoría
   showEditarCotizacionModal = false;
+  modoEdicionCotizacion = false;
   guardandoEdicionCotizacion = false;
   cotizacionEditando: any = null;
   editarCotizacionForm: {
@@ -680,6 +683,9 @@ export class AppComponent implements OnInit {
     { label: 'Configuración', icon: 'Settings' }
   ];
 
+  cantidadVentasMes = 0;
+  stockBajoCount = 0;
+
   stats = [
     { label: 'Ventas del mes', value: 'L. 0.00', trend: 'Calculado en vivo', icon: 'CircleDollarSign', tone: 'green', modulo: 'Facturas' },
     { label: 'Productos activos', value: '0', trend: 'Catálogo sincronizado', icon: 'Package', tone: 'blue', modulo: 'Productos' },
@@ -690,7 +696,7 @@ export class AppComponent implements OnInit {
   navegarDesdeStat(stat: any) {
     if (!stat) return;
     const destino = stat.modulo || (
-      stat.label === 'Ventas del mes' ? 'Facturas' :
+      stat.label === 'Ventas del mes' || stat.label === 'Cantidad de ventas' ? 'Facturas' :
       stat.label === 'Productos activos' ? 'Productos' :
       stat.label === 'Stock bajo' ? 'Inventario' :
       stat.label === 'Estado de Caja' ? 'Caja' : ''
@@ -704,7 +710,32 @@ export class AppComponent implements OnInit {
   }
 
   get visibleStats() {
-    return this.stats.filter(s => s.label !== 'Estado de Caja' || this.puedeVerModulo('Caja'));
+    return this.stats
+      .map((s, index) => {
+        if (index === 2) {
+          if (this.isFacturador) {
+            return {
+              label: 'Cantidad de ventas',
+              value: this.cantidadVentasMes.toString(),
+              trend: 'Facturas del mes',
+              icon: 'FileText',
+              tone: 'purple',
+              modulo: 'Facturas'
+            };
+          } else {
+            return {
+              label: 'Stock bajo',
+              value: (this.stockBajoCount || s.value || 0).toString(),
+              trend: 'Requieren atención',
+              icon: 'Boxes',
+              tone: 'orange',
+              modulo: 'Inventario'
+            };
+          }
+        }
+        return s;
+      })
+      .filter(s => s.label !== 'Estado de Caja' || this.puedeVerModulo('Caja'));
   }
 
   // =========================================================================
@@ -983,6 +1014,7 @@ export class AppComponent implements OnInit {
         }));
 
         const lowStock = this.inventory.filter(i => (i.stock ?? 0) <= (i.stockMinimo ?? 10)).length;
+        this.stockBajoCount = lowStock;
         this.stats[2].value = lowStock.toString();
       },
       error: (err) => {
@@ -1036,6 +1068,7 @@ export class AppComponent implements OnInit {
       return fechaLocal.getMonth() === mesActual && fechaLocal.getFullYear() === anoActual;
     });
 
+    this.cantidadVentasMes = facturasMes.length;
     const totalMes = facturasMes.reduce((acc, v) => acc + (Number(v.total) || 0), 0);
     this.stats[0].value = `L. ${totalMes.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
@@ -1257,6 +1290,9 @@ export class AppComponent implements OnInit {
   }
 
   get nuevaFacturaDisplay(): string {
+    if (this.modoEdicionCotizacion && this.cotizacionEditando) {
+      return this.cotizacionEditando.numeroCotizacion || this.cotizacionEditando.numeroFactura || ('#COT-' + this.cotizacionEditando.ventaId);
+    }
     if (this.facturaForm.tipoDocumento === 'Cotizacion') {
       if (this.facturaEmitida && this.facturaEmitidaData?.numeroCotizacion) {
         return this.facturaEmitidaData.numeroCotizacion;
@@ -1637,6 +1673,10 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    // Sanitizar el nodo clonado eliminando scripts y elementos ejecutables
+    const clonedEl = el.cloneNode(true) as HTMLElement;
+    clonedEl.querySelectorAll('script, iframe, object, embed').forEach(node => node.remove());
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -1666,7 +1706,7 @@ export class AppComponent implements OnInit {
           </style>
         </head>
         <body>
-          <div>${el.innerHTML}</div>
+          <div>${clonedEl.innerHTML}</div>
           <script>
             window.onload = function() {
               window.focus();
@@ -1717,6 +1757,8 @@ export class AppComponent implements OnInit {
   }
 
   resetearNuevaFactura() {
+    this.modoEdicionCotizacion = false;
+    this.cotizacionEditando = null;
     this.facturaEmitida = false;
     this.facturaEmitidaData = null;
     this.nuevaFacturaFormulario();
@@ -1731,24 +1773,52 @@ export class AppComponent implements OnInit {
   // GESTIÓN Y EDICIÓN DE COTIZACIONES + HISTORIAL DE AUDITORÍA
   // =========================================================================
   abrirModalEditarCotizacion(venta: any) {
-    if (!venta.esCotizacion) {
-      this.notificarAdvertencia('Normativa SAR', 'Las facturas fiscales emitidas no pueden ser editadas por normativa SAR. Solo las cotizaciones admiten modificaciones.');
-      return;
-    }
     if (this.esVentaAnulada(venta)) {
-      this.notificarAdvertencia('Cotización Anulada', 'No se puede editar una cotización que ha sido anulada.');
+      this.notificarAdvertencia('Documento Anulado', 'No se puede editar un documento que ha sido anulado.');
       return;
     }
 
-    this.cotizacionEditando = venta;
-    const itemsEditados: FacturaItemRow[] = (venta.detalles || []).map((d: any) => ({
-      productoId: d.productoId,
-      nombre: d.producto || '',
-      cantidad: d.cantidad,
-      precio: d.precio,
-      descuento: 0,
-      tipoISV: 'ISV15'
-    }));
+    this.active = 'Facturas';
+    this.subTabFacturas = 'crear';
+    this.facturaEmitida = false;
+    this.facturaEmitidaData = null;
+
+    if (venta.esCotizacion) {
+      this.modoEdicionCotizacion = true;
+      this.cotizacionEditando = venta;
+    } else {
+      this.modoEdicionCotizacion = false;
+      this.cotizacionEditando = null;
+    }
+
+    if (!this.products || this.products.length === 0) {
+      this.loadProducts();
+    }
+    if (!this.clientes || this.clientes.length === 0) {
+      this.loadClientes();
+    }
+
+    let fechaDoc = AppComponent.getFechaHoyHonduras();
+    if (venta.fechaVenta) {
+      try {
+        const d = new Date(venta.fechaVenta);
+        if (!isNaN(d.getTime())) {
+          fechaDoc = d.toISOString().substring(0, 10);
+        }
+      } catch (e) {}
+    }
+
+    const itemsEditados: FacturaItemRow[] = (venta.detalles || []).map((d: any) => {
+      const p = this.products.find(x => x.productoId == d.productoId);
+      return {
+        productoId: Number(d.productoId),
+        nombre: d.producto || p?.nombre || `Producto #${d.productoId}`,
+        cantidad: Number(d.cantidad) || 1,
+        precio: d.precio !== undefined ? Number(d.precio) : Number(p?.precioVenta || 0),
+        descuento: Number(d.descuento || 0),
+        tipoISV: p?.tipoISV || 'ISV15'
+      };
+    });
 
     if (itemsEditados.length === 0 && this.products.length > 0) {
       const p = this.products[0];
@@ -1756,18 +1826,86 @@ export class AppComponent implements OnInit {
         productoId: p.productoId || 1,
         nombre: p.nombre || '',
         cantidad: 1,
-        precio: p.precioVenta || p.precio || 0,
+        precio: p.precioVenta || 0,
         descuento: 0,
         tipoISV: p.tipoISV || 'ISV15'
       });
     }
 
-    this.editarCotizacionForm = {
-      clienteId: venta.clienteId,
-      motivo: '',
-      items: itemsEditados
+    const metodoPago = (venta.pagos && venta.pagos.length > 0) ? venta.pagos[0].metodoPagoId : (venta.metodoPagoId || 1);
+
+    this.facturaForm = {
+      tipoDocumento: venta.esCotizacion ? 'Cotizacion' : 'Factura',
+      clienteId: venta.clienteId ? Number(venta.clienteId) : null,
+      fecha: fechaDoc,
+      metodoPagoId: Number(metodoPago) || 1,
+      moneda: 'Lempiras (HNL)',
+      notas: venta.observaciones || '',
+      notasPie: venta.notasPie || 'Gracias por su preferencia. Garantía de 1 año en equipos de seguridad electrónica y redes.',
+      mostrarNotas: !!venta.observaciones,
+      mostrarNotasPie: false,
+      items: itemsEditados.length > 0 ? itemsEditados : this.facturaForm.items
     };
-    this.showEditarCotizacionModal = true;
+
+    try {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {}
+
+    if (venta.esCotizacion) {
+      this.notificarInfo(
+        'Modo Edición Activado',
+        `Se cargó la cotización ${venta.numeroCotizacion || ('#COT-' + venta.ventaId)} completa en el diseñador interactivo. Modifique los datos y presione "Guardar Cambios".`
+      );
+    } else {
+      this.notificarInfo(
+        'Factura Cargada',
+        `Se cargaron todos los datos de la Factura ${venta.numeroFactura || venta.ventaId} en el editor interactivo.`
+      );
+    }
+  }
+
+  guardarEdicionCotizacionDesdeWorkspace() {
+    if (!this.cotizacionEditando) return;
+    if (!this.facturaForm.items || this.facturaForm.items.length === 0) {
+      this.notificarAdvertencia('Documento vacío', 'Debe incluir al menos un producto.');
+      return;
+    }
+
+    if (this.facturaForm.items.some(i => (i.cantidad || 0) <= 0)) {
+      this.notificarAdvertencia('Cantidad Inválida', 'La cantidad de cada ítem debe ser mayor a 0.');
+      return;
+    }
+
+    this.guardandoEdicionCotizacion = true;
+    const payload = {
+      clienteId: Number(this.facturaForm.clienteId || this.cotizacionEditando.clienteId || 1),
+      motivo: 'Ajuste de productos y precios desde el editor interactivo de facturación',
+      detalles: this.facturaForm.items.map(i => ({
+        productoId: Number(i.productoId),
+        cantidad: Number(i.cantidad),
+        precioUnitario: Number(i.precio),
+        descuento: Number(i.descuento || 0)
+      }))
+    };
+
+    this.http.put<any>(`${this.api}/Ventas/${this.cotizacionEditando.ventaId}/Cotizacion`, payload, this.getHeaders()).subscribe({
+      next: (ventaActualizada) => {
+        this.guardandoEdicionCotizacion = false;
+        this.modoEdicionCotizacion = false;
+        this.cotizacionEditando = null;
+        this.notificarExito(
+          'Cotización Actualizada',
+          `¡Documento ${ventaActualizada.numeroCotizacion || ''} actualizado exitosamente!`
+        );
+        this.volverAListadoFacturas();
+      },
+      error: (err) => {
+        this.guardandoEdicionCotizacion = false;
+        if (!this.handleAuthError(err)) {
+          this.notificarError('Error al Guardar', 'Error al modificar cotización: ' + (err.error?.mensaje || err.message));
+        }
+      }
+    });
   }
 
   agregarItemEditarCotizacion() {

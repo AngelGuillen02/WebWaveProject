@@ -40,6 +40,7 @@ namespace SistemaVisionTech.Controllers
         public async Task<IActionResult> Editar(int id, [FromBody] ClienteCreacionDto dto)
             => HandleResult(await _svc.EditarAsync(id, dto));
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
             => HandleResult(await _svc.EliminarAsync(id));

@@ -77,8 +77,19 @@ if (!string.IsNullOrWhiteSpace(connectionString) &&
 var jwtKey = 
     Environment.GetEnvironmentVariable("JWT_KEY")
     ?? builder.Configuration["Jwt:Key"]
-    ?? builder.Configuration["Jwt__Key"]
-    ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
+    ?? builder.Configuration["Jwt__Key"];
+
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        jwtKey = "DevOnly_SistemaVisionTech_S3cr3tK3y_#2026!_MustBe32Chars+";
+    }
+    else
+    {
+        throw new InvalidOperationException("CRÍTICO DE SEGURIDAD: La variable 'JWT_KEY' no está configurada o tiene menos de 32 caracteres. Configure una clave segura en las variables de entorno del servidor.");
+    }
+}
 var jwtIssuer = 
     Environment.GetEnvironmentVariable("JWT_ISSUER")
     ?? builder.Configuration["Jwt:Issuer"]
@@ -152,6 +163,17 @@ builder.Services.AddRateLimiter(options =>
             "{\"exito\":false,\"mensaje\":\"Demasiadas peticiones. Por favor, espere un momento antes de reintentar.\"}",
             cancellationToken: token);
     };
+
+    // Política para acciones sensibles (registro de usuarios, pagos)
+    options.AddPolicy("SensitiveActionPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anon-sensitive",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 15,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 
     // Política específica para login (5 intentos por minuto por IP)
     options.AddPolicy("LoginPolicy", httpContext =>
