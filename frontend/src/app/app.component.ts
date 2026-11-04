@@ -681,11 +681,27 @@ export class AppComponent implements OnInit {
   ];
 
   stats = [
-    { label: 'Ventas del mes', value: 'L. 0.00', trend: 'Calculado en vivo', icon: 'CircleDollarSign', tone: 'green' },
-    { label: 'Productos activos', value: '0', trend: 'Catálogo sincronizado', icon: 'Package', tone: 'blue' },
-    { label: 'Stock bajo', value: '0', trend: 'Requieren atención', icon: 'Boxes', tone: 'orange' },
-    { label: 'Estado de Caja', value: 'Cerrada', trend: 'Turno actual', icon: 'CircleDollarSign', tone: 'purple' }
+    { label: 'Ventas del mes', value: 'L. 0.00', trend: 'Calculado en vivo', icon: 'CircleDollarSign', tone: 'green', modulo: 'Facturas' },
+    { label: 'Productos activos', value: '0', trend: 'Catálogo sincronizado', icon: 'Package', tone: 'blue', modulo: 'Productos' },
+    { label: 'Stock bajo', value: '0', trend: 'Requieren atención', icon: 'Boxes', tone: 'orange', modulo: 'Inventario' },
+    { label: 'Estado de Caja', value: 'Cerrada', trend: 'Turno actual', icon: 'CircleDollarSign', tone: 'purple', modulo: 'Caja' }
   ];
+
+  navegarDesdeStat(stat: any) {
+    if (!stat) return;
+    const destino = stat.modulo || (
+      stat.label === 'Ventas del mes' ? 'Facturas' :
+      stat.label === 'Productos activos' ? 'Productos' :
+      stat.label === 'Stock bajo' ? 'Inventario' :
+      stat.label === 'Estado de Caja' ? 'Caja' : ''
+    );
+    if (destino && this.puedeVerModulo(destino)) {
+      if (stat.label === 'Stock bajo') {
+        this.subTabInventario = 'stock';
+      }
+      this.setActive(destino);
+    }
+  }
 
   get visibleStats() {
     return this.stats.filter(s => s.label !== 'Estado de Caja' || this.puedeVerModulo('Caja'));

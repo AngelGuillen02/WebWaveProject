@@ -147,7 +147,7 @@
         <div style="display:flex; gap:10px;">
           <ng-container *ngIf="active === 'Facturas'">
             <button *ngIf="subTabFacturas === 'listado'" class="outline-button" (click)="exportarFacturasExcel()" title="Descargar facturas en Excel">
-              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button *ngIf="subTabFacturas === 'listado'" class="primary-small" (click)="abrirCrearFactura()">
               <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon> + Nueva Factura
@@ -194,7 +194,15 @@
       </div>
 
       <section *ngIf="active === 'Resumen'" class="stats-grid">
-        <article *ngFor="let stat of visibleStats" class="stat-card">
+        <article 
+          *ngFor="let stat of visibleStats" 
+          class="stat-card clickable-card"
+          (click)="navegarDesdeStat(stat)"
+          [title]="'Ir al módulo de ' + (stat.modulo || stat.label)"
+          tabindex="0"
+          role="button"
+          (keydown.enter)="navegarDesdeStat(stat)"
+        >
           <div class="stat-top">
             <span>{{ stat.label }}</span>
             <span class="stat-icon" [class]="stat.tone">
@@ -202,7 +210,12 @@
             </span>
           </div>
           <strong>{{ stat.value }}</strong>
-          <small [class.warning]="stat.tone === 'orange'">{{ stat.trend }}</small>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+            <small [class.warning]="stat.tone === 'orange'">{{ stat.trend }}</small>
+            <span style="font-size: 11px; color: #0284c7; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;">
+              Ver detalles <span>→</span>
+            </span>
+          </div>
         </article>
       </section>
 
@@ -923,9 +936,17 @@
             <h3>Catálogo de Productos</h3>
             <p>{{ products.length }} productos conectados a inventario y base de datos</p>
           </div>
-          <button class="primary-small" (click)="abrirModalNuevoProducto()">
-            + Nuevo producto
-          </button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="outline-button" (click)="exportarProductosExcel()" title="Descargar catálogo de productos en formato Excel">
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
+            </button>
+            <button class="outline-button" (click)="abrirModalImportar('Productos')" title="Importar productos masivamente desde Excel/CSV">
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Importar Excel
+            </button>
+            <button class="primary-small" (click)="abrirModalNuevoProducto()">
+              + Nuevo producto
+            </button>
+          </div>
         </div>
 
         <!-- Barra de Búsqueda Rápida de Productos -->
@@ -1010,7 +1031,10 @@
             <h3>Control de Inventario y Kardex</h3>
             <p>Existencias actuales y auditoría de movimientos por producto</p>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex; gap:8px; flex-wrap: wrap;">
+            <button class="outline-button" (click)="exportarInventarioExcel()" title="Descargar existencias de inventario en Excel">
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
+            </button>
             <button class="outline-button" (click)="abrirModalMovimientoInventario()">+ Registrar Movimiento</button>
             <button class="primary-small" (click)="abrirModalNuevoProducto()">+ Registrar producto/stock</button>
           </div>
@@ -1124,10 +1148,10 @@
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="outline-button" (click)="exportarClientesExcel()" title="Descargar clientes en formato Excel">
-              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button class="outline-button" (click)="abrirModalImportar('Clientes')" title="Importar clientes masivamente desde Excel/CSV">
-              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
           </div>
@@ -1209,7 +1233,7 @@
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="outline-button" (click)="exportarComprasExcel()" title="Descargar órdenes de compra en Excel">
-              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevaCompra()">+ Nueva Orden de Compra</button>
           </div>
@@ -1295,10 +1319,10 @@
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="outline-button" (click)="exportarProveedoresExcel()" title="Descargar proveedores en formato Excel">
-              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button class="outline-button" (click)="abrirModalImportar('Proveedores')" title="Importar proveedores masivamente desde Excel/CSV">
-              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoProveedor()">+ Nuevo Proveedor</button>
           </div>
