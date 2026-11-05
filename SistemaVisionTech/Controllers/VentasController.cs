@@ -80,20 +80,9 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
-        private bool EsAdministrador()
-        {
-            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role")?.Value;
-            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
-            return string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(rolClaim, "SuperUsuario", StringComparison.OrdinalIgnoreCase) ||
-                   perfilIdClaim == "1";
-        }
-
         [HttpGet("{id:int}/Cotizacion/Historial")]
         public async Task<IActionResult> ObtenerHistorialCotizacion(int id)
         {
-            if (!EsAdministrador()) return NotFound();
 
             Result<IEnumerable<CotizacionHistorialDto>> resultado = await _ventasService.ObtenerHistorialCotizacionAsync(id);
             return HandleResult(resultado);
@@ -117,10 +106,6 @@ namespace SistemaVisionTech.Controllers
         [HttpPut("{id:int}/Anular")]
         public async Task<IActionResult> AnularVenta(int id)
         {
-            if (!EsAdministrador())
-            {
-                return Forbid();
-            }
 
             Result<VentasDto> resultado = await _ventasService.AnularVentaAsync(id);
             return HandleResult(resultado);
