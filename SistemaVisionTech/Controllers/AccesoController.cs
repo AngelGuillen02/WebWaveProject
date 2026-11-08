@@ -83,25 +83,12 @@ namespace SistemaVisionTech.Controllers
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
         {
-            try
-            {
-                Result<LoginResponseDto> resultado = await _authService.LoginAsync(dto);
+            Result<LoginResponseDto> resultado = await _authService.LoginAsync(dto);
 
-                if (!resultado.Success)
-                    return Unauthorized(new { mensaje = resultado.Error });
+            if (!resultado.Success)
+                return Unauthorized(new { mensaje = resultado.Error });
 
-                return Ok(resultado.Data);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    exito = false,
-                    mensaje = $"Error interno en Login: {ex.Message}",
-                    tipo = ex.GetType().FullName,
-                    inner = ex.InnerException?.Message
-                });
-            }
+            return Ok(resultado.Data);
         }
 
         private bool EsUsuarioAdmin()
