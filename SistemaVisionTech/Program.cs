@@ -295,7 +295,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 builder.Services.AddScoped<IPerfilesService, PerfilesService>();
 
-builder.Services.AddDbContext<WebWaveDbContext>(options =>
+Action<DbContextOptionsBuilder> configureDb = options =>
 {
     if (!string.IsNullOrEmpty(connectionString) &&
         (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
@@ -314,7 +314,10 @@ builder.Services.AddDbContext<WebWaveDbContext>(options =>
     {
         options.UseSqlServer(connectionString);
     }
-});
+};
+
+builder.Services.AddDbContext<WebWaveDbContext>(configureDb);
+builder.Services.AddDbContextFactory<WebWaveDbContext>(configureDb);
 
 builder.Services.AddScoped<IPermisosService, PermisosService>();
 builder.Services.AddScoped<IEmpresasService, EmpresasService>();
@@ -372,7 +375,7 @@ app.MapGet("/health", () => Results.Ok(new
     status = "Healthy",
     timestamp = DateTime.UtcNow,
     servicio = "SistemaVisionTech API",
-    version = "1.0.2"
+    version = "1.0.3"
 })).AllowAnonymous();
 
 app.MapGet("/ready", async (WebWaveDbContext db) =>
