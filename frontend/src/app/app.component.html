@@ -517,7 +517,7 @@
                   <td>
                     <!-- ACCIONES PARA COTIZACIONES (PERMITEN EDICIÓN Y BITÁCORA DE AUDITORÍA) -->
                     <div *ngIf="venta.esCotizacion" style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
-                      <button *ngIf="!esVentaAnulada(venta) && isAdmin" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización (Solo Administrador)">
+                      <button *ngIf="!esVentaAnulada(venta)" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización">
                         <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
                       </button>
                       <button *ngIf="!esVentaAnulada(venta)" class="btn-action success" (click)="facturarCotizacionDesdeVentas(venta)" title="Convertir cotización en Factura Fiscal SAR oficial con CAI">
@@ -536,9 +536,6 @@
 
                     <!-- ACCIONES PARA FACTURAS FISCALES SAR -->
                     <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                      <button *ngIf="!esVentaAnulada(venta) && isAdmin" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar factura (Solo Administrador)">
-                        <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
-                      </button>
                       <button *ngIf="venta.numeroFactura || esVentaAnulada(venta)" class="btn-action primary" (click)="verFactura(venta)" [title]="venta.numeroFactura ? 'Ver factura oficial' : 'Ver comprobante'">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
                       </button>

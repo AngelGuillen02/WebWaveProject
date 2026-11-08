@@ -1930,10 +1930,10 @@ export class AppComponent implements OnInit {
       return;
     }
 
-    if (!this.isAdmin) {
+    if (!venta.esCotizacion) {
       this.notificarAdvertencia(
-        'Acceso Restringido',
-        'Solo los usuarios con rol de Administrador tienen autorización para modificar facturas o cotizaciones.'
+        'Factura Fiscal Inmutable',
+        'Por disposiciones fiscales del SAR, una factura emitida con CAI no puede ser modificada. Si requiere corregirla, debe anularla y emitir una nueva factura.'
       );
       return;
     }

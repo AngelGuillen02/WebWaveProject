@@ -339,6 +339,11 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 return Result<VentasDto>.Fail("No es posible modificar un documento que ha sido anulado.", isValidation: true);
             }
 
+            if (!venta.EsCotizacion)
+            {
+                return Result<VentasDto>.Fail("Por normativa fiscal del SAR, una factura fiscal emitida con CAI no puede ser modificada; únicamente puede anularse.", isValidation: true);
+            }
+
             if (dto.Detalles is null || !dto.Detalles.Any())
                 return Result<VentasDto>.Fail("El documento debe tener al menos un producto.", isValidation: true);
 

@@ -70,23 +70,11 @@ namespace SistemaVisionTech.Controllers
             return Conflict(new { mensaje = resultado.Error });
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador,Facturador,Ventas,Cajero")]
         [HttpPut("{id:int}")]
         [HttpPut("{id:int}/Cotizacion")]
         public async Task<IActionResult> ActualizarCotizacion(int id, [FromBody] ActualizarCotizacionDto dto)
         {
-            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value;
-            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
-            bool esAdmin = string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(rolClaim, "SuperUsuario", StringComparison.OrdinalIgnoreCase) ||
-                           perfilIdClaim == "1";
-
-            if (!esAdmin)
-            {
-                return Forbid();
-            }
-
             string usuario = ObtenerNombreUsuarioActual();
             Result<VentasDto> resultado = await _ventasService.ActualizarCotizacionAsync(id, dto, usuario);
             return HandleResult(resultado);
