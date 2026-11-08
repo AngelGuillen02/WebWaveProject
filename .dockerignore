@@ -1,0 +1,15 @@
+**/.git
+**/.vs
+**/bin
+**/obj
+**/.angular
+**/node_modules
+**/dist
+**/*.user
+**/*.suo
+**/*.log
+**/.env
+**/.env*
+**/appsettings.Development.json
+Dockerfile
+.dockerignore
