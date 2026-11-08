@@ -317,7 +317,6 @@ Action<DbContextOptionsBuilder> configureDb = options =>
     {
         options.UseNpgsql(connectionString, npgsqlOptions =>
         {
-            npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
             npgsqlOptions.CommandTimeout(30);
         });
     }

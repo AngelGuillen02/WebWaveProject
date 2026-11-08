@@ -97,7 +97,18 @@ namespace SistemaVisionTech.Features.Caja.Services
                 .FirstOrDefaultAsync(c => c.SucursalId == sucursalId && c.Estado == "Abierto");
 
             if (cajaAbierta is null)
-                return Result<EstadoCajaResponseDto>.Fail("No hay caja abierta para esta sucursal.");
+            {
+                return Result<EstadoCajaResponseDto>.Ok(new EstadoCajaResponseDto
+                {
+                    Id = 0,
+                    Estado = "Cerrado",
+                    FechaApertura = DateTime.UtcNow,
+                    MontoApertura = 0,
+                    TotalVentasEfectivo = 0,
+                    TotalVentasTarjeta = 0,
+                    TotalVentasOtros = 0
+                });
+            }
 
             DateTime hoyInicio = DateTime.UtcNow.Date;
             DateTime hoyFin = hoyInicio.AddDays(1);

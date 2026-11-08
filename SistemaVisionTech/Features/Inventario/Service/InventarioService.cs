@@ -30,8 +30,8 @@ namespace SistemaVisionTech.Features.Inventario.Service
                 {
                     InventarioId = i.InventarioId,
                     ProductoId = i.ProductoId,
-                    Producto = i.Producto.Nombre,
-                    Precio = i.Producto.Precio,
+                    Producto = i.Producto != null ? i.Producto.Nombre : "Producto no encontrado",
+                    Precio = i.Producto != null ? i.Producto.Precio : 0m,
                     Cantidad = i.Cantidad,
                     FechaIngreso = i.FechaIngreso
                 })
@@ -55,8 +55,8 @@ namespace SistemaVisionTech.Features.Inventario.Service
             {
                 InventarioId = registro.InventarioId,
                 ProductoId = registro.ProductoId,
-                Producto = registro.Producto.Nombre,
-                Precio = registro.Producto.Precio,
+                Producto = registro.Producto != null ? registro.Producto.Nombre : "Producto no encontrado",
+                Precio = registro.Producto != null ? registro.Producto.Precio : 0m,
                 Cantidad = registro.Cantidad,
                 FechaIngreso = registro.FechaIngreso
             });
