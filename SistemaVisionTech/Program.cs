@@ -76,26 +76,37 @@ if (!string.IsNullOrWhiteSpace(connectionString) &&
     }
 }
 
-// Normalización defensiva de cadena de conexión (evita errores si se recortó el prefijo Host o Trust Server en el panel de Render)
+// Normalización ultra-defensiva de cadena de conexión para Render
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
     connectionString = connectionString.Trim();
 
-    if (connectionString.StartsWith("1.pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
+    // Corregir si se recortó "aws-1-ca-central-" en el panel de Render
+    if (connectionString.Contains("1.pooler.supabase.com") && !connectionString.Contains("aws-1-ca-central-1.pooler.supabase.com"))
     {
-        connectionString = "Host=aws-1-ca-central-" + connectionString;
+        connectionString = connectionString.Replace("1.pooler.supabase.com", "aws-1-ca-central-1.pooler.supabase.com");
     }
-    else if (connectionString.StartsWith("aws-1-ca-central-1.pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
+
+    // Asegurar que comience con Host=
+    if (!connectionString.StartsWith("Host=", StringComparison.OrdinalIgnoreCase) &&
+        connectionString.Contains("pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
     {
         connectionString = "Host=" + connectionString;
     }
 
-    if (connectionString.EndsWith(";Trust Server", StringComparison.OrdinalIgnoreCase) ||
-        connectionString.EndsWith("Trust Server", StringComparison.OrdinalIgnoreCase))
+    // Corregir si quedó cortado como "Trust Server"
+    if (connectionString.Contains("Trust Server", StringComparison.OrdinalIgnoreCase) &&
+        !connectionString.Contains("Trust Server Certificate", StringComparison.OrdinalIgnoreCase))
     {
-        connectionString = connectionString.TrimEnd() + " Certificate=true;Pooling=true;";
+        connectionString = connectionString.Replace("Trust Server", "Trust Server Certificate=true;Pooling=true;");
     }
-    else if (!connectionString.Contains("Trust Server Certificate", StringComparison.OrdinalIgnoreCase))
+
+    if (!connectionString.Contains("SSL Mode=", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString = connectionString.TrimEnd(';') + ";SSL Mode=Require;";
+    }
+
+    if (!connectionString.Contains("Trust Server Certificate=", StringComparison.OrdinalIgnoreCase))
     {
         connectionString = connectionString.TrimEnd(';') + ";Trust Server Certificate=true;Pooling=true;";
     }
@@ -367,14 +378,19 @@ app.MapGet("/ready", async (WebWaveDbContext db) =>
 {
     try
     {
-        bool conectado = await db.Database.CanConnectAsync();
-        return conectado
-            ? Results.Ok(new { status = "Ready", database = "Connected", timestamp = DateTime.UtcNow })
-            : Results.Json(new { status = "Unhealthy", database = "Disconnected" }, statusCode: 503);
+        await db.Database.OpenConnectionAsync();
+        await db.Database.CloseConnectionAsync();
+        return Results.Ok(new { status = "Ready", database = "Connected", timestamp = DateTime.UtcNow });
     }
     catch (Exception ex)
     {
-        return Results.Json(new { status = "Error", detalle = ex.Message }, statusCode: 503);
+        return Results.Json(new
+        {
+            status = "Error",
+            tipo = ex.GetType().Name,
+            mensaje = ex.Message,
+            inner = ex.InnerException?.Message
+        }, statusCode: 503);
     }
 }).AllowAnonymous();
 
