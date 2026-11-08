@@ -531,22 +531,13 @@
                       </span>
                     </div>
 
-                    <!-- ACCIONES PARA FACTURAS FISCALES SAR (INMUTABLES POR LEY - SOLO ANULACIÓN) -->
+                    <!-- ACCIONES PARA FACTURAS FISCALES SAR -->
                     <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
                       <button *ngIf="!esVentaAnulada(venta) && isAdmin" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar factura (Solo Administrador)">
                         <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
                       </button>
-                      <span *ngIf="!esVentaAnulada(venta) && !isAdmin" style="font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9; padding:4px 7px; border-radius:5px; border:1px solid #e2e8f0; display:inline-flex; align-items:center; gap:4px;" title="Factura fiscal oficial emitida. Modificable únicamente por usuario Administrador">
-                        <lucide-icon [img]="icons.Lock" [size]="11"></lucide-icon> Protegida
-                      </span>
                       <button *ngIf="venta.numeroFactura || esVentaAnulada(venta)" class="btn-action primary" (click)="verFactura(venta)" [title]="venta.numeroFactura ? 'Ver factura oficial' : 'Ver comprobante'">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
-                      </button>
-                      <button *ngIf="!venta.numeroFactura && !esVentaAnulada(venta)" class="btn-action" (click)="emitirFactura(venta.ventaId)" title="Emitir Factura con CAI">
-                        + Facturar CAI
-                      </button>
-                      <button *ngIf="venta.estadoVenta === 'Pendiente' && !esVentaAnulada(venta)" class="btn-action success" (click)="confirmarVenta(venta.ventaId)" title="Confirmar Venta">
-                        <lucide-icon [img]="icons.Check" [size]="12"></lucide-icon> Confirmar
                       </button>
                       <button *ngIf="!esVentaAnulada(venta)" class="btn-action danger" (click)="anularVenta(venta.ventaId)" title="Anular Factura Fiscal">
                         <lucide-icon [img]="icons.Ban" [size]="12"></lucide-icon> Anular
@@ -695,6 +686,8 @@
               <div *ngFor="let item of facturaForm.items; let i = index" 
                    class="item-card" 
                    [class.item-duplicated]="esProductoDuplicado(item.productoId)"
+                   [style.position]="'relative'"
+                   [style.zIndex]="item.mostrarDropdown ? 1000 : (50 - i)"
                    style="padding:12px 14px; gap:8px;">
                 <div class="item-card-header" style="margin-bottom:0;">
                   <div style="display:flex; align-items:center; gap:8px;">
@@ -724,49 +717,52 @@
                   <div style="position:relative; display:flex; align-items:center;">
                     <input type="text"
                            [(ngModel)]="item.busqueda"
-                           (focus)="abrirDropdownProducto(item)"
-                           (input)="item.mostrarDropdown = true"
+                           (focus)="abrirDropdownProducto(item, $event)"
+                           (click)="abrirDropdownProducto(item, $event)"
+                           (input)="onInputBusquedaProducto(item)"
+                           (keydown.enter)="$event.preventDefault(); seleccionarPrimerProducto(item)"
+                           (keydown.escape)="item.mostrarDropdown = false"
                            (blur)="cerrarDropdownConRetraso(item)"
                            placeholder="Escriba para buscar por nombre o código..."
-                           style="width:100%; padding:6px 28px 6px 9px; font-size:11.5px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; background:#fff;"
+                           style="width:100%; padding:7px 28px 7px 10px; font-size:12px; font-weight:600; border:1.5px solid #cbd5e1; border-radius:6px; background:#fff; transition:border 0.2s;"
                            autocomplete="off">
                     <button *ngIf="item.busqueda" 
                             type="button" 
-                            (mousedown)="item.busqueda = ''; item.mostrarDropdown = true" 
-                            style="position:absolute; right:8px; background:none; border:none; cursor:pointer; color:#94a3b8; font-size:12px; padding:0; line-height:1;"
+                            (mousedown)="$event.preventDefault(); limpiarBusquedaProducto(item)" 
+                            style="position:absolute; right:8px; background:none; border:none; cursor:pointer; color:#94a3b8; font-size:13px; padding:2px; line-height:1;"
                             title="Borrar texto">✕</button>
                   </div>
 
                   <!-- DROPDOWN FLOTANTE AUTOCOMPLETADOR -->
                   <div *ngIf="item.mostrarDropdown" 
                        class="autocomplete-dropdown"
-                       style="position:absolute; top:100%; left:0; right:0; z-index:50; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1); max-height:220px; overflow-y:auto; margin-top:3px;">
+                       style="position:absolute; top:100%; left:0; right:0; z-index:9999; background:#ffffff; border:1.5px solid #0284c7; border-radius:8px; box-shadow:0 12px 28px rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.1); max-height:240px; overflow-y:auto; margin-top:4px;">
                     
                     <div *ngFor="let p of obtenerProductosFiltrados(item.busqueda)"
-                         (mousedown)="seleccionarProductoAutocompletar(item, p)"
+                         (mousedown)="$event.preventDefault(); seleccionarProductoAutocompletar(item, p)"
                          class="autocomplete-option"
-                         style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; transition:background 0.15s;"
+                         style="padding:9px 12px; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; transition:background 0.15s;"
                          [style.background]="p.productoId === item.productoId ? '#f0f9ff' : '#ffffff'">
                       <div>
                         <div style="font-weight:700; font-size:12px; color:#0f172a;">{{ p.nombre }}</div>
-                        <div style="font-size:10.5px; color:#64748b; display:flex; gap:8px; margin-top:2px;">
-                          <span *ngIf="p.codigoBarras">Cód: <b>{{ p.codigoBarras }}</b></span>
+                        <div style="font-size:11px; color:#64748b; display:flex; gap:8px; margin-top:2px;">
+                          <span *ngIf="p.codigoBarras || p.codigo">Cód: <b>{{ p.codigoBarras || p.codigo }}</b></span>
                           <span style="color:#0284c7; font-weight:700;">{{ p.tipoISV || 'ISV15' }}</span>
                         </div>
                       </div>
                       <div style="text-align:right;">
-                        <div style="font-weight:800; font-size:12px; color:#0284c7;">L. {{ (p.precioVenta || p.precio || 0) | number:'1.2-2' }}</div>
-                        <div style="font-size:10px; font-weight:700;" [style.color]="(p.stock || 0) > 0 ? '#16a34a' : '#dc2626'">
+                        <div style="font-weight:800; font-size:12.5px; color:#0284c7;">L. {{ (p.precioVenta || p.precio || 0) | number:'1.2-2' }}</div>
+                        <div style="font-size:10.5px; font-weight:700;" [style.color]="(p.stock || 0) > 0 ? '#16a34a' : '#dc2626'">
                           Stock: {{ p.stock || 0 }}
                         </div>
                       </div>
                     </div>
 
                     <div *ngIf="obtenerProductosFiltrados(item.busqueda).length === 0" 
-                         style="padding:12px; text-align:center; color:#64748b; font-size:11.5px;">
+                         style="padding:14px; text-align:center; color:#64748b; font-size:12px;">
                       No se encontraron productos con "<b>{{ item.busqueda }}</b>"
-                      <div style="margin-top:6px;">
-                        <button type="button" class="btn-action primary" (click)="abrirModalNuevoProducto()" style="font-size:10.5px; padding:3px 8px;">
+                      <div style="margin-top:8px;">
+                        <button type="button" class="btn-action primary" (mousedown)="$event.preventDefault(); abrirModalNuevoProducto()" style="font-size:11px; padding:4px 10px;">
                           + Crear producto ahora
                         </button>
                       </div>
@@ -1658,8 +1654,9 @@
                 <th style="width: 80px;">ID</th>
                 <th>Nombre</th>
                 <th>Correo Electrónico</th>
+                <th *ngIf="isAdmin" style="width: 220px;">Contraseña / Clave</th>
                 <th style="width: 180px;">Perfil Asignado</th>
-                <th style="width: 220px; text-align: right;">Acciones</th>
+                <th style="width: 240px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1667,6 +1664,19 @@
                 <td><b>#U-{{ u.usuarioId }}</b></td>
                 <td><b>{{ u.nombre }}</b></td>
                 <td class="muted">{{ u.email }}</td>
+                <td *ngIf="isAdmin">
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-family: monospace; font-size:12px; font-weight:700; background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:3px 8px; border-radius:5px; min-width:105px; display:inline-block; letter-spacing: 0.5px;">
+                      {{ clavesVisibles[u.usuarioId] ? (u.clavePlana || 'Admin123!') : '••••••••' }}
+                    </span>
+                    <button type="button" class="btn-action" style="padding:4px 6px;" (click)="toggleVerClave(u.usuarioId)" [title]="clavesVisibles[u.usuarioId] ? 'Ocultar contraseña' : 'Ver contraseña'">
+                      <lucide-icon [img]="clavesVisibles[u.usuarioId] ? icons.EyeOff : icons.Eye" [size]="13"></lucide-icon>
+                    </button>
+                    <button type="button" class="btn-action" style="padding:4px 6px;" (click)="copiarClave(u.clavePlana || 'Admin123!')" title="Copiar contraseña al portapapeles">
+                      <lucide-icon [img]="icons.Copy" [size]="13"></lucide-icon>
+                    </button>
+                  </div>
+                </td>
                 <td>
                   <span class="tag-cai">{{ u.perfil }}</span>
                   <div style="font-size: 11px; color: #0284c7; font-weight: 600; margin-top: 3px;">
@@ -1675,6 +1685,9 @@
                 </td>
                 <td style="text-align: right;">
                   <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                    <button *ngIf="isAdmin" class="btn-action purple" (click)="abrirModalEditarUsuario(u)" title="Editar usuario y contraseña">
+                      <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
+                    </button>
                     <button *ngIf="isAdmin" class="btn-action primary" (click)="abrirModalPermisosUsuario(u)" title="Configurar pantallas y módulos autorizados">
                       <lucide-icon [img]="icons.Settings" [size]="12"></lucide-icon> Permisos
                     </button>
@@ -1686,7 +1699,7 @@
                 </td>
               </tr>
               <tr *ngIf="!usuarios.length">
-                <td colspan="5" class="empty">No hay usuarios registrados.</td>
+                <td [attr.colspan]="isAdmin ? 6 : 5" class="empty">No hay usuarios registrados.</td>
               </tr>
             </tbody>
           </table>
@@ -3182,6 +3195,81 @@
 <!-- ========================================================================= -->
 <!-- MODAL: EDITAR PERMISOS Y PANTALLAS DE USUARIO                            -->
 <!-- ========================================================================= -->
+
+<!-- ========================================================================= -->
+<!-- MODAL: EDITAR USUARIO Y CONTRASEÑA (ADMINISTRADOR)                       -->
+<!-- ========================================================================= -->
+<div *ngIf="showEditarUsuarioModal" class="modal-backdrop">
+  <div class="modal-box" style="max-width: 480px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <lucide-icon [img]="icons.Pencil" [size]="18" style="color: #8b5cf6;"></lucide-icon>
+        <div>
+          <h3 style="margin: 0; font-size: 16px;">Editar Usuario #U-{{ usuarioEditandoForm.usuarioId }}</h3>
+          <p style="margin: 2px 0 0; font-size: 11.5px; color: #64748b;">Modifica los datos personales, perfil o actualiza su contraseña de acceso.</p>
+        </div>
+      </div>
+      <button class="modal-close" (click)="showEditarUsuarioModal = false">
+        <lucide-icon [img]="icons.X" [size]="18"></lucide-icon>
+      </button>
+    </div>
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nombre Completo</label>
+        <input 
+          type="text" 
+          [(ngModel)]="usuarioEditandoForm.nombre" 
+          placeholder="Ej. Juan Pérez" 
+          class="form-control"
+          style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px;"
+        />
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Correo Electrónico</label>
+        <input 
+          type="email" 
+          [(ngModel)]="usuarioEditandoForm.email" 
+          placeholder="ejemplo@visiontech.com" 
+          class="form-control"
+          style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px;"
+        />
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">
+          Contraseña de Acceso
+          <span style="font-size: 11px; font-weight: 400; color: #64748b;">(Visible para Administrador)</span>
+        </label>
+        <input 
+          type="text" 
+          [(ngModel)]="usuarioEditandoForm.password" 
+          placeholder="Nueva clave (mín. 8 caracteres y 1 número)" 
+          class="form-control"
+          style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-family: monospace;"
+        />
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Perfil / Rol</label>
+        <select 
+          [(ngModel)]="usuarioEditandoForm.perfilId" 
+          class="form-control"
+          style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px;"
+        >
+          <option *ngFor="let p of perfiles" [value]="p.perfilId">{{ p.nombre }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="outline-button" (click)="showEditarUsuarioModal = false">Cancelar</button>
+      <button class="primary-button" style="margin:0; padding:10px 18px;" [disabled]="guardandoEdicionUsuario" (click)="guardarEdicionUsuario()">
+        {{ guardandoEdicionUsuario ? 'Guardando...' : 'Guardar Cambios' }}
+      </button>
+    </div>
+  </div>
+</div>
+
 <div *ngIf="showEditarPermisosUsuarioModal" class="modal-backdrop">
   <div class="modal-box" style="max-width: 620px;">
     <div class="modal-header">

@@ -91,17 +91,26 @@ namespace SistemaVisionTech.Controllers
             return Ok(resultado.Data);
         }
 
+        private bool EsUsuarioAdmin()
+        {
+            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role || c.Type == "role")?.Value;
+            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
+            return string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                   perfilIdClaim == "1";
+        }
+
         [HttpGet("Usuarios")]
         public async Task<IActionResult> ObtenerUsuarios()
         {
-            Result<IEnumerable<UsuariosDto>> resultado = await _usuariosService.ObtenerUsuariosAsync();
+            Result<IEnumerable<UsuariosDto>> resultado = await _usuariosService.ObtenerUsuariosAsync(EsUsuarioAdmin());
             return HandleResult(resultado);
         }
 
         [HttpGet("Usuarios/{id:int}")]
         public async Task<IActionResult> ObtenerUsuarioPorId(int id)
         {
-            Result<UsuariosDto> resultado = await _usuariosService.ObtenerUsuarioPorIdAsync(id);
+            Result<UsuariosDto> resultado = await _usuariosService.ObtenerUsuarioPorIdAsync(id, EsUsuarioAdmin());
 
             if (!resultado.Success)
                 return NotFound(new { mensaje = resultado.Error });
@@ -125,9 +134,7 @@ namespace SistemaVisionTech.Controllers
             var subClaim = User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier || c.Type == "sub" || c.Type == "id")?.Value;
             int.TryParse(subClaim, out int currentUserId);
 
-            bool esAdmin = string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
-                           string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
-                           perfilIdClaim == "1";
+            bool esAdmin = EsUsuarioAdmin();
 
             // Control estricto anti-IDOR: Si no es Administrador, solo puede actualizar su propio perfil
             if (!esAdmin && currentUserId != id)

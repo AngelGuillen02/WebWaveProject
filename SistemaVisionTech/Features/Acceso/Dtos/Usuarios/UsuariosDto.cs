@@ -7,6 +7,6 @@ namespace SistemaVisionTech.Features.Acceso.Dtos.Usuarios
         public string Email { get; set; } = string.Empty;
         public int PerfilId { get; set; }
         public string Perfil { get; set; } = string.Empty;
-
+        public string? ClavePlana { get; set; }
     }
 }

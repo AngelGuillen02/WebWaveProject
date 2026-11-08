@@ -11,7 +11,7 @@ import {Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardList,
   FileBarChart, Home, LogOut, Menu, Package, Search,
   Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
   AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-  Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet, LucideAngularModule, ChevronLeft, ChevronRight} from 'lucide-angular';
+  Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet, Copy, LucideAngularModule, ChevronLeft, ChevronRight} from 'lucide-angular';
 
 interface Product {
   productoId?: number;
@@ -107,6 +107,7 @@ interface UsuarioItem {
   email: string;
   perfilId: number;
   perfil: string;
+  clavePlana?: string;
 }
 
 interface PerfilItem {
@@ -191,7 +192,7 @@ export class AppComponent implements OnInit {
     FileBarChart, Home, LogOut, Menu, Package, Search,
     Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
     AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-    Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet
+    Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet, Copy
   };
 
   readonly api = environment.apiUrl;
@@ -421,7 +422,7 @@ export class AppComponent implements OnInit {
   subTabFacturas: 'listado' | 'crear' = 'listado';
   subTabInventario: 'stock' | 'kardex' = 'stock';
 
-  abrirCrearFactura(tipo: 'Factura' | 'Cotizacion' = 'Factura') {
+  abrirCrearFactura(tipo: 'Factura' | 'Cotizacion' = 'Cotizacion') {
     this.active = 'Facturas';
     this.modoEdicionCotizacion = false;
     this.cotizacionEditando = null;
@@ -653,7 +654,7 @@ export class AppComponent implements OnInit {
 
   // Facturación en vivo
   facturaForm = {
-    tipoDocumento: 'Factura' as 'Factura' | 'Cotizacion',
+    tipoDocumento: 'Cotizacion' as 'Factura' | 'Cotizacion',
     clienteId: null as number | null,
     fecha: AppComponent.getFechaHoyHonduras(),
     metodoPagoId: 1,
@@ -669,7 +670,9 @@ export class AppComponent implements OnInit {
         cantidad: 1,
         precio: 1450.00,
         descuento: 0,
-        tipoISV: 'ISV15'
+        tipoISV: 'ISV15',
+        busqueda: 'Camara Domo IP 4MP IR 30m PoE',
+        mostrarDropdown: false
       }
     ] as FacturaItemRow[]
   };
@@ -1268,7 +1271,9 @@ export class AppComponent implements OnInit {
   }
 
   get tieneProductosDuplicados(): boolean {
-    const ids = this.facturaForm.items.map(i => Number(i.productoId));
+    const ids = this.facturaForm.items
+      .map(i => Number(i.productoId))
+      .filter(id => id > 0);
     return new Set(ids).size !== ids.length;
   }
 
@@ -1314,14 +1319,18 @@ export class AppComponent implements OnInit {
   obtenerProductosFiltrados(busqueda: string | undefined): Product[] {
     const list = this.products || [];
     if (!busqueda || !busqueda.trim()) {
-      return list.slice(0, 15);
+      return list.slice(0, 30);
     }
-    const term = busqueda.toLowerCase().trim();
-    return list.filter(p => 
-      (p.nombre || '').toLowerCase().includes(term) ||
-      (p.codigoBarras || '').toLowerCase().includes(term) ||
-      (p.descripcion || '').toLowerCase().includes(term)
-    ).slice(0, 20);
+    const cleanSearch = this.normalizarTextoSinTildes(busqueda);
+    const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 0);
+
+    return list.filter(p => {
+      const nom = this.normalizarTextoSinTildes(p.nombre || '');
+      const cod = this.normalizarTextoSinTildes(p.codigoBarras || p.codigo || '');
+      const des = this.normalizarTextoSinTildes(p.descripcion || '');
+      const allText = `${nom} ${cod} ${des}`;
+      return tokens.every(token => allText.includes(token));
+    }).slice(0, 30);
   }
 
   seleccionarProductoAutocompletar(item: FacturaItemRow, prod: Product) {
@@ -1333,23 +1342,41 @@ export class AppComponent implements OnInit {
     item.mostrarDropdown = false;
   }
 
+  seleccionarPrimerProducto(item: FacturaItemRow) {
+    const filtrados = this.obtenerProductosFiltrados(item.busqueda);
+    if (filtrados && filtrados.length > 0) {
+      this.seleccionarProductoAutocompletar(item, filtrados[0]);
+    }
+  }
+
+  limpiarBusquedaProducto(item: FacturaItemRow) {
+    item.busqueda = '';
+    item.mostrarDropdown = true;
+  }
+
+  onInputBusquedaProducto(item: FacturaItemRow) {
+    item.mostrarDropdown = true;
+  }
+
   cerrarDropdownConRetraso(item: FacturaItemRow) {
     setTimeout(() => {
       item.mostrarDropdown = false;
       const p = (this.products || []).find(x => x.productoId === item.productoId);
-      if (p && (!item.busqueda || !item.busqueda.trim())) {
+      if (p) {
         item.busqueda = p.nombre || '';
       }
     }, 250);
   }
 
-  abrirDropdownProducto(item: FacturaItemRow) {
+  abrirDropdownProducto(item: FacturaItemRow, event?: any) {
+    this.facturaForm.items.forEach(it => {
+      if (it !== item) it.mostrarDropdown = false;
+    });
     item.mostrarDropdown = true;
-    if (!item.busqueda && item.productoId) {
-      const p = (this.products || []).find(x => x.productoId === item.productoId);
-      if (p) {
-        item.busqueda = p.nombre || '';
-      }
+    if (event?.target && typeof event.target.select === 'function') {
+      try {
+        event.target.select();
+      } catch (e) {}
     }
   }
 
@@ -1364,19 +1391,16 @@ export class AppComponent implements OnInit {
   }
 
   agregarItemFactura() {
-    // Buscar el primer producto que no esté ya en la lista de ítems para no generar duplicados
-    const idsEnUso = new Set(this.facturaForm.items.map(i => Number(i.productoId)));
-    const prodDisponible = this.products.find(p => !idsEnUso.has(Number(p.productoId))) || this.products[0];
-
+    this.facturaForm.items.forEach(it => it.mostrarDropdown = false);
     this.facturaForm.items.unshift({
-      productoId: prodDisponible?.productoId || 1,
-      nombre: prodDisponible?.nombre || 'Producto',
+      productoId: 0,
+      nombre: '',
       cantidad: 1,
-      precio: prodDisponible?.precioVenta || prodDisponible?.precio || 0,
+      precio: 0,
       descuento: 0,
-      tipoISV: prodDisponible?.tipoISV || 'ISV15',
-      busqueda: prodDisponible?.nombre || '',
-      mostrarDropdown: false
+      tipoISV: 'ISV15',
+      busqueda: '',
+      mostrarDropdown: true
     });
   }
 
@@ -1479,6 +1503,12 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    const itemSinProducto = this.facturaForm.items.find(i => !i.productoId || Number(i.productoId) <= 0);
+    if (itemSinProducto) {
+      this.notificarAdvertencia('Producto no seleccionado', 'Por favor selecciona un producto válido para todos los renglones antes de procesar el documento.');
+      return;
+    }
+
     if (this.tieneProductosDuplicados) {
       this.notificarError('Producto duplicado', 'No puedes repetir el mismo producto en varios renglones. Los ítems repetidos están resaltados con bordes rojos. Ajusta la cantidad del ítem existente o selecciona un producto diferente.');
       return;
@@ -1563,7 +1593,7 @@ export class AppComponent implements OnInit {
     });
   }
 
-  nuevaFacturaFormulario(tipo: 'Factura' | 'Cotizacion' = 'Factura') {
+  nuevaFacturaFormulario(tipo: 'Factura' | 'Cotizacion' = 'Cotizacion') {
     this.facturaEmitida = false;
     this.facturaEmitidaData = null;
     this.loadSARConfig();
@@ -1586,7 +1616,9 @@ export class AppComponent implements OnInit {
           cantidad: 1,
           precio: firstProd?.precioVenta || firstProd?.precio || 1450,
           descuento: 0,
-          tipoISV: firstProd?.tipoISV || 'ISV15'
+          tipoISV: firstProd?.tipoISV || 'ISV15',
+          busqueda: firstProd?.nombre || 'Equipo Tecnológico',
+          mostrarDropdown: false
         }
       ]
     };
@@ -1811,7 +1843,7 @@ export class AppComponent implements OnInit {
     }
   }
 
-  resetearNuevaFactura(tipo: 'Factura' | 'Cotizacion' = 'Factura') {
+  resetearNuevaFactura(tipo: 'Factura' | 'Cotizacion' = 'Cotizacion') {
     this.modoEdicionCotizacion = false;
     this.cotizacionEditando = null;
     this.facturaEmitida = false;
@@ -2643,7 +2675,80 @@ export class AppComponent implements OnInit {
     });
   }
 
-  // =========================================================================
+
+  // Control de visualización de contraseñas de usuarios (Solo Administrador)
+  clavesVisibles: { [usuarioId: number]: boolean } = {};
+  toggleVerClave(usuarioId: number) {
+    this.clavesVisibles[usuarioId] = !this.clavesVisibles[usuarioId];
+  }
+
+  copiarClave(clave: string) {
+    if (!clave) return;
+    navigator.clipboard.writeText(clave);
+    this.notificarExito('Copiado', 'Contraseña copiada al portapapeles.');
+  }
+
+  showEditarUsuarioModal = false;
+  guardandoEdicionUsuario = false;
+  usuarioEditandoForm = {
+    usuarioId: 0,
+    nombre: '',
+    email: '',
+    password: '',
+    perfilId: 1
+  };
+
+  abrirModalEditarUsuario(u: UsuarioItem) {
+    this.usuarioEditandoForm = {
+      usuarioId: u.usuarioId,
+      nombre: u.nombre,
+      email: u.email,
+      password: u.clavePlana || '',
+      perfilId: u.perfilId || (u.perfil === 'Administrador' ? 1 : 2)
+    };
+    this.showEditarUsuarioModal = true;
+  }
+
+  guardarEdicionUsuario() {
+    if (!this.usuarioEditandoForm.nombre.trim()) {
+      this.notificarAdvertencia('Campo Requerido', 'El nombre es obligatorio.');
+      return;
+    }
+    if (!this.usuarioEditandoForm.email.trim()) {
+      this.notificarAdvertencia('Campo Requerido', 'El correo electrónico es obligatorio.');
+      return;
+    }
+    if (this.usuarioEditandoForm.password && this.usuarioEditandoForm.password.length < 8) {
+      this.notificarAdvertencia('Contraseña Corta', 'La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    this.guardandoEdicionUsuario = true;
+    const payload = {
+      nombre: this.usuarioEditandoForm.nombre.trim(),
+      email: this.usuarioEditandoForm.email.trim(),
+      contraseña: this.usuarioEditandoForm.password ? this.usuarioEditandoForm.password.trim() : undefined,
+      perfilId: Number(this.usuarioEditandoForm.perfilId)
+    };
+
+    this.http.put<any>(`${this.api}/Acceso/Usuarios/${this.usuarioEditandoForm.usuarioId}`, payload, this.getHeaders()).subscribe({
+      next: () => {
+        this.guardandoEdicionUsuario = false;
+        this.showEditarUsuarioModal = false;
+        this.notificarExito('Usuario Actualizado', 'Los datos y contraseña del usuario se actualizaron correctamente.');
+        this.loadUsuarios();
+      },
+      error: (err) => {
+        this.guardandoEdicionUsuario = false;
+        if (!this.handleAuthError(err)) {
+          const detalle = this.obtenerMensajeError(err, 'No se pudo actualizar el usuario.');
+          this.notificarError('Error al Actualizar', detalle);
+        }
+      }
+    });
+  }
+
+    // =========================================================================
   // EDICIÓN Y ELIMINACIÓN DE PRODUCTOS Y CLIENTES
   // =========================================================================
   abrirModalEditarProducto(prod: Product) {

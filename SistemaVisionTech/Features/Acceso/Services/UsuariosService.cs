@@ -23,7 +23,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             _auditoriaService = auditoriaService;
         }
 
-        public async Task<Result<IEnumerable<UsuariosDto>>> ObtenerUsuariosAsync()
+        public async Task<Result<IEnumerable<UsuariosDto>>> ObtenerUsuariosAsync(bool esAdmin = false)
         {
             List<UsuariosDto> usuarios = await _context.Usuarios
                 .AsNoTracking()
@@ -35,14 +35,15 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     Nombre = u.Nombre,
                     Email = u.Email,
                     PerfilId = u.PerfilId,
-                    Perfil = u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil"
+                    Perfil = u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil",
+                    ClavePlana = esAdmin ? (u.ClavePlana ?? (u.UsuarioId == 1 ? "Admin123!" : "••••••••")) : null
                 })
                 .ToListAsync();
 
             return Result<IEnumerable<UsuariosDto>>.Ok(usuarios);
         }
 
-        public async Task<Result<UsuariosDto>> ObtenerUsuarioPorIdAsync(int usuarioId)
+        public async Task<Result<UsuariosDto>> ObtenerUsuarioPorIdAsync(int usuarioId, bool esAdmin = false)
         {
             Usuarios? usuario = await _context.Usuarios
                 .AsNoTracking()
@@ -59,7 +60,8 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Nombre = usuario.Nombre,
                 Email = usuario.Email,
                 PerfilId = usuario.PerfilId,
-                Perfil = usuario.Perfil != null ? usuario.Perfil.Nombre : "Sin Perfil"
+                Perfil = usuario.Perfil != null ? usuario.Perfil.Nombre : "Sin Perfil",
+                ClavePlana = esAdmin ? (usuario.ClavePlana ?? (usuario.UsuarioId == 1 ? "Admin123!" : "••••••••")) : null
             });
         }
 
@@ -101,6 +103,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 // Si el usuario existía pero estaba eliminado (inactivo), se reactiva automáticamente con los nuevos datos
                 usuarioExistente.Nombre = dto.Nombre.Trim();
                 usuarioExistente.Contraseña = BCryptNet.HashPassword(dto.Contraseña.Trim());
+                usuarioExistente.ClavePlana = dto.Contraseña.Trim();
                 usuarioExistente.PerfilId = dto.PerfilId;
                 usuarioExistente.Activo = true;
 
@@ -120,7 +123,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     "Reactivación de usuario"
                 );
 
-                return await ObtenerUsuarioPorIdAsync(usuarioExistente.UsuarioId);
+                return await ObtenerUsuarioPorIdAsync(usuarioExistente.UsuarioId, true);
             }
 
             Usuarios usuario = new()
@@ -128,6 +131,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Nombre = dto.Nombre.Trim(),
                 Email = emailNormalizado,
                 Contraseña = BCryptNet.HashPassword(dto.Contraseña.Trim()),
+                ClavePlana = dto.Contraseña.Trim(),
                 PerfilId = dto.PerfilId,
                 Activo = true
             };
@@ -145,10 +149,10 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 $"Nuevo usuario registrado: '{usuario.Nombre}' ({usuario.Email}). Perfil ID: {usuario.PerfilId}.",
                 "-",
                 usuario.Email,
-                "Alta de usuario"
+                "Creación de usuario en el sistema"
             );
 
-            return await ObtenerUsuarioPorIdAsync(usuario.UsuarioId);
+            return await ObtenerUsuarioPorIdAsync(usuario.UsuarioId, true);
         }
 
         public async Task<Result<UsuariosDto>> ActualizarUsuarioAsync(int usuarioId, UsuariosActualizacionDto dto, bool esAdmin = false, string? usuarioActual = null)
@@ -164,7 +168,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             if (usuario is null)
                 return Result<UsuariosDto>.Fail(
-                    $"El usuario con Id {usuarioId} no existe.");
+                    $"Usuario con Id {usuarioId} no encontrado.");
 
             string emailNormalizado = dto.Email.Trim().ToLower();
 
@@ -175,7 +179,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             if (emailDuplicado)
                 return Result<UsuariosDto>.Fail(
-                    $"Ya existe otro usuario activo con el correo '{dto.Email}'.", isValidation: true);
+                    $"El correo '{dto.Email}' ya está registrado por otro usuario.", isValidation: true);
 
             var cambios = new List<string>();
             if (usuario.Nombre != dto.Nombre.Trim())
@@ -208,6 +212,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     return Result<UsuariosDto>.Fail("La contraseña debe contener al menos un número.", isValidation: true);
 
                 usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(dto.Contraseña.Trim());
+                usuario.ClavePlana = dto.Contraseña.Trim();
                 cambios.Add("Contraseña modificada");
             }
 
@@ -228,7 +233,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 );
             }
 
-            return await ObtenerUsuarioPorIdAsync(usuarioId);
+            return await ObtenerUsuarioPorIdAsync(usuarioId, esAdmin);
         }
 
         public async Task<Result> EliminarUsuarioAsync(int usuarioId, string? usuarioActual = null)

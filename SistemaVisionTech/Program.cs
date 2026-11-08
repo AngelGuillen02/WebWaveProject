@@ -429,6 +429,8 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS ""IX_Auditoria_Fecha"" ON dbo.""Auditoria"" (""Fecha"");
 
             CREATE INDEX IF NOT EXISTS ""IX_Usuarios_Email"" ON dbo.""Usuarios"" (""Email"");
+            ALTER TABLE dbo.""Usuarios"" ADD COLUMN IF NOT EXISTS ""ClavePlana"" VARCHAR(255) NULL;
+            UPDATE dbo.""Usuarios"" SET ""ClavePlana"" = 'Admin123!' WHERE ""UsuarioId"" = 1 AND (""ClavePlana"" IS NULL OR ""ClavePlana"" = '');
         ");
     }
     catch (Exception ex)

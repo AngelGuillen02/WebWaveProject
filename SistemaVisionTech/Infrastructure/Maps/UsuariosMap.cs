@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SistemaVisionTech.Infrastructure.Entities;
 
@@ -18,6 +18,8 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.Email).HasColumnName("Email").HasColumnType("VARCHAR(255)").IsRequired();
 
             builder.Property(x => x.Contraseña).HasColumnName("Contraseña").HasColumnType("VARCHAR(255)").IsRequired();
+
+            builder.Property(x => x.ClavePlana).HasColumnName("ClavePlana").HasColumnType("VARCHAR(255)").IsRequired(false);
 
             builder.Property(x => x.PerfilId).HasColumnName("PerfilId").HasColumnType("INT").IsRequired();
         }
