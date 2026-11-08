@@ -180,6 +180,7 @@ namespace SistemaVisionTech.Controllers
             return HandleCreatedResult(resultado, nameof(ObtenerPerfilPorId), data => new { id = data.PerfilId });
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPut("Perfiles/{id:int}")]
         public async Task<IActionResult> ActualizarPerfil(int id, [FromBody] PerfilesActualizacionDto dto)
         {
@@ -187,6 +188,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpDelete("Perfiles/{id:int}")]
         public async Task<IActionResult> EliminarPerfil(int id)
         {
@@ -201,6 +203,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPost("Permisos")]
         public async Task<IActionResult> CrearPermiso([FromBody] PermisosCreacionDto dto)
         {
@@ -208,6 +211,7 @@ namespace SistemaVisionTech.Controllers
             return HandleCreatedResult(resultado, nameof(ObtenerPerfilPorId), data => new { id = data.PermisoId });
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPut("Permisos/{id:int}")]
         public async Task<IActionResult> ActualizarPermiso(int id, [FromBody] PermisosActualizacionDto dto)
         {
@@ -215,6 +219,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpDelete("Permisos/{id:int}")]
         public async Task<IActionResult> EliminarPermiso(int id)
         {
@@ -240,6 +245,7 @@ namespace SistemaVisionTech.Controllers
             return Ok(resultado.Data);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPost("Empresas")]
         public async Task<IActionResult> CrearEmpresa([FromBody] EmpresasCreacionDto dto)
         {
@@ -247,6 +253,7 @@ namespace SistemaVisionTech.Controllers
             return HandleCreatedResult(resultado, nameof(ObtenerEmpresaPorId), data => new { id = data.EmpresaId });
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPut("Empresas/{id:int}")]
         public async Task<IActionResult> ActualizarEmpresa(int id, [FromBody] EmpresasActualizacionDto dto)
         {
@@ -254,6 +261,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpDelete("Empresas/{id:int}")]
         public async Task<IActionResult> EliminarEmpresa(int id)
         {
@@ -279,6 +287,7 @@ namespace SistemaVisionTech.Controllers
             return Ok(resultado.Data);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPost("Sucursales")]
         public async Task<IActionResult> CrearSucursal([FromBody] SucursalesCreacionDto dto)
         {
@@ -286,6 +295,7 @@ namespace SistemaVisionTech.Controllers
             return HandleCreatedResult(resultado, nameof(ObtenerSucursalPorId), data => new { id = data.SucursalId });
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPut("Sucursales/{id:int}")]
         public async Task<IActionResult> ActualizarSucursal(int id, [FromBody] SucursalesActualizacionDto dto)
         {
@@ -293,6 +303,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpDelete("Sucursales/{id:int}")]
         public async Task<IActionResult> EliminarSucursal(int id)
         {

@@ -9,7 +9,7 @@ namespace SistemaVisionTech.Common
         private static readonly byte[] DefaultKey = SHA256.HashData(Encoding.UTF8.GetBytes(
             Environment.GetEnvironmentVariable("ENCRYPTION_KEY")
             ?? Environment.GetEnvironmentVariable("JWT_KEY")
-            ?? "VisionTech_Aes256_Gcm_StaticMasterKey_2026_Secure!"
+            ?? "DevOnly_VisionTech_Aes256_Gcm_Key_#2026!"
         ));
 
         /// <summary>

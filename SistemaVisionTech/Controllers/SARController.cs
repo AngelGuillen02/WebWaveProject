@@ -40,6 +40,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Facturador,Ventas,Cajero")]
         [HttpGet("configuracion/{sucursalId:int}")]
         public async Task<IActionResult> ObtenerConfiguracionActual(int sucursalId = 1)
         {

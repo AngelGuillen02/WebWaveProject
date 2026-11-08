@@ -46,5 +46,27 @@ namespace SistemaVisionTech.Features.Acceso.Services
         {
             if (_cache is MemoryCache mc) mc.Compact(1.0); // limpia todo
         }
+
+        public async Task<bool> EsUsuarioActivoAsync(int usuarioId)
+        {
+            string clave = $"usuario:activo:{usuarioId}";
+            if (_cache.TryGetValue(clave, out bool activo))
+                return activo;
+
+            await using var context = await _dbFactory.CreateDbContextAsync();
+            bool estaActivo = await context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.UsuarioId == usuarioId)
+                .Select(u => u.Activo)
+                .FirstOrDefaultAsync();
+
+            _cache.Set(clave, estaActivo, TimeSpan.FromMinutes(2));
+            return estaActivo;
+        }
+
+        public void InvalidarUsuario(int usuarioId)
+        {
+            _cache.Remove($"usuario:activo:{usuarioId}");
+        }
     }
 }

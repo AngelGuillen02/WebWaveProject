@@ -127,8 +127,19 @@ var jwtKey =
     Environment.GetEnvironmentVariable("JWT_KEY")
     ?? Environment.GetEnvironmentVariable("Jwt__Key")
     ?? configuredJwtKey
-    ?? builder.Configuration["Jwt__Key"]
-    ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
+    ?? builder.Configuration["Jwt__Key"];
+
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        jwtKey = "DevOnly_SistemaVisionTech_S3cr3tK3y_#2026!_MustBe32Chars+";
+    }
+    else
+    {
+        throw new InvalidOperationException("CRÍTICO DE SEGURIDAD: La variable 'JWT_KEY' no está configurada o tiene menos de 32 caracteres. Configure una clave segura en las variables de entorno.");
+    }
+}
 var jwtIssuer = 
     Environment.GetEnvironmentVariable("JWT_ISSUER")
     ?? builder.Configuration["Jwt:Issuer"]
@@ -375,7 +386,7 @@ app.MapGet("/health", () => Results.Ok(new
     status = "Healthy",
     timestamp = DateTime.UtcNow,
     servicio = "SistemaVisionTech API",
-    version = "1.0.3"
+    version = "1.0.4"
 })).AllowAnonymous();
 
 app.MapGet("/ready", async (WebWaveDbContext db) =>
@@ -504,7 +515,7 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS ""IX_Auditoria_Fecha"" ON dbo.""Auditoria"" (""Fecha"");
 
             CREATE INDEX IF NOT EXISTS ""IX_Usuarios_Email"" ON dbo.""Usuarios"" (""Email"");
-            ALTER TABLE dbo.""Usuarios"" ADD COLUMN IF NOT EXISTS ""ClavePlana"" VARCHAR(255) NULL;
+            ALTER TABLE dbo.""Usuarios"" DROP COLUMN IF EXISTS ""ClavePlana"";
 
             -- Índices de rendimiento y unicidad para producción
             CREATE UNIQUE INDEX IF NOT EXISTS ""IX_FacturasEmitidas_NumeroFactura"" ON dbo.""FacturasEmitidas"" (""NumeroFactura"");

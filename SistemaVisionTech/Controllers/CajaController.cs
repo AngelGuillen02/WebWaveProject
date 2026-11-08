@@ -24,9 +24,12 @@ namespace SistemaVisionTech.Controllers
         {
             var val = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                    ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-                   ?? "1";
-            int usuarioId = int.TryParse(val, out var uid) ? uid : 1;
-            return HandleCreatedResult(await _svc.AbrirCajaAsync(dto, usuarioId), nameof(ObtenerEstadoActual), r => new { sucursalId = r.SucursalId });
+                   ?? User.FindFirst("sub")?.Value;
+
+            if (!int.TryParse(val, out var uid) || uid <= 0)
+                return Unauthorized(new { mensaje = "Identidad de usuario no verificada en token." });
+
+            return HandleCreatedResult(await _svc.AbrirCajaAsync(dto, uid), nameof(ObtenerEstadoActual), r => new { sucursalId = r.SucursalId });
         }
 
         [HttpPost("{id}/cerrar")]

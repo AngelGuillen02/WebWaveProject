@@ -15,12 +15,14 @@ namespace SistemaVisionTech.Features.Acceso.Services
         private readonly WebWaveDbContext _context;
         private readonly ILogger<UsuariosService> _logger;
         private readonly IAuditoriaService _auditoriaService;
+        private readonly IPermisosCacheService _permisosCache;
 
-        public UsuariosService(WebWaveDbContext context, ILogger<UsuariosService> logger, IAuditoriaService auditoriaService)
+        public UsuariosService(WebWaveDbContext context, ILogger<UsuariosService> logger, IAuditoriaService auditoriaService, IPermisosCacheService permisosCache)
         {
             _context = context;
             _logger = logger;
             _auditoriaService = auditoriaService;
+            _permisosCache = permisosCache;
         }
 
         public async Task<Result<IEnumerable<UsuariosDto>>> ObtenerUsuariosAsync(bool esAdmin = false)
@@ -37,10 +39,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Nombre = u.Nombre,
                 Email = u.Email,
                 PerfilId = u.PerfilId,
-                Perfil = u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil",
-                ClavePlana = esAdmin
-                    ? (!string.IsNullOrEmpty(u.ClavePlana) ? EncryptionHelper.Decrypt(u.ClavePlana) : (u.UsuarioId == 1 ? "Admin123!" : "••••••••"))
-                    : null
+                Perfil = u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil"
             }).ToList();
 
             return Result<IEnumerable<UsuariosDto>>.Ok(usuarios);
@@ -63,10 +62,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Nombre = usuario.Nombre,
                 Email = usuario.Email,
                 PerfilId = usuario.PerfilId,
-                Perfil = usuario.Perfil != null ? usuario.Perfil.Nombre : "Sin Perfil",
-                ClavePlana = esAdmin
-                    ? (!string.IsNullOrEmpty(usuario.ClavePlana) ? EncryptionHelper.Decrypt(usuario.ClavePlana) : (usuario.UsuarioId == 1 ? "Admin123!" : "••••••••"))
-                    : null
+                Perfil = usuario.Perfil != null ? usuario.Perfil.Nombre : "Sin Perfil"
             });
         }
 
@@ -108,7 +104,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 // Si el usuario existía pero estaba eliminado (inactivo), se reactiva automáticamente con los nuevos datos
                 usuarioExistente.Nombre = dto.Nombre.Trim();
                 usuarioExistente.Contraseña = BCryptNet.HashPassword(dto.Contraseña.Trim());
-                usuarioExistente.ClavePlana = EncryptionHelper.Encrypt(dto.Contraseña.Trim());
+                _permisosCache.InvalidarUsuario(usuarioExistente.UsuarioId);
                 usuarioExistente.PerfilId = dto.PerfilId;
                 usuarioExistente.Activo = true;
 
@@ -136,7 +132,6 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Nombre = dto.Nombre.Trim(),
                 Email = emailNormalizado,
                 Contraseña = BCryptNet.HashPassword(dto.Contraseña.Trim()),
-                ClavePlana = EncryptionHelper.Encrypt(dto.Contraseña.Trim()),
                 PerfilId = dto.PerfilId,
                 Activo = true
             };
@@ -217,10 +212,11 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     return Result<UsuariosDto>.Fail("La contraseña debe contener al menos un número.", isValidation: true);
 
                 usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(dto.Contraseña.Trim());
-                usuario.ClavePlana = EncryptionHelper.Encrypt(dto.Contraseña.Trim());
+                
                 cambios.Add("Contraseña modificada");
             }
 
+            _permisosCache.InvalidarUsuario(usuarioId);
             await _context.SaveChangesAsync();
 
             if (cambios.Count > 0)
@@ -253,6 +249,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 return Result.Fail("No se puede eliminar el usuario administrador principal.");
 
             usuario.Activo = false;
+            _permisosCache.InvalidarUsuario(usuarioId);
             _context.Usuarios.Update(usuario);
             await _context.SaveChangesAsync();
             _logger.LogWarning("AUDITORÍA DE ACCESO: Usuario desactivado/eliminado lógicamente: {Email} (ID: {UsuarioId})", usuario.Email, usuario.UsuarioId);

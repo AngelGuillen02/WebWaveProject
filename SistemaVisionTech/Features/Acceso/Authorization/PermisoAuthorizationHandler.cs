@@ -28,6 +28,20 @@ namespace SistemaVisionTech.Features.Acceso.Authorization
             string? perfilIdClaim = context.User.FindFirst("PerfilId")?.Value;
             string? rolClaim = context.User.FindFirst(ClaimTypes.Role)?.Value;
 
+            // Validación inmediata de revocación de sesión si el usuario fue desactivado
+            string? subClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? context.User.FindFirst("sub")?.Value;
+
+            if (int.TryParse(subClaim, out int usuarioId))
+            {
+                bool estaActivo = await _permisosCache.EsUsuarioActivoAsync(usuarioId);
+                if (!estaActivo)
+                {
+                    context.Fail();
+                    return;
+                }
+            }
+
             bool esAdmin = perfilIdClaim == "1" ||
                            string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
                            string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase);

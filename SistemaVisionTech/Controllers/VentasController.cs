@@ -52,10 +52,8 @@ namespace SistemaVisionTech.Controllers
         [HttpPost]
         public async Task<IActionResult> CrearVenta([FromBody] CrearVentaDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.UsuarioNombre))
-            {
-                dto.UsuarioNombre = ObtenerNombreUsuarioActual();
-            }
+            // Seguridad [POT-03]: Forzar siempre la identidad del usuario autenticado del token JWT
+            dto.UsuarioNombre = ObtenerNombreUsuarioActual();
 
             Result<VentasDto> resultado = await _ventasService.CrearVentaAsync(dto);
             if (resultado.Success && resultado.Data != null)
@@ -110,6 +108,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Facturador,Ventas,Cajero")]
         [HttpPut("{id:int}/Confirmar")]
         public async Task<IActionResult> ConfirmarVenta(int id)
         {
@@ -117,6 +116,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Gerente")]
         [HttpPut("{id:int}/Anular")]
         public async Task<IActionResult> AnularVenta(int id)
         {
@@ -141,6 +141,7 @@ namespace SistemaVisionTech.Controllers
             return Conflict(new { mensaje = resultado.Error });
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Facturador,Ventas")]
         [HttpPost("{id:int}/Facturar")]
         public async Task<IActionResult> FacturarVenta(int id, [FromQuery] int sucursalId = 1)
         {

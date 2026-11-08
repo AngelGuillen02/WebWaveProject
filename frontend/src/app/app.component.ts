@@ -1787,9 +1787,16 @@ export class AppComponent implements OnInit {
       return;
     }
 
-    // Sanitizar el nodo clonado eliminando scripts y elementos ejecutables
+    // Sanitizar el nodo clonado eliminando scripts, iframes y handlers de eventos inline
     const clonedEl = el.cloneNode(true) as HTMLElement;
-    clonedEl.querySelectorAll('script, iframe, object, embed').forEach(node => node.remove());
+    clonedEl.querySelectorAll('script, iframe, object, embed, link[rel="import"]').forEach(node => node.remove());
+    clonedEl.querySelectorAll('*').forEach(node => {
+      Array.from(node.attributes).forEach(attr => {
+        if (attr.name.toLowerCase().startsWith('on') || attr.value.toLowerCase().includes('javascript:')) {
+          node.removeAttribute(attr.name);
+        }
+      });
+    });
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -2730,7 +2737,7 @@ export class AppComponent implements OnInit {
       usuarioId: u.usuarioId,
       nombre: u.nombre,
       email: u.email,
-      password: u.clavePlana || '',
+      password: '',
       perfilId: u.perfilId || (u.perfil === 'Administrador' ? 1 : 2)
     };
     this.showEditarUsuarioModal = true;

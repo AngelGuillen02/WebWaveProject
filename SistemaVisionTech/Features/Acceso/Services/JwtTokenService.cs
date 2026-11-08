@@ -23,11 +23,15 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 configuredKey = null;
             }
 
-            string jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
+            string? jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
                 ?? Environment.GetEnvironmentVariable("Jwt__Key")
                 ?? configuredKey
-                ?? _configuration["Jwt__Key"]
-                ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
+                ?? _configuration["Jwt__Key"];
+
+            if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+            {
+                throw new InvalidOperationException("CRÍTICO DE SEGURIDAD: La clave de firma JWT (JWT_KEY) no está configurada o tiene menos de 32 caracteres.");
+            }
 
             string issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
                 ?? _configuration["Jwt:Issuer"]
@@ -42,7 +46,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             string expiresStr = Environment.GetEnvironmentVariable("JWT_EXPIRES_IN_MINUTES")
                 ?? _configuration["Jwt:ExpiresInMinutes"]
                 ?? _configuration["Jwt__ExpiresInMinutes"]
-                ?? "480";
+                ?? "120"; // 2 horas (reducido de 8 horas por seguridad)
 
             int expires = int.TryParse(expiresStr, out int exp) ? exp : 480;
 

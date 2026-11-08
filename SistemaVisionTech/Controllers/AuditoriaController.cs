@@ -508,12 +508,11 @@ namespace SistemaVisionTech.Controllers
                 return BadRequest(new { mensaje = "Datos de auditoría incompletos." });
             }
 
-            var usuario = !string.IsNullOrWhiteSpace(dto.Usuario)
-                ? dto.Usuario.Trim()
-                : (User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value
-                   ?? User.Claims.FirstOrDefault(c => c.Type == "unique_name")?.Value
-                   ?? User.Identity?.Name
-                   ?? "Usuario");
+            // Seguridad [VULN-04]: La identidad en bitácora DEBE provenir siempre de los claims del JWT firmado
+            var usuario = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email || c.Type == "email")?.Value
+                ?? User.Identity?.Name
+                ?? "Usuario Autenticado";
 
             string accionNormalizada = (dto.Accion ?? "IMPRESIÓN").Trim().ToUpperInvariant();
             string detalle = !string.IsNullOrWhiteSpace(dto.Detalle)

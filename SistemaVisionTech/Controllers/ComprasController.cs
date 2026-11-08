@@ -60,6 +60,7 @@ namespace SistemaVisionTech.Controllers
             return Conflict(new { mensaje = resultado.Error });
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoCompras,Almacen")]
         [HttpPut("{id:int}/Recibir")]
         public async Task<IActionResult> RecibirCompra(int id)
         {
@@ -67,6 +68,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Gerente")]
         [HttpPut("{id:int}/Anular")]
         public async Task<IActionResult> AnularCompra(int id)
         {
@@ -74,6 +76,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoCompras,Contabilidad")]
         [HttpPost("Pago")]
         public async Task<IActionResult> RegistrarPago([FromBody] CrearPagoCompraDto dto)
         {

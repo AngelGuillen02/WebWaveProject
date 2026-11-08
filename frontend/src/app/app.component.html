@@ -1668,17 +1668,9 @@
                 <td><b>{{ u.nombre }}</b></td>
                 <td class="muted">{{ u.email }}</td>
                 <td *ngIf="isAdmin">
-                  <div style="display:flex; align-items:center; gap:6px;">
-                    <span style="font-family: monospace; font-size:12px; font-weight:700; background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:3px 8px; border-radius:5px; min-width:105px; display:inline-block; letter-spacing: 0.5px;">
-                      {{ clavesVisibles[u.usuarioId] ? (u.clavePlana || 'Admin123!') : '••••••••' }}
-                    </span>
-                    <button type="button" class="btn-action" style="padding:4px 6px;" (click)="toggleVerClave(u.usuarioId)" [title]="clavesVisibles[u.usuarioId] ? 'Ocultar contraseña' : 'Ver contraseña'">
-                      <lucide-icon [img]="clavesVisibles[u.usuarioId] ? icons.EyeOff : icons.Eye" [size]="13"></lucide-icon>
-                    </button>
-                    <button type="button" class="btn-action" style="padding:4px 6px;" (click)="copiarClave(u.clavePlana || 'Admin123!')" title="Copiar contraseña al portapapeles">
-                      <lucide-icon [img]="icons.Copy" [size]="13"></lucide-icon>
-                    </button>
-                  </div>
+                  <span class="status" style="font-size:11px; font-weight:700; background:#f8fafc; color:#475569; border:1px solid #cbd5e1; padding:4px 9px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
+                    <lucide-icon [img]="icons.Lock" [size]="12"></lucide-icon> Protegida (BCrypt)
+                  </span>
                 </td>
                 <td>
                   <span class="tag-cai">{{ u.perfil }}</span>

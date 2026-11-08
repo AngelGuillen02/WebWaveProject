@@ -35,18 +35,22 @@ namespace SistemaVisionTech.Controllers
         public async Task<IActionResult> ObtenerArbol()
             => HandleResult(await _svc.ObtenerArbolAsync());
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpPost("Nodos")]
         public async Task<IActionResult> CrearNodo([FromBody] NavNodoCreacionDto dto)
             => HandleResult(await _svc.CrearNodoAsync(dto));
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpPut("Nodos/{id:int}")]
         public async Task<IActionResult> ActualizarNodo(int id, [FromBody] NavNodoCreacionDto dto)
             => HandleResult(await _svc.ActualizarNodoAsync(id, dto));
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpDelete("Nodos/{id:int}")]
         public async Task<IActionResult> EliminarNodo(int id)
             => HandleResult(await _svc.EliminarNodoAsync(id));
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpPut("Nodos/{id:int}/Perfiles")]
         public async Task<IActionResult> GuardarPerfiles(int id, [FromBody] GuardarPerfilesNodoDto dto)
             => HandleResult(await _svc.GuardarPerfilesDelNodoAsync(id, dto));
@@ -55,6 +59,7 @@ namespace SistemaVisionTech.Controllers
         public async Task<IActionResult> ObtenerArbolConAcceso(int perfilId)
             => HandleResult(await _svc.ObtenerArbolConAccesoAsync(perfilId));
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpPut("Restricciones/{perfilId:int}")]
         public async Task<IActionResult> GuardarRestriccionesRol(int perfilId, [FromBody] SetRestriccionesRolDto dto)
             => HandleResult(await _svc.GuardarRestriccionesRolAsync(perfilId, dto));
