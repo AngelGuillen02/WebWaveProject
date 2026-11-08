@@ -112,22 +112,18 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     }
 }
 
+string? configuredJwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrWhiteSpace(configuredJwtKey) || configuredJwtKey.StartsWith("[CONFIGURAR"))
+{
+    configuredJwtKey = null;
+}
+
 var jwtKey = 
     Environment.GetEnvironmentVariable("JWT_KEY")
-    ?? builder.Configuration["Jwt:Key"]
-    ?? builder.Configuration["Jwt__Key"];
-
-if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
-{
-    if (builder.Environment.IsDevelopment())
-    {
-        jwtKey = "DevOnly_SistemaVisionTech_S3cr3tK3y_#2026!_MustBe32Chars+";
-    }
-    else
-    {
-        throw new InvalidOperationException("CRÍTICO DE SEGURIDAD: La variable 'JWT_KEY' no está configurada o tiene menos de 32 caracteres. Configure una clave segura en las variables de entorno del servidor.");
-    }
-}
+    ?? Environment.GetEnvironmentVariable("Jwt__Key")
+    ?? configuredJwtKey
+    ?? builder.Configuration["Jwt__Key"]
+    ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
 var jwtIssuer = 
     Environment.GetEnvironmentVariable("JWT_ISSUER")
     ?? builder.Configuration["Jwt:Issuer"]

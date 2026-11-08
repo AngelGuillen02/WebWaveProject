@@ -17,8 +17,15 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public LoginTokenResult GenerarToken(int usuarioId, string nombre, string email, int perfilId, string perfilNombre)
         {
+            string? configuredKey = _configuration["Jwt:Key"];
+            if (string.IsNullOrWhiteSpace(configuredKey) || configuredKey.StartsWith("[CONFIGURAR"))
+            {
+                configuredKey = null;
+            }
+
             string jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
-                ?? _configuration["Jwt:Key"]
+                ?? Environment.GetEnvironmentVariable("Jwt__Key")
+                ?? configuredKey
                 ?? _configuration["Jwt__Key"]
                 ?? "S1st3m4V1s10nT3ch_S3cr3tK3y_#2026!_MustBe32Chars+";
 
