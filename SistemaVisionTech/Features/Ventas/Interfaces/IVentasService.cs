@@ -14,5 +14,6 @@ namespace SistemaVisionTech.Features.Ventas.Interfaces
         Task<Result<VentasDto>> ConfirmarVentaAsync(int ventaId);
         Task<Result<VentasDto>> AnularVentaAsync(int ventaId, string? usuarioNombre = null);
         Task<Result<PagoVentaDto>> RegistrarPagoAsync(CrearPagoVentaDto dto);
+        Task<Result> LimpiarTodasLasFacturasAsync(string usuarioActual);
     }
 }

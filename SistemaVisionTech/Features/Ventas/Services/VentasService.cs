@@ -923,5 +923,105 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 }).ToList()
             };
         }
+
+        public async Task<Result> LimpiarTodasLasFacturasAsync(string usuarioActual)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // 1. Reponer inventario de las ventas eliminadas
+                var ventasConDetalles = await _context.Ventas
+                    .Include(v => v.Detalles)
+                    .ToListAsync();
+
+                foreach (var v in ventasConDetalles)
+                {
+                    if (v.Detalles != null)
+                    {
+                        foreach (var d in v.Detalles)
+                        {
+                            var inv = await _context.Inventario.FirstOrDefaultAsync(i => i.ProductoId == d.ProductoId);
+                            if (inv != null)
+                            {
+                                inv.Cantidad += d.Cantidad;
+                            }
+                        }
+                    }
+                }
+
+                // 2. Eliminar facturas emitidas SAR
+                var facturas = await _context.FacturasEmitidas.ToListAsync();
+                if (facturas.Count > 0)
+                {
+                    _context.FacturasEmitidas.RemoveRange(facturas);
+                }
+
+                // 3. Eliminar historial de cotizaciones, detalles, pagos y ventas
+                var historiales = await _context.CotizacionesHistorial.ToListAsync();
+                if (historiales.Count > 0)
+                {
+                    _context.CotizacionesHistorial.RemoveRange(historiales);
+                }
+
+                var detalles = await _context.VentasDetalles.ToListAsync();
+                if (detalles.Count > 0)
+                {
+                    _context.VentasDetalles.RemoveRange(detalles);
+                }
+
+                var pagos = await _context.PagosVenta.ToListAsync();
+                if (pagos.Count > 0)
+                {
+                    _context.PagosVenta.RemoveRange(pagos);
+                }
+
+                if (ventasConDetalles.Count > 0)
+                {
+                    _context.Ventas.RemoveRange(ventasConDetalles);
+                }
+
+                // 4. Resetear correlativo SAR al inicio (40 para que inicie en 41)
+                var sar = await _context.ConfiguracionSAR.FirstOrDefaultAsync(s => s.SucursalId == 1 && s.Activo);
+                if (sar != null)
+                {
+                    int inicio = 40;
+                    var match = System.Text.RegularExpressions.Regex.Match(sar.RangoDesde, @"\d+$");
+                    if (match.Success && int.TryParse(match.Value, out int rangoInicio))
+                    {
+                        inicio = Math.Max(0, rangoInicio - 1);
+                    }
+                    sar.CorrelativoActual = inicio;
+                    _context.ConfiguracionSAR.Update(sar);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                var auditEvent = new SistemaVisionTech.Infrastructure.Entities.Auditoria
+                {
+                    Tipo = "VENTA",
+                    EntidadId = 0,
+                    Referencia = "PURGA_FACTURAS",
+                    Usuario = usuarioActual,
+                    Fecha = DateTime.UtcNow,
+                    Accion = "ELIMINACION",
+                    Detalle = "Se eliminaron todas las facturas y ventas de prueba y se restableció el correlativo del SAR.",
+                    ValorAnterior = ventasConDetalles.Count.ToString(),
+                    ValorNuevo = "0",
+                    Motivo = "Purga administrativa de facturas solicitada por el usuario",
+                    Activo = true
+                };
+                _context.Auditoria.Add(auditEvent);
+                await _context.SaveChangesAsync();
+
+                return Result.Ok();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"Error al purgar facturas: {ex.Message}");
+                return Result.Fail($"Error al limpiar facturas: {ex.Message}");
+            }
+        }
     }
 }

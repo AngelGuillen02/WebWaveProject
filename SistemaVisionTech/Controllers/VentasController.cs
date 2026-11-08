@@ -155,5 +155,26 @@ namespace SistemaVisionTech.Controllers
             Result<FacturaEmitidaResponseDto> resultado = await _sarService.ObtenerFacturaAsync(id);
             return HandleResult(resultado);
         }
+
+        [Authorize(Roles = "Administrador,Admin,SuperUsuario,Super Administrador,SuperAdministrador")]
+        [HttpDelete("Facturas/LimpiarTodas")]
+        public async Task<IActionResult> LimpiarTodasLasFacturas()
+        {
+            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value;
+            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
+            bool esAdmin = string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "SuperUsuario", StringComparison.OrdinalIgnoreCase) ||
+                           perfilIdClaim == "1";
+
+            if (!esAdmin)
+            {
+                return Forbid();
+            }
+
+            string usuario = ObtenerNombreUsuarioActual();
+            Result resultado = await _ventasService.LimpiarTodasLasFacturasAsync(usuario);
+            return HandleResult(resultado);
+        }
     }
 }
