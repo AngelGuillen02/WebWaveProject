@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Acceso.Dtos.Perfiles;
 using SistemaVisionTech.Features.Acceso.Interfaces;
+using SistemaVisionTech.Features.Auditoria.Interfaces;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
 
@@ -11,11 +12,13 @@ namespace SistemaVisionTech.Features.Acceso.Services
     {
         private readonly WebWaveDbContext _context;
         private readonly IPermisosCacheService _permisosCache;
+        private readonly IAuditoriaService _auditoriaService;
 
-        public PerfilesService(WebWaveDbContext context, IPermisosCacheService permisosCache)
+        public PerfilesService(WebWaveDbContext context, IPermisosCacheService permisosCache, IAuditoriaService auditoriaService)
         {
             _context = context;
             _permisosCache = permisosCache;
+            _auditoriaService = auditoriaService;
         }
 
         public async Task<Result<IEnumerable<PerfilesDto>>> ObtenerPerfilesAsync()
@@ -59,7 +62,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             });
         }
 
-        public async Task<Result<PerfilesDto>> CrearPerfilAsync(PerfilesCreacionDto dto)
+        public async Task<Result<PerfilesDto>> CrearPerfilAsync(PerfilesCreacionDto dto, string? usuarioActual = null)
         {
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<PerfilesDto>.Fail("El nombre del perfil es obligatorio.", isValidation: true);
@@ -86,7 +89,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     return Result<PerfilesDto>.Fail($"Los siguientes permisos no existen: " + $"{string.Join(", ", noEncontrados)}.");
             }
 
-            Perfiles perfil = new() { Nombre = dto.Nombre.Trim() };
+            Perfiles perfil = new() { Nombre = dto.Nombre.Trim(), Activo = true };
             _context.Perfiles.Add(perfil);
             await _context.SaveChangesAsync();
 
@@ -103,10 +106,22 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 await _context.SaveChangesAsync();
             }
 
+            await _auditoriaService.RegistrarEventoAsync(
+                "PERFIL",
+                perfil.PerfilId,
+                perfil.Nombre,
+                usuarioActual,
+                "CREACIÓN PERFIL",
+                $"Rol/Perfil creado: '{perfil.Nombre}' con {dto.PermisosIds.Count} permiso(s).",
+                "-",
+                perfil.Nombre,
+                "Alta de perfil"
+            );
+
             return await ObtenerPerfilPorIdAsync(perfil.PerfilId);
         }
 
-        public async Task<Result<PerfilesDto>> ActualizarPerfilAsync(int perfilId, PerfilesActualizacionDto dto)
+        public async Task<Result<PerfilesDto>> ActualizarPerfilAsync(int perfilId, PerfilesActualizacionDto dto, string? usuarioActual = null)
         {
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<PerfilesDto>.Fail("El nombre del perfil es obligatorio.", isValidation: true);
@@ -139,6 +154,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     return Result<PerfilesDto>.Fail($"Los siguientes permisos no existen: " + $"{string.Join(", ", noEncontrados)}.");
             }
 
+            string nombreAnterior = perfil.Nombre;
             perfil.Nombre = dto.Nombre.Trim();
 
             HashSet<int> permisosActuales = perfil.Permisos
@@ -168,10 +184,22 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
             _permisosCache.InvalidarPerfil(perfilId); 
 
+            await _auditoriaService.RegistrarEventoAsync(
+                "PERFIL",
+                perfilId,
+                dto.Nombre,
+                usuarioActual,
+                "MODIFICACIÓN PERFIL",
+                $"Perfil '{dto.Nombre}' actualizado. {dto.PermisosIds.Count} permiso(s) asignados.",
+                nombreAnterior,
+                dto.Nombre,
+                "Actualización de rol"
+            );
+
             return await ObtenerPerfilPorIdAsync(perfilId);
         }
 
-        public async Task<Result> EliminarPerfilAsync(int perfilId)
+        public async Task<Result> EliminarPerfilAsync(int perfilId, string? usuarioActual = null)
         {
             Perfiles? perfil = await _context.Perfiles
                 .Include(p => p.Permisos)
@@ -191,6 +219,18 @@ namespace SistemaVisionTech.Features.Acceso.Services
             await _context.SaveChangesAsync();
 
             _permisosCache.InvalidarPerfil(perfilId); 
+
+            await _auditoriaService.RegistrarEventoAsync(
+                "PERFIL",
+                perfilId,
+                perfil.Nombre,
+                usuarioActual,
+                "BAJA PERFIL",
+                $"Perfil '{perfil.Nombre}' eliminado/dado de baja.",
+                perfil.Nombre,
+                "Inactivo (Eliminado)",
+                "Baja de perfil de seguridad"
+            );
 
             return Result.Ok();
         }

@@ -19,6 +19,17 @@ namespace SistemaVisionTech.Controllers
             _context = context;
         }
 
+        private static string ExtraerNombreProducto(string? detalle, int productoId)
+        {
+            if (!string.IsNullOrWhiteSpace(detalle))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(detalle, @"Producto '([^']+)'");
+                if (match.Success)
+                    return match.Groups[1].Value;
+            }
+            return "Producto #" + productoId;
+        }
+
         private bool EsSuperUsuario()
         {
             var rolClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value;
@@ -41,6 +52,7 @@ namespace SistemaVisionTech.Controllers
 
             // 1. Logs de productos
             var logsProductos = await _context.ProductosHistorial
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Include(p => p.Producto)
                 .OrderByDescending(p => p.FechaModificacion)
@@ -52,14 +64,16 @@ namespace SistemaVisionTech.Controllers
                 id = p.Id,
                 tipo = "PRODUCTO",
                 entidadId = p.ProductoId,
-                referencia = p.Producto != null ? p.Producto.Nombre : ("Producto #" + p.ProductoId),
+                referencia = (p.Producto != null && !string.IsNullOrWhiteSpace(p.Producto.Nombre)) 
+                    ? p.Producto.Nombre 
+                    : ExtraerNombreProducto(p.DetalleCambios, p.ProductoId),
                 usuario = p.Usuario,
                 fecha = DateTime.SpecifyKind(p.FechaModificacion, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 accion = p.Accion,
                 detalle = p.DetalleCambios,
                 valorAnterior = p.PrecioAnterior != null ? ("L. " + p.PrecioAnterior.Value.ToString("N2")) : "-",
-                valorNuevo = "L. " + p.PrecioNuevo.ToString("N2"),
-                motivo = "Gestión de catálogo"
+                valorNuevo = p.Accion.Contains("ELIMIN") ? "Inactivo (Eliminado)" : ("L. " + p.PrecioNuevo.ToString("N2")),
+                motivo = p.Accion.Contains("ELIMIN") ? "Eliminación de producto" : "Gestión de catálogo"
             }).ToList();
 
             // 2. Logs de cotizaciones y facturas
@@ -182,27 +196,27 @@ namespace SistemaVisionTech.Controllers
                 motivo = $"Ajuste/Movimiento de stock {m.TipoMovimiento}"
             }).ToList();
 
-            // 7. Logs de Gestión de Usuarios y Accesos
-            var logsUsuarios = await _context.Usuarios
+            // 7. Logs generales de Auditoría (Clientes, Proveedores, Usuarios, Perfiles, etc.)
+            var logsAuditoria = await _context.Auditoria
+                .IgnoreQueryFilters()
                 .AsNoTracking()
-                .Include(u => u.Perfil)
-                .OrderByDescending(u => u.UsuarioId)
-                .Take(100)
+                .OrderByDescending(a => a.Fecha)
+                .Take(500)
                 .ToListAsync();
 
-            var logsUsuariosFormateados = logsUsuarios.Select(u => new
+            var logsAuditoriaFormateados = logsAuditoria.Select(a => new
             {
-                id = u.UsuarioId,
-                tipo = "USUARIOS",
-                entidadId = u.UsuarioId,
-                referencia = u.Email,
-                usuario = "Administrador",
-                fecha = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                accion = u.Activo ? "USUARIO ACTIVO" : "USUARIO DADO DE BAJA",
-                detalle = $"Cuenta: {u.Nombre} ({u.Email}) | Rol: {(u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil")}",
-                valorAnterior = "-",
-                valorNuevo = u.Activo ? "Activo" : "Inactivo",
-                motivo = u.Activo ? "Usuario habilitado para acceso al sistema" : "Baja lógica de usuario"
+                id = a.Id,
+                tipo = a.Tipo,
+                entidadId = a.EntidadId,
+                referencia = a.Referencia,
+                usuario = a.Usuario,
+                fecha = DateTime.SpecifyKind(a.Fecha, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                accion = a.Accion,
+                detalle = a.Detalle,
+                valorAnterior = a.ValorAnterior ?? "-",
+                valorNuevo = a.ValorNuevo ?? "-",
+                motivo = a.Motivo ?? "-"
             }).ToList();
 
             var combinado = logsProductosFormateados.Cast<object>()
@@ -211,9 +225,9 @@ namespace SistemaVisionTech.Controllers
                 .Concat(logsCajaFormateados.Cast<object>())
                 .Concat(logsComprasFormateados.Cast<object>())
                 .Concat(logsKardexFormateados.Cast<object>())
-                .Concat(logsUsuariosFormateados.Cast<object>())
-                .OrderByDescending(x => ((dynamic)x).fecha)
-                .Take(600)
+                .Concat(logsAuditoriaFormateados.Cast<object>())
+                .OrderByDescending(x => DateTime.Parse(((dynamic)x).fecha))
+                .Take(800)
                 .ToList();
 
             return Ok(combinado);
@@ -230,10 +244,51 @@ namespace SistemaVisionTech.Controllers
             tipo = (tipo ?? string.Empty).Trim().ToUpperInvariant();
             referencia = (referencia ?? string.Empty).Trim();
 
+            // Si es Cliente, Proveedor, Usuario o Perfil
+            if (tipo.Contains("CLIENT") || tipo.Contains("PROV") || tipo.Contains("USUAR") || tipo.Contains("PERFIL"))
+            {
+                var queryAud = _context.Auditoria
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .AsQueryable();
+
+                if (!string.IsNullOrEmpty(tipo))
+                    queryAud = queryAud.Where(a => a.Tipo.Contains(tipo) || tipo.Contains(a.Tipo));
+
+                if (entidadId.HasValue && entidadId.Value > 0)
+                    queryAud = queryAud.Where(a => a.EntidadId == entidadId.Value);
+
+                if (!string.IsNullOrEmpty(referencia))
+                    queryAud = queryAud.Where(a => a.Referencia.Contains(referencia) || a.Detalle.Contains(referencia));
+
+                var listAud = await queryAud
+                    .OrderByDescending(a => a.Fecha)
+                    .Take(100)
+                    .ToListAsync();
+
+                var listAudFormat = listAud.Select(a => new
+                {
+                    id = a.Id,
+                    tipo = a.Tipo,
+                    entidadId = a.EntidadId,
+                    referencia = a.Referencia,
+                    usuario = a.Usuario,
+                    fecha = DateTime.SpecifyKind(a.Fecha, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    accion = a.Accion,
+                    detalle = a.Detalle,
+                    valorAnterior = a.ValorAnterior ?? "-",
+                    valorNuevo = a.ValorNuevo ?? "-",
+                    motivo = a.Motivo ?? "-"
+                }).ToList();
+
+                return Ok(listAudFormat);
+            }
+
             // Si es Producto
             if (tipo.Contains("PRODUCT") || (!tipo.Contains("FACTURA") && !tipo.Contains("COTIZ") && entidadId.HasValue && entidadId.Value > 0 && !referencia.StartsWith("COT-") && !referencia.StartsWith("000-")))
             {
                 var queryProd = _context.ProductosHistorial
+                    .IgnoreQueryFilters()
                     .AsNoTracking()
                     .Include(p => p.Producto)
                     .AsQueryable();
@@ -241,7 +296,7 @@ namespace SistemaVisionTech.Controllers
                 if (entidadId.HasValue && entidadId.Value > 0)
                     queryProd = queryProd.Where(p => p.ProductoId == entidadId.Value);
                 else if (!string.IsNullOrEmpty(referencia))
-                    queryProd = queryProd.Where(p => p.Producto != null && p.Producto.Nombre.Contains(referencia));
+                    queryProd = queryProd.Where(p => (p.Producto != null && p.Producto.Nombre.Contains(referencia)) || (p.DetalleCambios != null && p.DetalleCambios.Contains(referencia)));
 
                 var logsP = await queryProd
                     .OrderByDescending(p => p.FechaModificacion)
@@ -250,7 +305,7 @@ namespace SistemaVisionTech.Controllers
                         id = p.Id,
                         tipo = "PRODUCTO",
                         entidadId = p.ProductoId,
-                        referencia = p.Producto != null ? p.Producto.Nombre : ("Producto #" + p.ProductoId),
+                        referencia = (p.Producto != null && !string.IsNullOrWhiteSpace(p.Producto.Nombre)) ? p.Producto.Nombre : ExtraerNombreProducto(p.DetalleCambios, p.ProductoId),
                         usuario = p.Usuario,
                         fecha = p.FechaModificacion,
                         accion = p.Accion,
@@ -464,6 +519,27 @@ namespace SistemaVisionTech.Controllers
             string detalle = !string.IsNullOrWhiteSpace(dto.Detalle)
                 ? dto.Detalle.Trim()
                 : $"Acción de {accionNormalizada} sobre el documento {dto.Referencia ?? ("#" + dto.EntidadId)}.";
+
+            if (!string.IsNullOrWhiteSpace(dto.Tipo) && !dto.Tipo.Contains("COTIZ") && !dto.Tipo.Contains("FACTURA"))
+            {
+                var auditEvent = new SistemaVisionTech.Infrastructure.Entities.Auditoria
+                {
+                    Tipo = dto.Tipo.ToUpperInvariant(),
+                    EntidadId = dto.EntidadId,
+                    Referencia = dto.Referencia ?? ($"Registro #{dto.EntidadId}"),
+                    Usuario = usuario,
+                    Fecha = DateTime.UtcNow,
+                    Accion = accionNormalizada,
+                    Detalle = detalle,
+                    ValorAnterior = "-",
+                    ValorNuevo = dto.Total.HasValue ? ("L. " + dto.Total.Value.ToString("N2")) : "-",
+                    Motivo = dto.Motivo ?? "Gestión y auditoría del sistema",
+                    Activo = true
+                };
+                _context.Auditoria.Add(auditEvent);
+                await _context.SaveChangesAsync();
+                return Ok(new { mensaje = "Evento registrado exitosamente en bitácora." });
+            }
 
             var log = new SistemaVisionTech.Infrastructure.Entities.CotizacionesHistorial
             {

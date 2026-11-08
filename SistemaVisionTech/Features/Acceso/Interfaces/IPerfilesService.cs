@@ -7,8 +7,8 @@ namespace SistemaVisionTech.Features.Acceso.Interfaces
     {
         Task<Result<IEnumerable<PerfilesDto>>> ObtenerPerfilesAsync();
         Task<Result<PerfilesDto>> ObtenerPerfilPorIdAsync(int perfilId);
-        Task<Result<PerfilesDto>> CrearPerfilAsync(PerfilesCreacionDto dto);
-        Task<Result<PerfilesDto>> ActualizarPerfilAsync(int perfilId, PerfilesActualizacionDto dto);
-        Task<Result> EliminarPerfilAsync(int perfilId);
+        Task<Result<PerfilesDto>> CrearPerfilAsync(PerfilesCreacionDto dto, string? usuarioActual = null);
+        Task<Result<PerfilesDto>> ActualizarPerfilAsync(int perfilId, PerfilesActualizacionDto dto, string? usuarioActual = null);
+        Task<Result> EliminarPerfilAsync(int perfilId, string? usuarioActual = null);
     }
 }

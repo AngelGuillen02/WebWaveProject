@@ -4,6 +4,7 @@ using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Compras.Dtos.Compras;
 using SistemaVisionTech.Features.Compras.Dtos.Pagos;
 using SistemaVisionTech.Features.Compras.Interfaces;
+using System.Security.Claims;
 
 namespace SistemaVisionTech.Controllers
 {
@@ -17,6 +18,13 @@ namespace SistemaVisionTech.Controllers
         public ComprasController(IComprasService comprasService)
         {
             _comprasService = comprasService;
+        }
+
+        private string ObtenerUsuarioActual()
+        {
+            return User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Gestión Almacén";
         }
 
         [HttpGet]
@@ -40,7 +48,7 @@ namespace SistemaVisionTech.Controllers
         [HttpPost]
         public async Task<IActionResult> CrearCompra([FromBody] CrearCompraDto dto)
         {
-            Result<CompraDto> resultado = await _comprasService.CrearCompraAsync(dto);
+            Result<CompraDto> resultado = await _comprasService.CrearCompraAsync(dto, ObtenerUsuarioActual());
             if (resultado.Success && resultado.Data != null)
             {
                 return CreatedAtAction(nameof(ObtenerCompraPorId), new { id = resultado.Data.CompraId }, resultado.Data);
@@ -55,14 +63,14 @@ namespace SistemaVisionTech.Controllers
         [HttpPut("{id:int}/Recibir")]
         public async Task<IActionResult> RecibirCompra(int id)
         {
-            Result<CompraDto> resultado = await _comprasService.RecibirCompraAsync(id);
+            Result<CompraDto> resultado = await _comprasService.RecibirCompraAsync(id, ObtenerUsuarioActual());
             return HandleResult(resultado);
         }
 
         [HttpPut("{id:int}/Anular")]
         public async Task<IActionResult> AnularCompra(int id)
         {
-            Result<CompraDto> resultado = await _comprasService.AnularCompraAsync(id);
+            Result<CompraDto> resultado = await _comprasService.AnularCompraAsync(id, ObtenerUsuarioActual());
             return HandleResult(resultado);
         }
 

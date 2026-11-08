@@ -8,9 +8,9 @@ namespace SistemaVisionTech.Features.Compras.Interfaces
     {
         Task<Result<IEnumerable<CompraDto>>> ObtenerComprasAsync();
         Task<Result<CompraDto>> ObtenerCompraPorIdAsync(int compraId);
-        Task<Result<CompraDto>> CrearCompraAsync(CrearCompraDto dto);
-        Task<Result<CompraDto>> RecibirCompraAsync(int compraId);
-        Task<Result<CompraDto>> AnularCompraAsync(int compraId);
+        Task<Result<CompraDto>> CrearCompraAsync(CrearCompraDto dto, string? usuario = null);
+        Task<Result<CompraDto>> RecibirCompraAsync(int compraId, string? usuario = null);
+        Task<Result<CompraDto>> AnularCompraAsync(int compraId, string? usuario = null);
         Task<Result<PagoCompraDto>> RegistrarPagoAsync(CrearPagoCompraDto dto);
     }
 }

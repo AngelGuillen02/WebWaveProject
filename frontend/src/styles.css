@@ -616,3 +616,47 @@ nav button.active {
   box-shadow: 0 8px 16px rgba(2, 132, 199, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
   border-color: #93c5fd;
 }
+
+
+/* Autocompletador predictivo de productos */
+.autocomplete-container {
+  position: relative;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.autocomplete-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.15s ease;
+}
+
+.autocomplete-option:hover {
+  background-color: #f0fdf4 !important;
+}
+
+.autocomplete-option.selected {
+  background-color: #f0f9ff;
+  border-left: 3px solid #0284c7;
+}
+
+.autocomplete-option:last-child {
+  border-bottom: none;
+}

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SistemaVisionTech.Features.Clientes.Dtos;
 using SistemaVisionTech.Features.Clientes.Interfaces;
+using System.Security.Claims;
 
 namespace SistemaVisionTech.Controllers
 {
@@ -17,6 +18,13 @@ namespace SistemaVisionTech.Controllers
             _svc = svc;
         }
 
+        private string ObtenerUsuarioActual()
+        {
+            return User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Administrador";
+        }
+
         [HttpGet]
         public async Task<IActionResult> Listar([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
             => HandleResult(await _svc.ListarAsync(page, pageSize));
@@ -28,21 +36,22 @@ namespace SistemaVisionTech.Controllers
         [HttpPost]
         public async Task<IActionResult> Crear([FromBody] ClienteCreacionDto dto)
             => HandleCreatedResult(
-                await _svc.CrearAsync(dto),
+                await _svc.CrearAsync(dto, ObtenerUsuarioActual()),
                 nameof(ObtenerPorId),
                 r => new { id = r.ClienteId });
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpPost("Importar")]
         public async Task<IActionResult> ImportarLote([FromBody] List<ClienteCreacionDto> dtos)
-            => HandleResult(await _svc.ImportarLoteAsync(dtos));
+            => HandleResult(await _svc.ImportarLoteAsync(dtos, ObtenerUsuarioActual()));
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Editar(int id, [FromBody] ClienteCreacionDto dto)
-            => HandleResult(await _svc.EditarAsync(id, dto));
+            => HandleResult(await _svc.EditarAsync(id, dto, ObtenerUsuarioActual()));
 
         [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
-            => HandleResult(await _svc.EliminarAsync(id));
+            => HandleResult(await _svc.EliminarAsync(id, ObtenerUsuarioActual()));
     }
 }

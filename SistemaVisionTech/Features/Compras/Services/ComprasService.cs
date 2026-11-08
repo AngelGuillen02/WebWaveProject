@@ -4,6 +4,7 @@ using SistemaVisionTech.Features.Compras.Dtos.Compras;
 using SistemaVisionTech.Features.Compras.Dtos.Pagos;
 using SistemaVisionTech.Features.Compras.Enums;
 using SistemaVisionTech.Features.Compras.Interfaces;
+using SistemaVisionTech.Features.Auditoria.Interfaces;
 using SistemaVisionTech.Features.Inventario.Enums;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
@@ -13,10 +14,12 @@ namespace SistemaVisionTech.Features.Compras.Services
     public class ComprasService : IComprasService
     {
         private readonly WebWaveDbContext _context;
+        private readonly IAuditoriaService _auditoriaService;
 
-        public ComprasService(WebWaveDbContext context)
+        public ComprasService(WebWaveDbContext context, IAuditoriaService auditoriaService)
         {
             _context = context;
+            _auditoriaService = auditoriaService;
         }
 
 
@@ -57,7 +60,7 @@ namespace SistemaVisionTech.Features.Compras.Services
             return Result<CompraDto>.Ok(MapearCompraResponse(compra));
         }
 
-        public async Task<Result<CompraDto>> CrearCompraAsync(CrearCompraDto dto)
+        public async Task<Result<CompraDto>> CrearCompraAsync(CrearCompraDto dto, string? usuario = null)
         {
             if (dto.Detalles is null || dto.Detalles.Count == 0)
                 return Result<CompraDto>.Fail(
@@ -124,6 +127,8 @@ namespace SistemaVisionTech.Features.Compras.Services
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                await _auditoriaService.RegistrarEventoAsync("COMPRA", compra.CompraId, $"OC-#{compra.CompraId:D5}", usuario, "CREACIÓN", $"Orden de compra #{compra.CompraId:D5} creada con {compra.Detalles.Count} ítem(s). Total: L. {compra.Total:N2}.", "-", $"L. {compra.Total:N2}", "Emisión de orden de compra");
+
                 return await ObtenerCompraPorIdAsync(compra.CompraId);
             }
             catch (Exception ex)
@@ -133,7 +138,7 @@ namespace SistemaVisionTech.Features.Compras.Services
             }
         }
 
-        public async Task<Result<CompraDto>> RecibirCompraAsync(int compraId)
+        public async Task<Result<CompraDto>> RecibirCompraAsync(int compraId, string? usuario = null)
         {
             Compra? compra = await _context.Compras
                 .Include(c => c.Detalles)
@@ -199,6 +204,8 @@ namespace SistemaVisionTech.Features.Compras.Services
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                await _auditoriaService.RegistrarEventoAsync("COMPRA", compra.CompraId, $"OC-#{compra.CompraId:D5}", usuario, "MERCADERÍA RECIBIDA", $"Mercadería de OC-#{compra.CompraId:D5} recibida e ingresada a stock ({compra.Detalles.Count} productos). Total: L. {compra.Total:N2}.", "Pendiente", "Recibida", "Recepción en almacén");
+
                 return await ObtenerCompraPorIdAsync(compraId);
             }
             catch (Exception ex)
@@ -209,7 +216,7 @@ namespace SistemaVisionTech.Features.Compras.Services
         }
 
 
-        public async Task<Result<CompraDto>> AnularCompraAsync(int compraId)
+        public async Task<Result<CompraDto>> AnularCompraAsync(int compraId, string? usuario = null)
         {
             Compra? compra = await _context.Compras
                 .Include(c => c.Detalles)
@@ -269,6 +276,8 @@ namespace SistemaVisionTech.Features.Compras.Services
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    await _auditoriaService.RegistrarEventoAsync("COMPRA", compra.CompraId, $"OC-#{compra.CompraId:D5}", usuario, "COMPRA ANULADA", $"Orden de compra #{compra.CompraId:D5} anulada con reversión de inventario.", $"L. {compra.Total:N2}", "Anulada", "Anulación de compra");
+
                     return await ObtenerCompraPorIdAsync(compraId);
                 }
                 catch (Exception ex)
@@ -280,6 +289,8 @@ namespace SistemaVisionTech.Features.Compras.Services
 
             compra.EstadoCompraId = (int)EstadoCompraEnum.Anulada;
             await _context.SaveChangesAsync();
+
+            await _auditoriaService.RegistrarEventoAsync("COMPRA", compra.CompraId, $"OC-#{compra.CompraId:D5}", usuario, "COMPRA ANULADA", $"Orden de compra #{compra.CompraId:D5} anulada.", $"L. {compra.Total:N2}", "Anulada", "Anulación de compra");
 
             return await ObtenerCompraPorIdAsync(compraId);
         }

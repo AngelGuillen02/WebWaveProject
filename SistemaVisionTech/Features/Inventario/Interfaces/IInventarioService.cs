@@ -10,6 +10,6 @@ namespace SistemaVisionTech.Features.Inventario.Interfaces
         Task<Result<InventarioDto>> ObtenerInventarioPorProductoAsync(int productoId);
         Task<Result<MovimientoDto>> RegistrarMovimientoAsync(CrearMovimientoInventarioDto dto);
         Task<Result<IEnumerable<MovimientoDto>>> ObtenerMovimientosAsync(int? productoId = null);
-        Task<Result<InventarioDto>> AjustarInventarioAsync(AjusteInventarioDto dto);
+        Task<Result<InventarioDto>> AjustarInventarioAsync(AjusteInventarioDto dto, string? usuario = null);
     }
 }

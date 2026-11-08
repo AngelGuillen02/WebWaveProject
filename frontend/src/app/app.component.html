@@ -146,8 +146,8 @@
         </div>
         <div style="display:flex; gap:10px;">
           <ng-container *ngIf="active === 'Facturas'">
-            <button *ngIf="subTabFacturas === 'listado'" class="outline-button" (click)="exportarFacturasExcel()" title="Descargar facturas en Excel">
-              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
+            <button *ngIf="subTabFacturas === 'listado' && isAdmin" class="outline-button" (click)="exportarFacturasExcel()" title="Descargar facturas en Excel">
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button *ngIf="subTabFacturas === 'listado'" class="primary-small" (click)="abrirCrearFactura()">
               <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon> + Nueva Factura
@@ -514,7 +514,7 @@
                   <td>
                     <!-- ACCIONES PARA COTIZACIONES (PERMITEN EDICIÓN Y BITÁCORA DE AUDITORÍA) -->
                     <div *ngIf="venta.esCotizacion" style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
-                      <button *ngIf="!esVentaAnulada(venta)" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización">
+                      <button *ngIf="!esVentaAnulada(venta) && isAdmin" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar cotización (Solo Administrador)">
                         <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
                       </button>
                       <button *ngIf="!esVentaAnulada(venta)" class="btn-action success" (click)="facturarCotizacionDesdeVentas(venta)" title="Convertir cotización en Factura Fiscal SAR oficial con CAI">
@@ -531,11 +531,11 @@
                       </span>
                     </div>
 
-                    <!-- ACCIONES PARA FACTURAS FISCALES SAR -->
+                    <!-- ACCIONES PARA FACTURAS FISCALES SAR (INMUTABLES POR LEY - SOLO ANULACIÓN) -->
                     <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                      <button *ngIf="!esVentaAnulada(venta)" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Cargar todos los datos de la factura en el diseñador">
-                        <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
-                      </button>
+                      <span *ngIf="!esVentaAnulada(venta)" style="font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9; padding:4px 7px; border-radius:5px; border:1px solid #e2e8f0; display:inline-flex; align-items:center; gap:4px;" title="Factura oficial emitida. No modificable por ley (solo anulación)">
+                        <lucide-icon [img]="icons.Lock" [size]="11"></lucide-icon> Inmutable (SAR)
+                      </span>
                       <button *ngIf="venta.numeroFactura || esVentaAnulada(venta)" class="btn-action primary" (click)="verFactura(venta)" [title]="venta.numeroFactura ? 'Ver factura oficial' : 'Ver comprobante'">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
                       </button>
@@ -603,6 +603,9 @@
                 <button *ngIf="modoEdicionCotizacion" class="btn-generar" [disabled]="guardandoEdicionCotizacion" (click)="guardarEdicionCotizacionDesdeWorkspace()" style="background:#0284c7;">
                   <lucide-icon [img]="icons.Check" [size]="15"></lucide-icon>
                   {{ guardandoEdicionCotizacion ? 'Guardando…' : 'Guardar Cambios' }}
+                </button>
+                <button *ngIf="modoEdicionCotizacion && !esVentaAnulada(cotizacionEditando)" type="button" class="btn-action success" (click)="facturarCotizacionDesdeVentas(cotizacionEditando)" style="padding:6px 14px; font-size:11px; font-weight:700; color:#15803d; border-color:#86efac; background:#f0fdf4;" title="Convertir y emitir Factura Fiscal SAR con CAI">
+                  <lucide-icon [img]="icons.Check" [size]="13"></lucide-icon> Facturar (SAR)
                 </button>
                 <button *ngIf="!modoEdicionCotizacion" class="btn-generar" [disabled]="generandoFactura || facturaEmitida" (click)="generarFacturaFiscal()" [style.background]="facturaForm.tipoDocumento === 'Cotizacion' ? '#0284c7' : '#1e3a8a'">
                   <lucide-icon [img]="icons.Check" [size]="15"></lucide-icon>
@@ -707,16 +710,65 @@
                   </div>
                 </div>
 
-                <div class="form-group" style="margin-bottom:2px;">
+                <div class="form-group autocomplete-container" style="margin-bottom:2px; position:relative;">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <label style="font-size:10.5px; margin-bottom:2px;">Producto:</label>
+                    <label style="font-size:10.5px; margin-bottom:2px; font-weight:700; color:#334155;">
+                      Producto (Buscar por nombre o código):
+                    </label>
                     <a style="font-size:10px; color:#0284c7; font-weight:700; text-decoration:underline; cursor:pointer;" (click)="abrirModalNuevoProducto()">+ Crear nuevo</a>
                   </div>
-                  <select [(ngModel)]="item.productoId" (change)="onProductoCambio(item)" style="padding:5px 8px; font-size:11.5px;">
-                    <option *ngFor="let p of products" [value]="p.productoId">
-                      {{ p.nombre }} - L. {{ p.precioVenta | number:'1.2-2' }} (Stock: {{ p.stock || 0 }})
-                    </option>
-                  </select>
+
+                  <div style="position:relative; display:flex; align-items:center;">
+                    <input type="text"
+                           [(ngModel)]="item.busqueda"
+                           (focus)="abrirDropdownProducto(item)"
+                           (input)="item.mostrarDropdown = true"
+                           (blur)="cerrarDropdownConRetraso(item)"
+                           placeholder="Escriba para buscar por nombre o código..."
+                           style="width:100%; padding:6px 28px 6px 9px; font-size:11.5px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; background:#fff;"
+                           autocomplete="off">
+                    <button *ngIf="item.busqueda" 
+                            type="button" 
+                            (mousedown)="item.busqueda = ''; item.mostrarDropdown = true" 
+                            style="position:absolute; right:8px; background:none; border:none; cursor:pointer; color:#94a3b8; font-size:12px; padding:0; line-height:1;"
+                            title="Borrar texto">✕</button>
+                  </div>
+
+                  <!-- DROPDOWN FLOTANTE AUTOCOMPLETADOR -->
+                  <div *ngIf="item.mostrarDropdown" 
+                       class="autocomplete-dropdown"
+                       style="position:absolute; top:100%; left:0; right:0; z-index:50; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1); max-height:220px; overflow-y:auto; margin-top:3px;">
+                    
+                    <div *ngFor="let p of obtenerProductosFiltrados(item.busqueda)"
+                         (mousedown)="seleccionarProductoAutocompletar(item, p)"
+                         class="autocomplete-option"
+                         style="padding:8px 12px; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; transition:background 0.15s;"
+                         [style.background]="p.productoId === item.productoId ? '#f0f9ff' : '#ffffff'">
+                      <div>
+                        <div style="font-weight:700; font-size:12px; color:#0f172a;">{{ p.nombre }}</div>
+                        <div style="font-size:10.5px; color:#64748b; display:flex; gap:8px; margin-top:2px;">
+                          <span *ngIf="p.codigoBarras">Cód: <b>{{ p.codigoBarras }}</b></span>
+                          <span style="color:#0284c7; font-weight:700;">{{ p.tipoISV || 'ISV15' }}</span>
+                        </div>
+                      </div>
+                      <div style="text-align:right;">
+                        <div style="font-weight:800; font-size:12px; color:#0284c7;">L. {{ (p.precioVenta || p.precio || 0) | number:'1.2-2' }}</div>
+                        <div style="font-size:10px; font-weight:700;" [style.color]="(p.stock || 0) > 0 ? '#16a34a' : '#dc2626'">
+                          Stock: {{ p.stock || 0 }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div *ngIf="obtenerProductosFiltrados(item.busqueda).length === 0" 
+                         style="padding:12px; text-align:center; color:#64748b; font-size:11.5px;">
+                      No se encontraron productos con "<b>{{ item.busqueda }}</b>"
+                      <div style="margin-top:6px;">
+                        <button type="button" class="btn-action primary" (click)="abrirModalNuevoProducto()" style="font-size:10.5px; padding:3px 8px;">
+                          + Crear producto ahora
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- 4 CUADROS EN UNA SOLA LÍNEA: CANTIDAD, PRECIO UNITARIO, DESCUENTO E IMPUESTO -->
@@ -947,10 +999,10 @@
             <p>{{ products.length }} productos conectados a inventario y base de datos</p>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="outline-button" (click)="exportarProductosExcel()" title="Descargar catálogo de productos en formato Excel">
+            <button *ngIf="isAdmin" class="outline-button" (click)="exportarProductosExcel()" title="Descargar catálogo de productos en formato Excel">
               <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
-            <button class="outline-button" (click)="abrirModalImportar('Productos')" title="Importar productos masivamente desde Excel/CSV">
+            <button *ngIf="isAdmin" class="outline-button" (click)="abrirModalImportar('Productos')" title="Importar productos masivamente desde Excel/CSV">
               <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoProducto()">
@@ -966,12 +1018,13 @@
             <input 
               type="text" 
               [(ngModel)]="searchProductos" 
+              (ngModelChange)="paginaActualProductos = 1"
               placeholder="Buscar producto por nombre, código de barras, SKU o descripción..." 
               style="width: 100%; padding: 9px 36px 9px 36px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #ffffff; outline: none; transition: all 0.2s;"
             >
             <button 
               *ngIf="searchProductos" 
-              (click)="searchProductos = ''" 
+              (click)="searchProductos = ''; paginaActualProductos = 1" 
               style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center;"
               title="Limpiar búsqueda"
             >
@@ -979,7 +1032,7 @@
             </button>
           </div>
           <div style="font-size: 12px; color: #64748b; font-weight: 600;">
-            Mostrando <b>{{ filteredProducts.length }}</b> de <b>{{ products.length }}</b> productos
+            Mostrando <b>{{ inicioProductosPaginados }} - {{ finProductosPaginados }}</b> de <b>{{ filteredProducts.length }}</b> productos
           </div>
         </div>
 
@@ -988,19 +1041,30 @@
             <thead>
               <tr>
                 <th>Producto / Equipo</th>
-                <th style="width: 170px;">Código / Barras</th>
-                <th style="width: 150px;">Precio Venta</th>
-                <th style="width: 160px; text-align: center;">Stock Disponible</th>
-                <th style="width: 120px; text-align: center;">Estado</th>
+                <th style="width: 160px;">Código / Barras</th>
+                <th style="width: 130px;">Precio Venta</th>
+                <th style="width: 120px; text-align: center;">Impuesto</th>
+                <th style="width: 150px; text-align: center;">Stock Disponible</th>
+                <th style="width: 110px; text-align: center;">Estado</th>
                 <th style="width: 140px; text-align: right;">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let product of filteredProducts">
+              <tr *ngFor="let product of paginatedProducts">
                 <td><b>{{ product.nombre || 'Sin nombre' }}</b></td>
                 <td class="muted">{{ product.codigo || '—' }}</td>
                 <td><b>{{ (product.precioVenta || 0) | currency:'HNL ':'symbol':'1.2-2' }}</b></td>
-                <td>
+                <td style="text-align: center;">
+                  <span 
+                    class="tag-cai" 
+                    [style.background]="(product.tipoISV === 'EXENTO') ? '#f1f5f9' : (product.tipoISV === 'ISV18' ? '#fef3c7' : '#e0f2fe')"
+                    [style.color]="(product.tipoISV === 'EXENTO') ? '#475569' : (product.tipoISV === 'ISV18' ? '#b45309' : '#0369a1')"
+                    style="font-weight: 700; font-size: 11px; padding: 3px 8px; border-radius: 6px; display: inline-block;"
+                  >
+                    {{ formatearTipoISV(product.tipoISV) }}
+                  </span>
+                </td>
+                <td style="text-align: center;">
                   <b [style.color]="(product.stock || 0) > 0 ? '#0284c7' : '#c53929'">
                     {{ product.stock || 0 }} unidades
                   </b>
@@ -1019,16 +1083,88 @@
                 </td>
               </tr>
               <tr *ngIf="!products.length">
-                <td colspan="6" class="empty">No hay productos disponibles. Haz clic en "+ Nuevo producto" para crear el primero.</td>
+                <td colspan="7" class="empty">No hay productos disponibles. Haz clic en "+ Nuevo producto" para crear el primero.</td>
               </tr>
               <tr *ngIf="products.length && !filteredProducts.length">
-                <td colspan="6" class="empty" style="text-align: center; padding: 26px; color: #64748b;">
+                <td colspan="7" class="empty" style="text-align: center; padding: 26px; color: #64748b;">
                   No se encontraron productos que coincidan con "<b>{{ searchProductos }}</b>".
-                  <button class="text-button" (click)="searchProductos = ''" style="display: block; margin: 6px auto 0;">Limpiar búsqueda</button>
+                  <button class="text-button" (click)="searchProductos = ''; paginaActualProductos = 1" style="display: block; margin: 6px auto 0;">Limpiar búsqueda</button>
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Paginación de Productos (10 en 10) -->
+        <div *ngIf="filteredProducts.length > 0" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: #ffffff; border-top: 1px solid #e2e8f0; flex-wrap: wrap; gap: 12px;">
+          <div style="font-size: 12.5px; color: #64748b;">
+            Página <b>{{ paginaActualProductos }}</b> de <b>{{ totalPaginasProductos }}</b>
+            <span style="margin: 0 6px; color: #cbd5e1;">|</span>
+            <span><b>10</b> productos por página</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button 
+              type="button"
+              [disabled]="paginaActualProductos === 1"
+              (click)="cambiarPaginaProductos(1)"
+              title="Primera página"
+              style="display: flex; align-items: center; justify-content: center; height: 32px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #475569; font-size: 12px; cursor: pointer; transition: all 0.2s;"
+              [style.opacity]="paginaActualProductos === 1 ? '0.4' : '1'"
+              [style.cursor]="paginaActualProductos === 1 ? 'not-allowed' : 'pointer'"
+            >
+              ««
+            </button>
+            <button 
+              type="button"
+              [disabled]="paginaActualProductos === 1"
+              (click)="paginaAnteriorProductos()"
+              title="Página anterior"
+              style="display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #475569; font-size: 12px; cursor: pointer; transition: all 0.2s;"
+              [style.opacity]="paginaActualProductos === 1 ? '0.4' : '1'"
+              [style.cursor]="paginaActualProductos === 1 ? 'not-allowed' : 'pointer'"
+            >
+              <lucide-icon [img]="icons.ChevronLeft" [size]="14"></lucide-icon> Anterior
+            </button>
+
+            <div style="display: flex; gap: 4px;">
+              <button 
+                *ngFor="let p of paginasDisponiblesProductos"
+                type="button"
+                (click)="cambiarPaginaProductos(p)"
+                [style.background]="p === paginaActualProductos ? '#0284c7' : '#ffffff'"
+                [style.color]="p === paginaActualProductos ? '#ffffff' : '#334155'"
+                [style.border]="p === paginaActualProductos ? '1px solid #0284c7' : '1px solid #cbd5e1'"
+                [style.fontWeight]="p === paginaActualProductos ? '700' : '500'"
+                style="min-width: 32px; height: 32px; padding: 0 6px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;"
+              >
+                {{ p }}
+              </button>
+            </div>
+
+            <button 
+              type="button"
+              [disabled]="paginaActualProductos >= totalPaginasProductos"
+              (click)="paginaSiguienteProductos()"
+              title="Página siguiente"
+              style="display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #475569; font-size: 12px; cursor: pointer; transition: all 0.2s;"
+              [style.opacity]="paginaActualProductos >= totalPaginasProductos ? '0.4' : '1'"
+              [style.cursor]="paginaActualProductos >= totalPaginasProductos ? 'not-allowed' : 'pointer'"
+            >
+              Siguiente <lucide-icon [img]="icons.ChevronRight" [size]="14"></lucide-icon>
+            </button>
+            <button 
+              type="button"
+              [disabled]="paginaActualProductos >= totalPaginasProductos"
+              (click)="cambiarPaginaProductos(totalPaginasProductos)"
+              title="Última página"
+              style="display: flex; align-items: center; justify-content: center; height: 32px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; color: #475569; font-size: 12px; cursor: pointer; transition: all 0.2s;"
+              [style.opacity]="paginaActualProductos >= totalPaginasProductos ? '0.4' : '1'"
+              [style.cursor]="paginaActualProductos >= totalPaginasProductos ? 'not-allowed' : 'pointer'"
+            >
+              »»
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1157,10 +1293,10 @@
             <p>{{ clientes.length }} clientes registrados en base de datos</p>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="outline-button" (click)="exportarClientesExcel()" title="Descargar clientes en formato Excel">
+            <button *ngIf="isAdmin" class="outline-button" (click)="exportarClientesExcel()" title="Descargar clientes en formato Excel">
               <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
-            <button class="outline-button" (click)="abrirModalImportar('Clientes')" title="Importar clientes masivamente desde Excel/CSV">
+            <button *ngIf="isAdmin" class="outline-button" (click)="abrirModalImportar('Clientes')" title="Importar clientes masivamente desde Excel/CSV">
               <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
@@ -1242,8 +1378,8 @@
             <p>{{ compras.length }} órdenes de abastecimiento de mercancía e insumos</p>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="outline-button" (click)="exportarComprasExcel()" title="Descargar órdenes de compra en Excel">
-              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
+            <button *ngIf="isAdmin" class="outline-button" (click)="exportarComprasExcel()" title="Descargar órdenes de compra en Excel">
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevaCompra()">+ Nueva Orden de Compra</button>
           </div>
@@ -1328,10 +1464,10 @@
             <p>{{ proveedores.length }} proveedores ópticos y distribuidores autorizados</p>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="outline-button" (click)="exportarProveedoresExcel()" title="Descargar proveedores en formato Excel">
+            <button *ngIf="isAdmin" class="outline-button" (click)="exportarProveedoresExcel()" title="Descargar proveedores en formato Excel">
               <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
-            <button class="outline-button" (click)="abrirModalImportar('Proveedores')" title="Importar proveedores masivamente desde Excel/CSV">
+            <button *ngIf="isAdmin" class="outline-button" (click)="abrirModalImportar('Proveedores')" title="Importar proveedores masivamente desde Excel/CSV">
               <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoProveedor()">+ Nuevo Proveedor</button>
@@ -1636,7 +1772,7 @@
             </div>
 
             <div style="display: flex; gap: 10px;">
-              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #0284c7; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarVentasSARExcel()" title="Exportar a Microsoft Excel (.xlsx)">
+              <button *ngIf="isAdmin" class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #0284c7; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarVentasSARExcel()" title="Exportar a Microsoft Excel (.xlsx)">
                 <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon>
                 Exportar Excel (.xlsx)
               </button>
@@ -1853,7 +1989,7 @@
             </div>
 
             <div style="display: flex; gap: 10px;">
-              <button class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #0284c7; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarInventarioExcel()" title="Exportar a Microsoft Excel (.xlsx)">
+              <button *ngIf="isAdmin" class="primary-button" style="margin: 0; padding: 8px 14px; font-size: 11.5px; background: #0284c7; display: inline-flex; align-items: center; gap: 6px;" (click)="exportarInventarioExcel()" title="Exportar a Microsoft Excel (.xlsx)">
                 <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon>
                 Exportar Excel (.xlsx)
               </button>
@@ -1964,6 +2100,10 @@
                   <option value="FACTURA">Facturas SAR</option>
                   <option value="COTIZ">Cotizaciones</option>
                   <option value="PRODUCTO">Productos</option>
+                  <option value="CLIENTE">Clientes</option>
+                  <option value="PROVEEDOR">Proveedores</option>
+                  <option value="USUARIOS">Usuarios y Accesos</option>
+                  <option value="PERFIL">Perfiles y Roles</option>
                   <option value="COMPRA">Compras</option>
                   <option value="CAJA">Caja y Arqueos</option>
                   <option value="KARDEX">Kardex / Inventario</option>
@@ -2005,8 +2145,8 @@
                   </td>
                   <td>
                     <span class="status" 
-                      [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : (item.tipo.includes('FACTURA') ? '#e0f2fe' : (item.tipo.includes('COMPRA') ? '#fef3c7' : (item.tipo.includes('CAJA') ? '#ccfbf1' : (item.tipo.includes('KARDEX') ? '#ede9fe' : '#f5f3ff'))))" 
-                      [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : (item.tipo.includes('FACTURA') ? '#0284c7' : (item.tipo.includes('COMPRA') ? '#b45309' : (item.tipo.includes('CAJA') ? '#0f766e' : (item.tipo.includes('KARDEX') ? '#6d28d9' : '#475569'))))" 
+                      [style.background]="item.tipo === 'PRODUCTO' ? '#e0f2fe' : (item.tipo.includes('FACTURA') ? '#e0f2fe' : (item.tipo.includes('COMPRA') ? '#fef3c7' : (item.tipo.includes('CAJA') ? '#ccfbf1' : (item.tipo.includes('KARDEX') ? '#ede9fe' : (item.tipo === 'CLIENTE' ? '#dcfce7' : (item.tipo === 'PROVEEDOR' ? '#ffedd5' : (item.tipo === 'USUARIOS' ? '#fce7f3' : (item.tipo === 'PERFIL' ? '#f3e8ff' : '#f5f3ff'))))))))" 
+                      [style.color]="item.tipo === 'PRODUCTO' ? '#0369a1' : (item.tipo.includes('FACTURA') ? '#0284c7' : (item.tipo.includes('COMPRA') ? '#b45309' : (item.tipo.includes('CAJA') ? '#0f766e' : (item.tipo.includes('KARDEX') ? '#6d28d9' : (item.tipo === 'CLIENTE' ? '#15803d' : (item.tipo === 'PROVEEDOR' ? '#c2410c' : (item.tipo === 'USUARIOS' ? '#be185d' : (item.tipo === 'PERFIL' ? '#7e22ce' : '#475569'))))))))" 
                       style="font-weight: 800; font-size: 9.5px;">
                       {{ item.tipo }}
                     </span>
@@ -2014,7 +2154,7 @@
                   <td><b style="color: #0f172a; font-size: 12px;">{{ item.referencia }}</b></td>
                   <td><span class="muted" style="font-weight: 600; color: #334155;">{{ item.usuario }}</span></td>
                   <td>
-                    <span class="status" [style.background]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') ? '#fee2e2' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#e0f2fe' : '#f1f5f9')" [style.color]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') ? '#b91c1c' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#0369a1' : '#334155')" style="font-weight: 800; font-size: 9.5px;">
+                    <span class="status" [style.background]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') || item.accion.includes('BAJA') ? '#fee2e2' : (item.accion.includes('CREAC') || item.accion.includes('ALTA') ? '#dcfce7' : (item.accion.includes('MODIF') ? '#fef3c7' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#e0f2fe' : '#f1f5f9')))" [style.color]="item.accion.includes('ELIMIN') || item.accion.includes('ANUL') || item.accion.includes('BAJA') ? '#b91c1c' : (item.accion.includes('CREAC') || item.accion.includes('ALTA') ? '#15803d' : (item.accion.includes('MODIF') ? '#b45309' : (item.accion.includes('FACTURA') || item.accion.includes('SAR') ? '#0369a1' : '#334155')))" style="font-weight: 800; font-size: 9.5px;">
                       {{ item.accion }}
                     </span>
                   </td>
@@ -3436,6 +3576,9 @@
     </div>
     <div class="modal-footer">
       <button class="outline-button" (click)="showVerCotizacionModal = false">Cerrar</button>
+      <button *ngIf="!esVentaAnulada(cotizacionSeleccionada)" type="button" class="btn-action success" style="padding:9px 16px; font-weight:700; color:#15803d; border-color:#86efac; background:#f0fdf4;" (click)="facturarCotizacionDesdeVentas(cotizacionSeleccionada)" title="Convertir a Factura Fiscal SAR oficial con CAI">
+        <lucide-icon [img]="icons.Check" [size]="14"></lucide-icon> Facturar (SAR)
+      </button>
       <button class="btn-action" style="padding:9px 16px; font-weight:700; color:#0284c7; border-color:#bae6fd;" (click)="descargarCotizacionModalPDF()">
         <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Descargar PDF
       </button>
@@ -3559,7 +3702,7 @@
           <tbody>
             <tr *ngFor="let h of historialEntidadList; let i = index">
               <td style="text-align: center; font-weight: 700; color: #64748b; font-size: 11px;">
-                {{ historialEntidadList.length - i }}
+                {{ i + 1 }}
               </td>
               <td style="font-size: 11px; color: #334155; font-weight: 600; white-space: nowrap;">
                 {{ parseFechaUtc(h.fecha) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}
@@ -3599,7 +3742,7 @@
 <!-- ========================================================================= -->
 <!-- MODAL DINÁMICO DE IMPORTACIÓN MASIVA (EXCEL / CSV)                       -->
 <!-- ========================================================================= -->
-<div *ngIf="showImportModal" class="modal-backdrop">
+<div *ngIf="showImportModal && isAdmin" class="modal-backdrop">
   <div class="modal" style="max-width: 840px; width: 95%;">
     <div class="modal-header" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color: #ffffff; padding: 18px 24px; border-radius: 12px 12px 0 0; display: flex; align-items: center; justify-content: space-between;">
       <div style="display: flex; align-items: center; gap: 12px;">

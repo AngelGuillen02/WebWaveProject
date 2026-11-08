@@ -4,6 +4,7 @@ using SistemaVisionTech.Features.Inventario.Dtos.Inventario;
 using SistemaVisionTech.Features.Inventario.Dtos.Movimientos;
 using SistemaVisionTech.Features.Inventario.Enums;
 using SistemaVisionTech.Features.Inventario.Interfaces;
+using SistemaVisionTech.Features.Auditoria.Interfaces;
 using SistemaVisionTech.Infrastructure;
 using SistemaVisionTech.Infrastructure.Entities;
 
@@ -12,10 +13,12 @@ namespace SistemaVisionTech.Features.Inventario.Service
     public class InventarioService : IInventarioService
     {
         private readonly WebWaveDbContext _context;
+        private readonly IAuditoriaService _auditoriaService;
 
-        public InventarioService(WebWaveDbContext context)
+        public InventarioService(WebWaveDbContext context, IAuditoriaService auditoriaService)
         {
             _context = context;
+            _auditoriaService = auditoriaService;
         }
 
         public async Task<Result<IEnumerable<InventarioDto>>> ObtenerInventarioAsync()
@@ -193,7 +196,7 @@ namespace SistemaVisionTech.Features.Inventario.Service
             return Result<IEnumerable<MovimientoDto>>.Ok(movimientos);
         }
 
-        public async Task<Result<InventarioDto>> AjustarInventarioAsync(AjusteInventarioDto dto)
+        public async Task<Result<InventarioDto>> AjustarInventarioAsync(AjusteInventarioDto dto, string? usuario = null)
         {
             if (dto.CantidadNueva < 0)
                 return Result<InventarioDto>.Fail(
@@ -231,7 +234,8 @@ namespace SistemaVisionTech.Features.Inventario.Service
                     isNew = true;
                 }
 
-                int diferencia = dto.CantidadNueva - inventario.Cantidad;
+                int stockAnterior = inventario.Cantidad;
+                int diferencia = dto.CantidadNueva - stockAnterior;
 
                 inventario.Cantidad = dto.CantidadNueva;
 
@@ -251,6 +255,18 @@ namespace SistemaVisionTech.Features.Inventario.Service
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                await _auditoriaService.RegistrarEventoAsync(
+                    "KARDEX",
+                    dto.ProductoId,
+                    inventario.Producto?.Nombre ?? $"Producto #{dto.ProductoId}",
+                    usuario,
+                    "AJUSTE STOCK",
+                    $"Ajuste de inventario manual. Stock anterior: {stockAnterior}, nuevo: {dto.CantidadNueva} (diferencia: {diferencia:+0;-0;0}). Motivo: {dto.Motivo}.",
+                    $"{stockAnterior} unds",
+                    $"{dto.CantidadNueva} unds",
+                    dto.Motivo
+                );
 
                 if (inventario.Producto is null)
                 {

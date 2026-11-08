@@ -7,13 +7,11 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import {
-  Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardList,
+import {Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardList,
   FileBarChart, Home, LogOut, Menu, Package, Search,
   Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
   AlertTriangle, Plus, Lock, Printer, Trash2, Check, Shield, RotateCcw,
-  Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet, LucideAngularModule
-} from 'lucide-angular';
+  Pencil, History, Ban, Layers, Download, Filter, Eye, EyeOff, Upload, FileSpreadsheet, LucideAngularModule, ChevronLeft, ChevronRight} from 'lucide-angular';
 
 interface Product {
   productoId?: number;
@@ -161,6 +159,8 @@ export interface FacturaItemRow {
   precio: number;
   descuento: number;
   tipoISV: string;
+  busqueda?: string;
+  mostrarDropdown?: boolean;
 }
 
 @Component({
@@ -186,6 +186,7 @@ export class AppComponent implements OnInit {
   private http = inject(HttpClient);
 
   readonly icons = {
+    ChevronLeft, ChevronRight,
     Bell, Boxes, ChevronDown, CircleDollarSign, ClipboardList,
     FileBarChart, Home, LogOut, Menu, Package, Search,
     Settings, ShoppingCart, Store, Truck, Users, X, FileText, CheckCircle2,
@@ -202,6 +203,8 @@ export class AppComponent implements OnInit {
   active = 'Resumen';
   search = '';
   searchProductos = '';
+  paginaActualProductos = 1;
+  tamanoPaginaProductos = 10;
   searchClientes = '';
   searchProveedores = '';
   searchCompras = '';
@@ -420,8 +423,9 @@ export class AppComponent implements OnInit {
 
   abrirCrearFactura() {
     this.active = 'Facturas';
-    this.subTabFacturas = 'crear';
-    this.facturaForm.tipoDocumento = 'Cotizacion';
+    this.modoEdicionCotizacion = false;
+    this.cotizacionEditando = null;
+    this.resetearNuevaFactura();
   }
 
   volverAListadoFacturas() {
@@ -444,6 +448,7 @@ export class AppComponent implements OnInit {
   showEditarCotizacionModal = false;
   modoEdicionCotizacion = false;
   guardandoEdicionCotizacion = false;
+  facturandoCotizacionId: number | null = null;
   cotizacionEditando: any = null;
   editarCotizacionForm: {
     clienteId: number | null;
@@ -1302,12 +1307,55 @@ export class AppComponent implements OnInit {
     return this.sarConfig?.siguienteFactura || '000-001-01-00000001';
   }
 
+  obtenerProductosFiltrados(busqueda: string | undefined): Product[] {
+    const list = this.products || [];
+    if (!busqueda || !busqueda.trim()) {
+      return list.slice(0, 15);
+    }
+    const term = busqueda.toLowerCase().trim();
+    return list.filter(p => 
+      (p.nombre || '').toLowerCase().includes(term) ||
+      (p.codigoBarras || '').toLowerCase().includes(term) ||
+      (p.descripcion || '').toLowerCase().includes(term)
+    ).slice(0, 20);
+  }
+
+  seleccionarProductoAutocompletar(item: FacturaItemRow, prod: Product) {
+    item.productoId = prod.productoId!;
+    item.nombre = prod.nombre || '';
+    item.precio = prod.precioVenta || prod.precio || 0;
+    item.tipoISV = prod.tipoISV || 'ISV15';
+    item.busqueda = prod.nombre || '';
+    item.mostrarDropdown = false;
+  }
+
+  cerrarDropdownConRetraso(item: FacturaItemRow) {
+    setTimeout(() => {
+      item.mostrarDropdown = false;
+      const p = (this.products || []).find(x => x.productoId === item.productoId);
+      if (p && (!item.busqueda || !item.busqueda.trim())) {
+        item.busqueda = p.nombre || '';
+      }
+    }, 250);
+  }
+
+  abrirDropdownProducto(item: FacturaItemRow) {
+    item.mostrarDropdown = true;
+    if (!item.busqueda && item.productoId) {
+      const p = (this.products || []).find(x => x.productoId === item.productoId);
+      if (p) {
+        item.busqueda = p.nombre || '';
+      }
+    }
+  }
+
   onProductoCambio(item: FacturaItemRow) {
     const p = this.products.find(x => x.productoId == item.productoId);
     if (p) {
       item.nombre = p.nombre || '';
       item.precio = p.precioVenta || p.precio || 0;
       item.tipoISV = p.tipoISV || 'ISV15';
+      item.busqueda = p.nombre || '';
     }
   }
 
@@ -1322,7 +1370,9 @@ export class AppComponent implements OnInit {
       cantidad: 1,
       precio: prodDisponible?.precioVenta || prodDisponible?.precio || 0,
       descuento: 0,
-      tipoISV: prodDisponible?.tipoISV || 'ISV15'
+      tipoISV: prodDisponible?.tipoISV || 'ISV15',
+      busqueda: prodDisponible?.nombre || '',
+      mostrarDropdown: false
     });
   }
 
@@ -1419,6 +1469,7 @@ export class AppComponent implements OnInit {
   }
 
   generarFacturaEnVivo() {
+    if (this.generandoFactura) return;
     if (this.facturaForm.items.length === 0) {
       this.notificarAdvertencia('Documento vacío', 'Agrega al menos un producto al documento.');
       return;
@@ -1778,6 +1829,22 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    if (!venta.esCotizacion) {
+      this.notificarAdvertencia(
+        'Factura no editable',
+        'Las facturas fiscales emitidas no pueden ser modificadas por normativa fiscal SAR. La única vía autorizada es anular el documento.'
+      );
+      return;
+    }
+
+    if (!this.isAdmin) {
+      this.notificarAdvertencia(
+        'Acceso Restringido',
+        'Solo los usuarios con rol de Administrador tienen autorización para editar cotizaciones.'
+      );
+      return;
+    }
+
     this.active = 'Facturas';
     this.subTabFacturas = 'crear';
     this.facturaEmitida = false;
@@ -1810,13 +1877,16 @@ export class AppComponent implements OnInit {
 
     const itemsEditados: FacturaItemRow[] = (venta.detalles || []).map((d: any) => {
       const p = this.products.find(x => x.productoId == d.productoId);
+      const nombreP = d.producto || p?.nombre || `Producto #${d.productoId}`;
       return {
         productoId: Number(d.productoId),
-        nombre: d.producto || p?.nombre || `Producto #${d.productoId}`,
+        nombre: nombreP,
         cantidad: Number(d.cantidad) || 1,
         precio: d.precio !== undefined ? Number(d.precio) : Number(p?.precioVenta || 0),
         descuento: Number(d.descuento || 0),
-        tipoISV: p?.tipoISV || 'ISV15'
+        tipoISV: p?.tipoISV || 'ISV15',
+        busqueda: nombreP,
+        mostrarDropdown: false
       };
     });
 
@@ -2251,6 +2321,7 @@ export class AppComponent implements OnInit {
           this.proveedorEditandoId ? 'Proveedor actualizado con éxito.' : '¡Proveedor creado exitosamente!'
         );
         this.loadProveedores();
+        if (this.isSuperUsuario) { this.loadAuditoriaLogs(); }
       },
       error: (err) => {
         this.guardandoProveedor = false;
@@ -2275,6 +2346,7 @@ export class AppComponent implements OnInit {
       next: () => {
         this.notificarExito('Eliminado', 'Proveedor eliminado.');
         this.loadProveedores();
+        if (this.isSuperUsuario) { this.loadAuditoriaLogs(); }
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
@@ -2546,6 +2618,7 @@ export class AppComponent implements OnInit {
       next: () => {
         this.notificarExito('Eliminado', 'Usuario eliminado.');
         this.loadUsuarios();
+        if (this.isSuperUsuario) { this.loadAuditoriaLogs(); }
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
@@ -2572,6 +2645,21 @@ export class AppComponent implements OnInit {
   }
 
   guardarEdicionProducto() {
+    if (!this.productoEditando.nombre || !this.productoEditando.nombre.trim()) {
+      this.notificarAdvertencia('Campo requerido', 'El nombre del producto es obligatorio.');
+      return;
+    }
+
+    const nombreNorm = this.productoEditando.nombre.trim().replace(/\s+/g, ' ').toLowerCase();
+    const existeDuplicado = (this.products || []).some((p: any) =>
+      p.productoId !== this.productoEditando.productoId &&
+      (p.nombre || '').trim().replace(/\s+/g, ' ').toLowerCase() === nombreNorm
+    );
+    if (existeDuplicado) {
+      this.notificarAdvertencia('Producto Duplicado', `Ya existe otro producto registrado con el nombre "${this.productoEditando.nombre.trim()}".`);
+      return;
+    }
+
     this.guardandoEditarProducto = true;
     const payload = {
       nombre: this.productoEditando.nombre,
@@ -2587,6 +2675,9 @@ export class AppComponent implements OnInit {
         this.showEditarProductoModal = false;
         this.notificarExito('Producto Actualizado', 'Producto actualizado con éxito.');
         this.loadProducts();
+        if (this.isSuperUsuario) {
+          this.loadAuditoriaLogs();
+        }
       },
       error: (err) => {
         this.guardandoEditarProducto = false;
@@ -2612,6 +2703,9 @@ export class AppComponent implements OnInit {
         this.notificarExito('Eliminado', 'Producto eliminado.');
         this.loadProducts();
         this.loadInventory();
+        if (this.isSuperUsuario) {
+          this.loadAuditoriaLogs();
+        }
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
@@ -2635,6 +2729,27 @@ export class AppComponent implements OnInit {
   }
 
   guardarEdicionCliente() {
+    if (!this.clienteEditando.nombre || !this.clienteEditando.nombre.trim()) {
+      this.notificarAdvertencia('Campo requerido', 'El nombre del cliente es obligatorio.');
+      return;
+    }
+
+    const rtnIngresado = (this.clienteEditando.rtn || '').trim();
+    const rtnLimpio = rtnIngresado.replace(/[-\s]/g, '');
+
+    if (rtnLimpio && rtnLimpio !== '00000000000000' && rtnLimpio !== '000000000000') {
+      const duplicado = (this.clientes || []).find(c => {
+        if (c.clienteId === this.clienteEditando.clienteId) return false;
+        const cRtn = (c.rtn || '').trim();
+        const cLimpio = cRtn.replace(/[-\s]/g, '');
+        return cLimpio && cLimpio !== '00000000000000' && (cRtn.toLowerCase() === rtnIngresado.toLowerCase() || cLimpio === rtnLimpio);
+      });
+      if (duplicado) {
+        this.notificarAdvertencia('RTN ya registrado', `Ya existe otro cliente (${duplicado.nombre}) registrado con el RTN "${rtnIngresado}".`);
+        return;
+      }
+    }
+
     this.guardandoEditarCliente = true;
     const payload = {
       nombre: this.clienteEditando.nombre,
@@ -2675,6 +2790,7 @@ export class AppComponent implements OnInit {
       next: () => {
         this.notificarExito('Eliminado', 'Cliente eliminado.');
         this.loadClientes();
+        if (this.isSuperUsuario) { this.loadAuditoriaLogs(); }
       },
       error: (err) => {
         if (!this.handleAuthError(err)) {
@@ -2705,6 +2821,21 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    const rtnIngresado = (this.nuevoCliente.rtn || '').trim();
+    const rtnLimpio = rtnIngresado.replace(/[-\s]/g, '');
+
+    if (rtnLimpio && rtnLimpio !== '00000000000000' && rtnLimpio !== '000000000000') {
+      const duplicado = (this.clientes || []).find(c => {
+        const cRtn = (c.rtn || '').trim();
+        const cLimpio = cRtn.replace(/[-\s]/g, '');
+        return cLimpio && cLimpio !== '00000000000000' && (cRtn.toLowerCase() === rtnIngresado.toLowerCase() || cLimpio === rtnLimpio);
+      });
+      if (duplicado) {
+        this.notificarAdvertencia('RTN ya registrado', `Ya existe un cliente (${duplicado.nombre}) registrado con el RTN "${rtnIngresado}".`);
+        return;
+      }
+    }
+
     const payload = {
       nombre: this.nuevoCliente.nombre.trim(),
       rtn: this.nuevoCliente.rtn?.trim() || '00000000000000',
@@ -2719,6 +2850,7 @@ export class AppComponent implements OnInit {
         this.notificarExito('Cliente Registrado', `¡Cliente "${clienteCreado.nombre}" registrado exitosamente!`);
         this.showNuevoClienteModal = false;
         this.loadClientes();
+        if (this.isSuperUsuario) { this.loadAuditoriaLogs(); }
         if (clienteCreado.clienteId) {
           this.facturaForm.clienteId = clienteCreado.clienteId;
           this.nuevaVenta.clienteId = clienteCreado.clienteId;
@@ -2791,6 +2923,15 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    const nombreNorm = this.nuevoProducto.nombre.trim().replace(/\s+/g, ' ').toLowerCase();
+    const existeDuplicado = (this.products || []).some((p: any) =>
+      (p.nombre || '').trim().replace(/\s+/g, ' ').toLowerCase() === nombreNorm
+    );
+    if (existeDuplicado) {
+      this.notificarAdvertencia('Producto Duplicado', `Ya existe un producto registrado con el nombre "${this.nuevoProducto.nombre.trim()}".`);
+      return;
+    }
+
     this.guardandoProducto = true;
     const payload = {
       nombre: this.nuevoProducto.nombre.trim(),
@@ -2814,6 +2955,9 @@ export class AppComponent implements OnInit {
         this.loadProducts();
         this.loadInventory();
         this.loadMovimientos();
+        if (this.isSuperUsuario) {
+          this.loadAuditoriaLogs();
+        }
       },
       error: (err) => {
         this.guardandoProducto = false;
@@ -2947,6 +3091,74 @@ export class AppComponent implements OnInit {
              (prod?.codigo || '').toLowerCase().includes(q) ||
              (prod?.codigoBarras || '').toLowerCase().includes(q);
     });
+  }
+
+  
+  get totalPaginasProductos(): number {
+    const total = Math.ceil((this.filteredProducts || []).length / this.tamanoPaginaProductos);
+    return total > 0 ? total : 1;
+  }
+
+  get paginatedProducts(): any[] {
+    const items = this.filteredProducts || [];
+    const total = this.totalPaginasProductos;
+    if (this.paginaActualProductos > total) {
+      this.paginaActualProductos = total;
+    }
+    if (this.paginaActualProductos < 1) {
+      this.paginaActualProductos = 1;
+    }
+    const start = (this.paginaActualProductos - 1) * this.tamanoPaginaProductos;
+    return items.slice(start, start + this.tamanoPaginaProductos);
+  }
+
+  get inicioProductosPaginados(): number {
+    if (!this.filteredProducts || this.filteredProducts.length === 0) return 0;
+    return (this.paginaActualProductos - 1) * this.tamanoPaginaProductos + 1;
+  }
+
+  get finProductosPaginados(): number {
+    if (!this.filteredProducts || this.filteredProducts.length === 0) return 0;
+    return Math.min(this.paginaActualProductos * this.tamanoPaginaProductos, this.filteredProducts.length);
+  }
+
+  get paginasDisponiblesProductos(): number[] {
+    const total = this.totalPaginasProductos;
+    const actual = this.paginaActualProductos;
+    const paginas: number[] = [];
+    const inicio = Math.max(1, actual - 2);
+    const fin = Math.min(total, actual + 2);
+    for (let i = inicio; i <= fin; i++) {
+      paginas.push(i);
+    }
+    return paginas;
+  }
+
+  cambiarPaginaProductos(p: number): void {
+    if (p >= 1 && p <= this.totalPaginasProductos) {
+      this.paginaActualProductos = p;
+    }
+  }
+
+  paginaAnteriorProductos(): void {
+    if (this.paginaActualProductos > 1) {
+      this.paginaActualProductos--;
+    }
+  }
+
+  paginaSiguienteProductos(): void {
+    if (this.paginaActualProductos < this.totalPaginasProductos) {
+      this.paginaActualProductos++;
+    }
+  }
+
+  formatearTipoISV(tipo?: string): string {
+    if (!tipo) return 'ISV 15%';
+    const t = tipo.trim().toUpperCase();
+    if (t === 'ISV15') return 'ISV 15%';
+    if (t === 'ISV18') return 'ISV 18%';
+    if (t === 'EXENTO') return 'Exento';
+    return tipo;
   }
 
   get filteredProducts() {
@@ -3329,6 +3541,14 @@ export class AppComponent implements OnInit {
     this.showHistorialEntidadModal = false;
   }
 
+  getFechaTime(item: any): number {
+    if (!item) return 0;
+    const val = item.fechaModificacion || item.fecha || item.fechaEmision || item.fechaApertura || item.fechaCompra || item.fechaVenta;
+    if (!val) return 0;
+    const parsed = this.parseFechaUtc(val);
+    return parsed ? parsed.getTime() : 0;
+  }
+
   parseFechaUtc(dateVal: any): Date | null {
     if (!dateVal) return null;
     if (dateVal instanceof Date) return dateVal;
@@ -3401,6 +3621,10 @@ export class AppComponent implements OnInit {
   }
 
   exportarVentasSARExcel() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     const data = this.ventasFiltradasSAR.map((v, idx) => ({
       'No.': idx + 1,
       'Fecha Emisión': new Date(v.fechaFactura || v.fechaVenta).toLocaleDateString('es-HN'),
@@ -3471,6 +3695,10 @@ export class AppComponent implements OnInit {
   }
 
   exportarInventarioExcel() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     const data = this.inventarioValorizado.map((i, idx) => ({
       'No.': idx + 1,
       'Código / SKU': i.codigo,
@@ -3523,6 +3751,10 @@ export class AppComponent implements OnInit {
   // MÉTODOS DE IMPORTACIÓN Y EXPORTACIÓN DE TABLAS
   // =========================================================================
   abrirModalImportar(tipo: 'Productos' | 'Clientes' | 'Proveedores') {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     this.importModalTipo = tipo;
     this.registrosImportarPreview = [];
     this.columnasPreview = [];
@@ -3729,6 +3961,10 @@ export class AppComponent implements OnInit {
   }
 
   procesarImportacion() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     if (!this.registrosImportarPreview || this.registrosImportarPreview.length === 0) {
       this.notificarAdvertencia('Sin registros', 'Seleccione un archivo con registros para importar.');
       return;
@@ -3766,6 +4002,10 @@ export class AppComponent implements OnInit {
   }
 
   exportarProductosExcel() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     const data = (this.filteredProducts || this.products).map((p, idx) => ({
       'No.': idx + 1,
       'ID': p.productoId,
@@ -3791,6 +4031,10 @@ export class AppComponent implements OnInit {
   }
 
   exportarClientesExcel() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     const data = (this.filteredClientes || this.clientes).map((c, idx) => ({
       'No.': idx + 1,
       'ID': c.clienteId,
@@ -3816,6 +4060,10 @@ export class AppComponent implements OnInit {
   }
 
   exportarProveedoresExcel() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     const data = (this.filteredProveedores || this.proveedores).map((pr, idx) => ({
       'No.': idx + 1,
       'ID': pr.proveedorId,
@@ -3841,6 +4089,10 @@ export class AppComponent implements OnInit {
   }
 
   exportarFacturasExcel() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     const data = (this.filteredVentas || this.ventas).map((v, idx) => ({
       'No.': idx + 1,
       'ID Venta': v.ventaId,
@@ -3867,6 +4119,10 @@ export class AppComponent implements OnInit {
   }
 
   exportarComprasExcel() {
+    if (!this.isAdmin) {
+      this.notificarAdvertencia('Acceso denegado', 'Esta acción está restringida únicamente para administradores.');
+      return;
+    }
     const data = (this.filteredCompras || this.compras).map((c, idx) => ({
       'No.': idx + 1,
       'ID Orden (#OC)': c.compraId,

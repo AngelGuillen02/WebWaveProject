@@ -7,9 +7,9 @@ namespace SistemaVisionTech.Features.Clientes.Interfaces
     {
         Task<Result<List<ClienteResponseDto>>> ListarAsync(int? page = null, int? pageSize = null);
         Task<Result<ClienteResponseDto>> ObtenerPorIdAsync(int id);
-        Task<Result<ClienteResponseDto>> CrearAsync(ClienteCreacionDto dto);
-        Task<Result<ClienteResponseDto>> EditarAsync(int id, ClienteCreacionDto dto);
-        Task<Result<ImportacionLoteResultadoDto>> ImportarLoteAsync(List<ClienteCreacionDto> dtos);
-        Task<Result<bool>> EliminarAsync(int id);
+        Task<Result<ClienteResponseDto>> CrearAsync(ClienteCreacionDto dto, string? usuario = null);
+        Task<Result<ClienteResponseDto>> EditarAsync(int id, ClienteCreacionDto dto, string? usuario = null);
+        Task<Result<ImportacionLoteResultadoDto>> ImportarLoteAsync(List<ClienteCreacionDto> dtos, string? usuario = null);
+        Task<Result<bool>> EliminarAsync(int id, string? usuario = null);
     }
 }

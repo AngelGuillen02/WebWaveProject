@@ -336,7 +336,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
             // REGLA ESTRICTA SAR: Las facturas fiscales emitidas NO pueden ser editadas
             if (!venta.EsCotizacion || venta.EstadoVentaId != (int)EstadoVentaEnum.Cotizacion)
             {
-                return Result<VentasDto>.Fail("Las facturas fiscales emitidas no pueden ser editadas por normativa SAR. Solo las cotizaciones admiten modificaciones.", isValidation: true);
+                return Result<VentasDto>.Fail("Las facturas fiscales emitidas no pueden ser editadas por normativa fiscal SAR. La única vía autorizada para modificar una factura es anularla.", isValidation: true);
             }
 
             if (venta.EstadoVentaId == (int)EstadoVentaEnum.Anulada)
@@ -610,8 +610,10 @@ namespace SistemaVisionTech.Features.Ventas.Services
             return await ObtenerVentaPorIdAsync(ventaId);
         }
 
-        public async Task<Result<VentasDto>> AnularVentaAsync(int ventaId)
+        public async Task<Result<VentasDto>> AnularVentaAsync(int ventaId, string? usuarioNombre = null)
         {
+            string usuarioLog = string.IsNullOrWhiteSpace(usuarioNombre) ? "Administrador" : usuarioNombre.Trim();
+
             Venta? venta = await _context.Ventas
                 .Include(v => v.Detalles)
                 .FirstOrDefaultAsync(v => v.VentaId == ventaId);
@@ -630,7 +632,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 {
                     VentaId = ventaId,
                     NumeroCotizacion = venta.NumeroCotizacion,
-                    Usuario = "Usuario",
+                    Usuario = usuarioLog,
                     FechaModificacion = DateTime.UtcNow,
                     Accion = "ANULADA",
                     DetalleCambios = "Cotización anulada/cancelada.",
@@ -687,7 +689,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 {
                     VentaId = ventaId,
                     NumeroCotizacion = factura?.NumeroFactura ?? $"Venta #{ventaId}",
-                    Usuario = "Administrador",
+                    Usuario = usuarioLog,
                     FechaModificacion = DateTime.UtcNow,
                     Accion = "ANULACIÓN FACTURA",
                     DetalleCambios = $"Factura SAR anulada. Se restituyeron {venta.Detalles.Count} ítem(s) al stock de inventario. Total cancelado: L. {venta.Total:N2}.",

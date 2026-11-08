@@ -72,9 +72,22 @@ namespace SistemaVisionTech.Controllers
             return Conflict(new { mensaje = resultado.Error });
         }
 
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPut("{id:int}/Cotizacion")]
         public async Task<IActionResult> ActualizarCotizacion(int id, [FromBody] ActualizarCotizacionDto dto)
         {
+            var rolClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Role || c.Type == "role")?.Value;
+            var perfilIdClaim = User.Claims.FirstOrDefault(c => c.Type == "PerfilId")?.Value;
+            bool esAdmin = string.Equals(rolClaim, "Administrador", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                           string.Equals(rolClaim, "SuperUsuario", StringComparison.OrdinalIgnoreCase) ||
+                           perfilIdClaim == "1";
+
+            if (!esAdmin)
+            {
+                return Forbid();
+            }
+
             string usuario = ObtenerNombreUsuarioActual();
             Result<VentasDto> resultado = await _ventasService.ActualizarCotizacionAsync(id, dto, usuario);
             return HandleResult(resultado);
@@ -107,7 +120,8 @@ namespace SistemaVisionTech.Controllers
         public async Task<IActionResult> AnularVenta(int id)
         {
 
-            Result<VentasDto> resultado = await _ventasService.AnularVentaAsync(id);
+            string usuario = ObtenerNombreUsuarioActual();
+            Result<VentasDto> resultado = await _ventasService.AnularVentaAsync(id, usuario);
             return HandleResult(resultado);
         }
 
@@ -129,7 +143,8 @@ namespace SistemaVisionTech.Controllers
         [HttpPost("{id:int}/Facturar")]
         public async Task<IActionResult> FacturarVenta(int id, [FromQuery] int sucursalId = 1)
         {
-            Result<FacturaEmitidaResponseDto> resultado = await _sarService.EmitirFacturaAsync(id, sucursalId);
+            string usuario = ObtenerNombreUsuarioActual();
+            Result<FacturaEmitidaResponseDto> resultado = await _sarService.EmitirFacturaAsync(id, sucursalId, usuario);
             return HandleResult(resultado);
         }
 

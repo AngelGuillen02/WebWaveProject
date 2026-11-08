@@ -43,6 +43,7 @@ namespace SistemaVisionTech.Infrastructure
         public DbSet<FacturasEmitidas> FacturasEmitidas { get; set; }
         public DbSet<CotizacionesHistorial> CotizacionesHistorial { get; set; }
         public DbSet<ProductosHistorial> ProductosHistorial { get; set; }
+        public DbSet<Auditoria> Auditoria { get; set; }
 
         public DbSet<NavNodo> NavNodos { get; set; }
         public DbSet<NavRestriccion> NavRestricciones { get; set; }
@@ -71,6 +72,7 @@ namespace SistemaVisionTech.Infrastructure
             modelBuilder.Entity<FacturasEmitidas>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<CotizacionesHistorial>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<ProductosHistorial>().HasQueryFilter(e => e.Activo);
+            modelBuilder.Entity<Auditoria>().HasQueryFilter(e => e.Activo);
             modelBuilder.Entity<NavNodo>().HasQueryFilter(e => e.Activo);
 
                         // Índices de alto rendimiento y seguridad de concurrencia

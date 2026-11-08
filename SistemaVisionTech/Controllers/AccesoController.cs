@@ -36,6 +36,13 @@ namespace SistemaVisionTech.Controllers
             _sucursalesService = sucursalesService;
         }
 
+        private string ObtenerUsuarioActual()
+        {
+            return User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Administrador";
+        }
+
         [AllowAnonymous]
         [HttpGet("TestConexion")]
         public async Task<IActionResult> TestConexion([FromServices] WebWaveDbContext context)
@@ -106,7 +113,7 @@ namespace SistemaVisionTech.Controllers
         [HttpPost("Usuarios")]
         public async Task<IActionResult> CrearUsuario([FromBody] UsuariosCreacionDto dto)
         {
-            Result<UsuariosDto> resultado = await _usuariosService.CrearUsuarioAsync(dto);
+            Result<UsuariosDto> resultado = await _usuariosService.CrearUsuarioAsync(dto, ObtenerUsuarioActual());
             return HandleCreatedResult(resultado, nameof(ObtenerUsuarioPorId), data => new { id = data.UsuarioId });
         }
 
@@ -128,7 +135,7 @@ namespace SistemaVisionTech.Controllers
                 return Forbid();
             }
 
-            Result<UsuariosDto> resultado = await _usuariosService.ActualizarUsuarioAsync(id, dto, esAdmin);
+            Result<UsuariosDto> resultado = await _usuariosService.ActualizarUsuarioAsync(id, dto, esAdmin, ObtenerUsuarioActual());
             return HandleResult(resultado);
         }
 
@@ -136,7 +143,7 @@ namespace SistemaVisionTech.Controllers
         [HttpDelete("Usuarios/{id:int}")]
         public async Task<IActionResult> EliminarUsuario(int id)
         {
-            Result resultado = await _usuariosService.EliminarUsuarioAsync(id);
+            Result resultado = await _usuariosService.EliminarUsuarioAsync(id, ObtenerUsuarioActual());
             return HandleResult(resultado);
         }
 
@@ -162,21 +169,21 @@ namespace SistemaVisionTech.Controllers
         [HttpPost("Perfiles")]
         public async Task<IActionResult> CrearPerfil([FromBody] PerfilesCreacionDto dto)
         {
-            Result<PerfilesDto> resultado = await _perfilesService.CrearPerfilAsync(dto);
+            Result<PerfilesDto> resultado = await _perfilesService.CrearPerfilAsync(dto, ObtenerUsuarioActual());
             return HandleCreatedResult(resultado, nameof(ObtenerPerfilPorId), data => new { id = data.PerfilId });
         }
 
         [HttpPut("Perfiles/{id:int}")]
         public async Task<IActionResult> ActualizarPerfil(int id, [FromBody] PerfilesActualizacionDto dto)
         {
-            Result<PerfilesDto> resultado = await _perfilesService.ActualizarPerfilAsync(id, dto);
+            Result<PerfilesDto> resultado = await _perfilesService.ActualizarPerfilAsync(id, dto, ObtenerUsuarioActual());
             return HandleResult(resultado);
         }
 
         [HttpDelete("Perfiles/{id:int}")]
         public async Task<IActionResult> EliminarPerfil(int id)
         {
-            Result resultado = await _perfilesService.EliminarPerfilAsync(id);
+            Result resultado = await _perfilesService.EliminarPerfilAsync(id, ObtenerUsuarioActual());
             return HandleResult(resultado);
         }
 

@@ -5,6 +5,8 @@ using SistemaVisionTech.Features.Inventario.Dtos.Inventario;
 using SistemaVisionTech.Features.Inventario.Dtos.Movimientos;
 using SistemaVisionTech.Features.Inventario.Interfaces;
 
+using System.Security.Claims;
+
 namespace SistemaVisionTech.Controllers
 {
     [Authorize]
@@ -17,6 +19,13 @@ namespace SistemaVisionTech.Controllers
         public InventarioController(IInventarioService inventarioService)
         {
             _inventarioService = inventarioService;
+        }
+
+        private string ObtenerUsuarioActual()
+        {
+            return User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Name || c.Type == "name")?.Value
+                ?? User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email || c.Type == "email")?.Value
+                ?? "Control Stock";
         }
 
         [HttpGet]
@@ -65,7 +74,7 @@ namespace SistemaVisionTech.Controllers
         public async Task<IActionResult> AjustarInventario([FromBody] AjusteInventarioDto dto)
         {
             Result<InventarioDto> resultado = await _inventarioService
-                .AjustarInventarioAsync(dto);
+                .AjustarInventarioAsync(dto, ObtenerUsuarioActual());
             return HandleResult(resultado);
         }
     }

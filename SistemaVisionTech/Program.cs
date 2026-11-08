@@ -8,6 +8,8 @@ using Microsoft.OpenApi.Models;
 using SistemaVisionTech.Features.Acceso.Authorization;
 using SistemaVisionTech.Features.Acceso.Interfaces;
 using SistemaVisionTech.Features.Acceso.Services;
+using SistemaVisionTech.Features.Auditoria.Interfaces;
+using SistemaVisionTech.Features.Auditoria.Services;
 using SistemaVisionTech.Features.Caja.Interfaces;
 using SistemaVisionTech.Features.Caja.Services;
 using SistemaVisionTech.Features.Clientes.Interfaces;
@@ -287,6 +289,7 @@ builder.Services.AddScoped<ILotesProductoService, LotesProductoService>();
 builder.Services.AddScoped<ICajaService, CajaService>();
 builder.Services.AddScoped<ISARService, SARService>();
 builder.Services.AddScoped<INavegacionService, NavegacionService>();
+builder.Services.AddScoped<IAuditoriaService, AuditoriaService>();
 
 builder.Services.AddScoped<WebWaveDbContext>(sp =>
     sp.GetRequiredService<IDbContextFactory<WebWaveDbContext>>().CreateDbContext());
@@ -406,6 +409,24 @@ using (var scope = app.Services.CreateScope())
                 ""PrecioNuevo"" NUMERIC(18,2) NOT NULL,
                 ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
             );
+
+            CREATE TABLE IF NOT EXISTS dbo.""Auditoria"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""Tipo"" VARCHAR(50) NOT NULL,
+                ""EntidadId"" INT NOT NULL,
+                ""Referencia"" VARCHAR(200) NOT NULL,
+                ""Usuario"" VARCHAR(100) NOT NULL,
+                ""Fecha"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                ""Accion"" VARCHAR(50) NOT NULL,
+                ""Detalle"" TEXT NOT NULL,
+                ""ValorAnterior"" VARCHAR(200) NULL,
+                ""ValorNuevo"" VARCHAR(200) NULL,
+                ""Motivo"" VARCHAR(255) NULL,
+                ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
+            );
+
+            CREATE INDEX IF NOT EXISTS ""IX_Auditoria_Tipo"" ON dbo.""Auditoria"" (""Tipo"");
+            CREATE INDEX IF NOT EXISTS ""IX_Auditoria_Fecha"" ON dbo.""Auditoria"" (""Fecha"");
 
             CREATE INDEX IF NOT EXISTS ""IX_Usuarios_Email"" ON dbo.""Usuarios"" (""Email"");
         ");

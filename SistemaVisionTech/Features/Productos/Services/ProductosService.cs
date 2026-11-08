@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Productos.Dtos;
@@ -54,6 +55,16 @@ namespace SistemaVisionTech.Features.Productos.Services
         {
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 return Result<ProductoResponseDto>.Fail("El nombre del producto es obligatorio.", isValidation: true);
+
+            string nombreNorm = NormalizarNombre(dto.Nombre);
+            var productosExistentes = await _context.Productos
+                .AsNoTracking()
+                .Where(p => p.Activo)
+                .Select(p => new { p.ProductoId, p.Nombre })
+                .ToListAsync();
+
+            if (productosExistentes.Any(p => NormalizarNombre(p.Nombre) == nombreNorm))
+                return Result<ProductoResponseDto>.Fail($"Ya existe un producto registrado con el nombre '{dto.Nombre.Trim()}'.", isValidation: true);
 
             if (dto.Precio <= 0)
                 return Result<ProductoResponseDto>.Fail("El precio de venta debe ser mayor a cero.", isValidation: true);
@@ -120,6 +131,22 @@ namespace SistemaVisionTech.Features.Productos.Services
 
             if (producto is null)
                 return Result<ProductoResponseDto>.Fail("El producto no existe.");
+
+            if (!string.IsNullOrWhiteSpace(dto.Nombre))
+            {
+                string nuevoNombreNorm = NormalizarNombre(dto.Nombre);
+                if (NormalizarNombre(producto.Nombre) != nuevoNombreNorm)
+                {
+                    var productosExistentes = await _context.Productos
+                        .AsNoTracking()
+                        .Where(p => p.Activo && p.ProductoId != id)
+                        .Select(p => new { p.ProductoId, p.Nombre })
+                        .ToListAsync();
+
+                    if (productosExistentes.Any(p => NormalizarNombre(p.Nombre) == nuevoNombreNorm))
+                        return Result<ProductoResponseDto>.Fail($"Ya existe otro producto registrado con el nombre '{dto.Nombre.Trim()}'.", isValidation: true);
+                }
+            }
 
             if (!string.IsNullOrEmpty(dto.CodigoBarras) && producto.CodigoBarras != dto.CodigoBarras)
             {
@@ -193,7 +220,16 @@ namespace SistemaVisionTech.Features.Productos.Services
                 .Select(p => p.CodigoBarras!.Trim().ToUpper())
                 .ToHashSetAsync();
 
+            var nombresExistentes = (await _context.Productos
+                .AsNoTracking()
+                .Where(p => p.Activo)
+                .Select(p => p.Nombre)
+                .ToListAsync())
+                .Select(n => NormalizarNombre(n))
+                .ToHashSet();
+
             var codigosEnLote = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var nombresEnLote = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var dto in dtos)
             {
@@ -203,6 +239,15 @@ namespace SistemaVisionTech.Features.Productos.Services
                     resultado.Mensajes.Add("Omitido: Producto con nombre vacío.");
                     continue;
                 }
+
+                string nombreNorm = NormalizarNombre(dto.Nombre);
+                if (nombresExistentes.Contains(nombreNorm) || nombresEnLote.Contains(nombreNorm))
+                {
+                    resultado.Omitidos++;
+                    resultado.Mensajes.Add($"Omitido: Ya existe un producto con el nombre '{dto.Nombre.Trim()}'.");
+                    continue;
+                }
+                nombresEnLote.Add(nombreNorm);
 
                 string codigo = dto.CodigoBarras?.Trim() ?? string.Empty;
                 if (!string.IsNullOrEmpty(codigo))
@@ -310,5 +355,11 @@ namespace SistemaVisionTech.Features.Productos.Services
             TipoISV = p.TipoISV,
             Activo = p.Activo
         };
+
+        private static string NormalizarNombre(string? nombre)
+        {
+            if (string.IsNullOrWhiteSpace(nombre)) return string.Empty;
+            return Regex.Replace(nombre.Trim(), @"\s+", " ").ToLowerInvariant();
+        }
     }
 }

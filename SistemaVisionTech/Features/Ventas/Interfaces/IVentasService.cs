@@ -12,7 +12,7 @@ namespace SistemaVisionTech.Features.Ventas.Interfaces
         Task<Result<IEnumerable<CotizacionHistorialDto>>> ObtenerHistorialCotizacionAsync(int ventaId);
         Task<Result<VentasDto>> FacturarCotizacionAsync(int ventaId, int sucursalId, int metodoPagoId, string usuarioNombre);
         Task<Result<VentasDto>> ConfirmarVentaAsync(int ventaId);
-        Task<Result<VentasDto>> AnularVentaAsync(int ventaId);
+        Task<Result<VentasDto>> AnularVentaAsync(int ventaId, string? usuarioNombre = null);
         Task<Result<PagoVentaDto>> RegistrarPagoAsync(CrearPagoVentaDto dto);
     }
 }
