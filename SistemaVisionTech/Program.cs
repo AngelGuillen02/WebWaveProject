@@ -87,6 +87,11 @@ if (!string.IsNullOrWhiteSpace(connectionString))
         connectionString = connectionString.Replace("1.pooler.supabase.com", "aws-1-ca-central-1.pooler.supabase.com");
     }
 
+    if (connectionString.Contains("postgres.apiikgdlrnwbtpyojig", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString = connectionString.Replace("postgres.apiikgdlrnwbtpyojig", "postgres.apiikgdljrnwbtpyojig");
+    }
+
     // Asegurar que comience con Host=
     if (!connectionString.StartsWith("Host=", StringComparison.OrdinalIgnoreCase) &&
         connectionString.Contains("pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
@@ -367,7 +372,7 @@ app.MapGet("/health", () => Results.Ok(new
     status = "Healthy",
     timestamp = DateTime.UtcNow,
     servicio = "SistemaVisionTech API",
-    version = "1.0.0"
+    version = "1.0.2"
 })).AllowAnonymous();
 
 app.MapGet("/ready", async (WebWaveDbContext db) =>

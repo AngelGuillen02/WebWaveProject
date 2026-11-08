@@ -43,27 +43,14 @@ namespace SistemaVisionTech.Infrastructure.Middleware
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-            object response;
-
-            if (_environment.IsDevelopment())
+            var response = new
             {
-                response = new
-                {
-                    exito = false,
-                    mensaje = exception.Message,
-                    detalle = exception.StackTrace,
-                    tipo = exception.GetType().Name
-                };
-            }
-            else
-            {
-                // En producción: mensaje genérico y seguro, sin exponer rutas ni trazas
-                response = new
-                {
-                    exito = false,
-                    mensaje = "Ha ocurrido un error interno al procesar su solicitud. Por favor, intente más tarde o contacte al soporte técnico."
-                };
-            }
+                exito = false,
+                mensaje = exception.Message,
+                tipo = exception.GetType().FullName,
+                inner = exception.InnerException?.Message,
+                detalle = _environment.IsDevelopment() ? exception.StackTrace : null
+            };
 
             var jsonOptions = new JsonSerializerOptions
             {
