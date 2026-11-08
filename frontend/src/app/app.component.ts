@@ -257,10 +257,10 @@ export class AppComponent implements OnInit {
     role: string;
     initials: string;
   } = {
-    name: sessionStorage.getItem('webwave_user_name') || 'Angel Guillen',
-    email: sessionStorage.getItem('webwave_user_email') || 'admin@visiontech.com',
-    role: sessionStorage.getItem('webwave_user_role') || 'Administrador',
-    initials: sessionStorage.getItem('webwave_user_initials') || 'AG'
+    name: sessionStorage.getItem('webwave_user_name') || '',
+    email: sessionStorage.getItem('webwave_user_email') || '',
+    role: sessionStorage.getItem('webwave_user_role') || '',
+    initials: sessionStorage.getItem('webwave_user_initials') || ''
   };
 
   get isAdmin(): boolean {
@@ -1404,7 +1404,34 @@ export class AppComponent implements OnInit {
     });
   }
 
-  eliminarItemFactura(index: number) {
+
+  async confirmarLimpiarTodasLasFacturas() {
+    const confirmado = await this.confirmarAccion(
+      '¿Eliminar Todas las Facturas?',
+      'Esta acción eliminará de forma permanente todas las facturas y ventas de prueba de la base de datos y restablecerá el correlativo del SAR al inicio. ¿Deseas continuar?',
+      'Sí, eliminar todas las facturas',
+      'Cancelar',
+      true
+    );
+    if (!confirmado) return;
+
+    this.http.delete<any>(`${this.api}/Ventas/Facturas/LimpiarTodas`, this.getHeaders()).subscribe({
+      next: () => {
+        this.notificarExito('Facturas Eliminadas', 'Se eliminaron exitosamente todas las facturas de la base de datos y se restableció el correlativo.');
+        this.loadVentas();
+        this.loadSARConfig();
+        this.loadProducts();
+      },
+      error: (err) => {
+        if (!this.handleAuthError(err)) {
+          const detalle = this.obtenerMensajeError(err, 'No se pudieron eliminar las facturas.');
+          this.notificarError('Error al Limpiar Facturas', detalle);
+        }
+      }
+    });
+  }
+
+    eliminarItemFactura(index: number) {
     if (this.facturaForm.items.length > 1) {
       this.facturaForm.items.splice(index, 1);
     }

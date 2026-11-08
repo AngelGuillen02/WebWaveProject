@@ -149,6 +149,9 @@
             <button *ngIf="subTabFacturas === 'listado' && isAdmin" class="outline-button" (click)="exportarFacturasExcel()" title="Descargar facturas en Excel">
               <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
+            <button *ngIf="subTabFacturas === 'listado' && isAdmin && ventas.length > 0" class="btn-action danger" (click)="confirmarLimpiarTodasLasFacturas()" title="Eliminar facturas y ventas de prueba de la base de datos" style="padding:7px 12px; font-size:12px;">
+              <lucide-icon [img]="icons.Trash2" [size]="13"></lucide-icon> Limpiar Facturas
+            </button>
             <button *ngIf="subTabFacturas === 'listado'" class="primary-small" (click)="abrirCrearFactura()">
               <lucide-icon [img]="icons.Plus" [size]="14"></lucide-icon> + Nueva Factura
             </button>
