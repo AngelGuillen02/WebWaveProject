@@ -47,7 +47,7 @@ namespace SistemaVisionTech.Controllers
             return Ok(resultado.Data);
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoInventario,Almacen")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoInventario,Almacén e Inventario,Almacen")]
         [HttpPost("Movimiento")]
         public async Task<IActionResult> RegistrarMovimiento([FromBody] CrearMovimientoInventarioDto dto)
         {
@@ -71,7 +71,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoInventario")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoInventario,Almacén e Inventario,Almacen")]
         [HttpPut("Ajuste")]
         public async Task<IActionResult> AjustarInventario([FromBody] AjusteInventarioDto dto)
         {

@@ -95,7 +95,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Facturador,Ventas,Cajero")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador,Facturación y Ventas,Facturador,Ventas,Cajero Operativo,Cajero")]
         [HttpPut("{id:int}/Confirmar")]
         public async Task<IActionResult> ConfirmarVenta(int id)
         {
@@ -103,7 +103,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Gerente")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador,Facturación y Ventas,Facturador,Ventas,Cajero Operativo,Cajero,Gerente")]
         [HttpPut("{id:int}/Anular")]
         public async Task<IActionResult> AnularVenta(int id)
         {
@@ -128,7 +128,7 @@ namespace SistemaVisionTech.Controllers
             return Conflict(new { mensaje = resultado.Error });
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Facturador,Ventas")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador,Facturación y Ventas,Facturador,Ventas,Cajero Operativo,Cajero")]
         [HttpPost("{id:int}/Facturar")]
         public async Task<IActionResult> FacturarVenta(int id, [FromQuery] int sucursalId = 1)
         {

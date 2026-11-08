@@ -60,7 +60,7 @@ namespace SistemaVisionTech.Controllers
             return Conflict(new { mensaje = resultado.Error });
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoCompras,Almacen")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,EncargadoCompras,Almacén e Inventario,Almacen")]
         [HttpPut("{id:int}/Recibir")]
         public async Task<IActionResult> RecibirCompra(int id)
         {
@@ -68,7 +68,7 @@ namespace SistemaVisionTech.Controllers
             return HandleResult(resultado);
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Gerente")]
+        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Gerente,EncargadoCompras,Almacén e Inventario,Almacen")]
         [HttpPut("{id:int}/Anular")]
         public async Task<IActionResult> AnularCompra(int id)
         {
