@@ -948,10 +948,10 @@
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="outline-button" (click)="exportarProductosExcel()" title="Descargar catálogo de productos en formato Excel">
-              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button class="outline-button" (click)="abrirModalImportar('Productos')" title="Importar productos masivamente desde Excel/CSV">
-              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Importar Excel
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoProducto()">
               + Nuevo producto
@@ -1158,10 +1158,10 @@
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="outline-button" (click)="exportarClientesExcel()" title="Descargar clientes en formato Excel">
-              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button class="outline-button" (click)="abrirModalImportar('Clientes')" title="Importar clientes masivamente desde Excel/CSV">
-              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Importar Excel
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoCliente()">+ Nuevo Cliente</button>
           </div>
@@ -1329,10 +1329,10 @@
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="outline-button" (click)="exportarProveedoresExcel()" title="Descargar proveedores en formato Excel">
-              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Exportar Excel
+              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Exportar Excel
             </button>
             <button class="outline-button" (click)="abrirModalImportar('Proveedores')" title="Importar proveedores masivamente desde Excel/CSV">
-              <lucide-icon [img]="icons.Download" [size]="14"></lucide-icon> Importar Excel
+              <lucide-icon [img]="icons.Upload" [size]="14"></lucide-icon> Importar Excel
             </button>
             <button class="primary-small" (click)="abrirModalNuevoProveedor()">+ Nuevo Proveedor</button>
           </div>
@@ -3594,6 +3594,7 @@
       <button class="outline-button" (click)="cerrarHistorialEntidad()">Cerrar</button>
     </div>
   </div>
+</div>
 
 <!-- ========================================================================= -->
 <!-- MODAL DINÁMICO DE IMPORTACIÓN MASIVA (EXCEL / CSV)                       -->
@@ -3733,5 +3734,4 @@
       </button>
     </div>
   </div>
-</div>
 </div>
