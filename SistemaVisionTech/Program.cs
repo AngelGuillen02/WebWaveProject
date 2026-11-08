@@ -258,7 +258,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 builder.Services.AddScoped<IPerfilesService, PerfilesService>();
 
-builder.Services.AddDbContextFactory<WebWaveDbContext>(options =>
+builder.Services.AddDbContext<WebWaveDbContext>(options =>
 {
     if (!string.IsNullOrEmpty(connectionString) &&
         (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
@@ -267,7 +267,11 @@ builder.Services.AddDbContextFactory<WebWaveDbContext>(options =>
          connectionString.Contains("User Id=postgres", StringComparison.OrdinalIgnoreCase) ||
          connectionString.Contains("postgres", StringComparison.OrdinalIgnoreCase)))
     {
-        options.UseNpgsql(connectionString);
+        options.UseNpgsql(connectionString, npgsqlOptions =>
+        {
+            npgsqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorCodesToAdd: null);
+            npgsqlOptions.CommandTimeout(30);
+        });
     }
     else
     {
@@ -291,10 +295,12 @@ builder.Services.AddScoped<ISARService, SARService>();
 builder.Services.AddScoped<INavegacionService, NavegacionService>();
 builder.Services.AddScoped<IAuditoriaService, AuditoriaService>();
 
-builder.Services.AddScoped<WebWaveDbContext>(sp =>
-    sp.GetRequiredService<IDbContextFactory<WebWaveDbContext>>().CreateDbContext());
+
 
 var app = builder.Build();
+
+// 0. Trazabilidad y correlación de peticiones (Request-ID)
+app.UseMiddleware<RequestIdMiddleware>();
 
 // 1. Manejo global de excepciones (evita filtración de stack traces y rutas del servidor)
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -322,6 +328,30 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Health checks para monitoreo en Render / balanceadores
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "Healthy",
+    timestamp = DateTime.UtcNow,
+    servicio = "SistemaVisionTech API",
+    version = "1.0.0"
+})).AllowAnonymous();
+
+app.MapGet("/ready", async (WebWaveDbContext db) =>
+{
+    try
+    {
+        bool conectado = await db.Database.CanConnectAsync();
+        return conectado
+            ? Results.Ok(new { status = "Ready", database = "Connected", timestamp = DateTime.UtcNow })
+            : Results.Json(new { status = "Unhealthy", database = "Disconnected" }, statusCode: 503);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { status = "Error", detalle = ex.Message }, statusCode: 503);
+    }
+}).AllowAnonymous();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -430,7 +460,16 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS ""IX_Usuarios_Email"" ON dbo.""Usuarios"" (""Email"");
             ALTER TABLE dbo.""Usuarios"" ADD COLUMN IF NOT EXISTS ""ClavePlana"" VARCHAR(255) NULL;
-            UPDATE dbo.""Usuarios"" SET ""ClavePlana"" = 'Admin123!' WHERE ""UsuarioId"" = 1 AND (""ClavePlana"" IS NULL OR ""ClavePlana"" = '');
+
+            -- Índices de rendimiento y unicidad para producción
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_FacturasEmitidas_NumeroFactura"" ON dbo.""FacturasEmitidas"" (""NumeroFactura"");
+            CREATE INDEX IF NOT EXISTS ""IX_FacturasEmitidas_VentaId"" ON dbo.""FacturasEmitidas"" (""VentaId"");
+            CREATE INDEX IF NOT EXISTS ""IX_Ventas_FechaVenta"" ON dbo.""Ventas"" (""FechaVenta"" DESC);
+            CREATE INDEX IF NOT EXISTS ""IX_Ventas_ClienteId"" ON dbo.""Ventas"" (""ClienteId"");
+            CREATE INDEX IF NOT EXISTS ""IX_Ventas_EsCotizacion"" ON dbo.""Ventas"" (""EsCotizacion"");
+            CREATE INDEX IF NOT EXISTS ""IX_VentasDetalles_VentaId"" ON dbo.""VentasDetalles"" (""VentaId"");
+            CREATE INDEX IF NOT EXISTS ""IX_VentasDetalles_ProductoId"" ON dbo.""VentasDetalles"" (""ProductoId"");
+            CREATE INDEX IF NOT EXISTS ""IX_Inventarios_ProductoId_SucursalId"" ON dbo.""Inventario"" (""ProductoId"");
         ");
     }
     catch (Exception ex)

@@ -25,20 +25,23 @@ namespace SistemaVisionTech.Features.Acceso.Services
 
         public async Task<Result<IEnumerable<UsuariosDto>>> ObtenerUsuariosAsync(bool esAdmin = false)
         {
-            List<UsuariosDto> usuarios = await _context.Usuarios
+            var usuariosEntities = await _context.Usuarios
                 .AsNoTracking()
                 .Where(u => u.Activo)
                 .Include(u => u.Perfil)
-                .Select(u => new UsuariosDto
-                {
-                    UsuarioId = u.UsuarioId,
-                    Nombre = u.Nombre,
-                    Email = u.Email,
-                    PerfilId = u.PerfilId,
-                    Perfil = u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil",
-                    ClavePlana = esAdmin ? (u.ClavePlana ?? (u.UsuarioId == 1 ? "Admin123!" : "••••••••")) : null
-                })
                 .ToListAsync();
+
+            var usuarios = usuariosEntities.Select(u => new UsuariosDto
+            {
+                UsuarioId = u.UsuarioId,
+                Nombre = u.Nombre,
+                Email = u.Email,
+                PerfilId = u.PerfilId,
+                Perfil = u.Perfil != null ? u.Perfil.Nombre : "Sin Perfil",
+                ClavePlana = esAdmin
+                    ? (!string.IsNullOrEmpty(u.ClavePlana) ? EncryptionHelper.Decrypt(u.ClavePlana) : (u.UsuarioId == 1 ? "Admin123!" : "••••••••"))
+                    : null
+            }).ToList();
 
             return Result<IEnumerable<UsuariosDto>>.Ok(usuarios);
         }
@@ -61,7 +64,9 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Email = usuario.Email,
                 PerfilId = usuario.PerfilId,
                 Perfil = usuario.Perfil != null ? usuario.Perfil.Nombre : "Sin Perfil",
-                ClavePlana = esAdmin ? (usuario.ClavePlana ?? (usuario.UsuarioId == 1 ? "Admin123!" : "••••••••")) : null
+                ClavePlana = esAdmin
+                    ? (!string.IsNullOrEmpty(usuario.ClavePlana) ? EncryptionHelper.Decrypt(usuario.ClavePlana) : (usuario.UsuarioId == 1 ? "Admin123!" : "••••••••"))
+                    : null
             });
         }
 
@@ -103,7 +108,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 // Si el usuario existía pero estaba eliminado (inactivo), se reactiva automáticamente con los nuevos datos
                 usuarioExistente.Nombre = dto.Nombre.Trim();
                 usuarioExistente.Contraseña = BCryptNet.HashPassword(dto.Contraseña.Trim());
-                usuarioExistente.ClavePlana = dto.Contraseña.Trim();
+                usuarioExistente.ClavePlana = EncryptionHelper.Encrypt(dto.Contraseña.Trim());
                 usuarioExistente.PerfilId = dto.PerfilId;
                 usuarioExistente.Activo = true;
 
@@ -131,7 +136,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 Nombre = dto.Nombre.Trim(),
                 Email = emailNormalizado,
                 Contraseña = BCryptNet.HashPassword(dto.Contraseña.Trim()),
-                ClavePlana = dto.Contraseña.Trim(),
+                ClavePlana = EncryptionHelper.Encrypt(dto.Contraseña.Trim()),
                 PerfilId = dto.PerfilId,
                 Activo = true
             };
@@ -212,7 +217,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
                     return Result<UsuariosDto>.Fail("La contraseña debe contener al menos un número.", isValidation: true);
 
                 usuario.Contraseña = BCrypt.Net.BCrypt.HashPassword(dto.Contraseña.Trim());
-                usuario.ClavePlana = dto.Contraseña.Trim();
+                usuario.ClavePlana = EncryptionHelper.Encrypt(dto.Contraseña.Trim());
                 cambios.Add("Contraseña modificada");
             }
 
