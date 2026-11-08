@@ -76,6 +76,31 @@ if (!string.IsNullOrWhiteSpace(connectionString) &&
     }
 }
 
+// Normalización defensiva de cadena de conexión (evita errores si se recortó el prefijo Host o Trust Server en el panel de Render)
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    connectionString = connectionString.Trim();
+
+    if (connectionString.StartsWith("1.pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString = "Host=aws-1-ca-central-" + connectionString;
+    }
+    else if (connectionString.StartsWith("aws-1-ca-central-1.pooler.supabase.com", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString = "Host=" + connectionString;
+    }
+
+    if (connectionString.EndsWith(";Trust Server", StringComparison.OrdinalIgnoreCase) ||
+        connectionString.EndsWith("Trust Server", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString = connectionString.TrimEnd() + " Certificate=true;Pooling=true;";
+    }
+    else if (!connectionString.Contains("Trust Server Certificate", StringComparison.OrdinalIgnoreCase))
+    {
+        connectionString = connectionString.TrimEnd(';') + ";Trust Server Certificate=true;Pooling=true;";
+    }
+}
+
 var jwtKey = 
     Environment.GetEnvironmentVariable("JWT_KEY")
     ?? builder.Configuration["Jwt:Key"]
