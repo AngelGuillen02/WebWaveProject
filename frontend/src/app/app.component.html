@@ -533,8 +533,11 @@
 
                     <!-- ACCIONES PARA FACTURAS FISCALES SAR (INMUTABLES POR LEY - SOLO ANULACIÓN) -->
                     <div *ngIf="!venta.esCotizacion" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                      <span *ngIf="!esVentaAnulada(venta)" style="font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9; padding:4px 7px; border-radius:5px; border:1px solid #e2e8f0; display:inline-flex; align-items:center; gap:4px;" title="Factura oficial emitida. No modificable por ley (solo anulación)">
-                        <lucide-icon [img]="icons.Lock" [size]="11"></lucide-icon> Inmutable (SAR)
+                      <button *ngIf="!esVentaAnulada(venta) && isAdmin" class="btn-action purple" (click)="abrirModalEditarCotizacion(venta)" title="Editar factura (Solo Administrador)">
+                        <lucide-icon [img]="icons.Pencil" [size]="12"></lucide-icon> Editar
+                      </button>
+                      <span *ngIf="!esVentaAnulada(venta) && !isAdmin" style="font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9; padding:4px 7px; border-radius:5px; border:1px solid #e2e8f0; display:inline-flex; align-items:center; gap:4px;" title="Factura fiscal oficial emitida. Modificable únicamente por usuario Administrador">
+                        <lucide-icon [img]="icons.Lock" [size]="11"></lucide-icon> Protegida
                       </span>
                       <button *ngIf="venta.numeroFactura || esVentaAnulada(venta)" class="btn-action primary" (click)="verFactura(venta)" [title]="venta.numeroFactura ? 'Ver factura oficial' : 'Ver comprobante'">
                         <lucide-icon [img]="icons.FileText" [size]="13"></lucide-icon> Ver Factura
@@ -2457,13 +2460,13 @@
     <div class="modal-body">
       <div class="form-group">
         <label>Nombre del Producto:</label>
-        <input type="text" [(ngModel)]="nuevoProducto.nombre" placeholder="Ej: Lentes Antirreflejo Blue Light" required>
+        <input type="text" [(ngModel)]="nuevoProducto.nombre" (input)="nuevoProducto.nombre = nuevoProducto.nombre.toUpperCase()" placeholder="Ej: LENTES ANTIRREFLEJO BLUE LIGHT" style="text-transform: uppercase;" required>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
           <label>Código o Código de Barras:</label>
-          <input type="text" [(ngModel)]="nuevoProducto.codigoBarras" placeholder="OPT-5401">
+          <input type="text" [(ngModel)]="nuevoProducto.codigoBarras" (input)="nuevoProducto.codigoBarras = nuevoProducto.codigoBarras.toUpperCase()" placeholder="OPT-5401" style="text-transform: uppercase;">
         </div>
         <div class="form-group">
           <label>Tipo de Impuesto Fiscal:</label>
@@ -2489,7 +2492,7 @@
 
       <div class="form-group">
         <label>Descripción / Observaciones (Opcional):</label>
-        <input type="text" [(ngModel)]="nuevoProducto.descripcion" placeholder="Ej: Montura de acetato flexible con estuche incluido">
+        <input type="text" [(ngModel)]="nuevoProducto.descripcion" (input)="nuevoProducto.descripcion = nuevoProducto.descripcion.toUpperCase()" placeholder="Ej: MONTURA DE ACETATO FLEXIBLE CON ESTUCHE INCLUIDO" style="text-transform: uppercase;">
       </div>
     </div>
     <div class="modal-footer">
@@ -3268,13 +3271,13 @@
     <div class="modal-body">
       <div class="form-group">
         <label>Nombre del Producto (*):</label>
-        <input type="text" [(ngModel)]="productoEditando.nombre" placeholder="Nombre">
+        <input type="text" [(ngModel)]="productoEditando.nombre" (input)="productoEditando.nombre = productoEditando.nombre.toUpperCase()" placeholder="Nombre" style="text-transform: uppercase;">
       </div>
 
       <div class="grid-2">
         <div class="form-group">
           <label>Código o Barras:</label>
-          <input type="text" [(ngModel)]="productoEditando.codigoBarras" placeholder="Código">
+          <input type="text" [(ngModel)]="productoEditando.codigoBarras" (input)="productoEditando.codigoBarras = productoEditando.codigoBarras.toUpperCase()" placeholder="Código" style="text-transform: uppercase;">
         </div>
         <div class="form-group">
           <label>Tipo ISV Fiscal:</label>

@@ -421,11 +421,15 @@ export class AppComponent implements OnInit {
   subTabFacturas: 'listado' | 'crear' = 'listado';
   subTabInventario: 'stock' | 'kardex' = 'stock';
 
-  abrirCrearFactura() {
+  abrirCrearFactura(tipo: 'Factura' | 'Cotizacion' = 'Factura') {
     this.active = 'Facturas';
     this.modoEdicionCotizacion = false;
     this.cotizacionEditando = null;
-    this.resetearNuevaFactura();
+    this.resetearNuevaFactura(tipo);
+  }
+
+  abrirCrearCotizacion() {
+    this.abrirCrearFactura('Cotizacion');
   }
 
   volverAListadoFacturas() {
@@ -649,7 +653,7 @@ export class AppComponent implements OnInit {
 
   // Facturación en vivo
   facturaForm = {
-    tipoDocumento: 'Cotizacion' as 'Factura' | 'Cotizacion',
+    tipoDocumento: 'Factura' as 'Factura' | 'Cotizacion',
     clienteId: null as number | null,
     fecha: AppComponent.getFechaHoyHonduras(),
     metodoPagoId: 1,
@@ -1559,14 +1563,14 @@ export class AppComponent implements OnInit {
     });
   }
 
-  nuevaFacturaFormulario() {
+  nuevaFacturaFormulario(tipo: 'Factura' | 'Cotizacion' = 'Factura') {
     this.facturaEmitida = false;
     this.facturaEmitidaData = null;
     this.loadSARConfig();
     this.loadVentas();
     const firstProd = this.products.find(p => p.nombre?.toLowerCase().includes('camara') || p.nombre?.toLowerCase().includes('magnalock') || p.nombre?.toLowerCase().includes('switch')) || this.products[0];
     this.facturaForm = {
-      tipoDocumento: 'Cotizacion',
+      tipoDocumento: tipo,
       clienteId: null,
       fecha: AppComponent.getFechaHoyHonduras(),
       metodoPagoId: 1,
@@ -1807,12 +1811,12 @@ export class AppComponent implements OnInit {
     }
   }
 
-  resetearNuevaFactura() {
+  resetearNuevaFactura(tipo: 'Factura' | 'Cotizacion' = 'Factura') {
     this.modoEdicionCotizacion = false;
     this.cotizacionEditando = null;
     this.facturaEmitida = false;
     this.facturaEmitidaData = null;
-    this.nuevaFacturaFormulario();
+    this.nuevaFacturaFormulario(tipo);
     this.subTabFacturas = 'crear';
   }
 
@@ -1824,23 +1828,16 @@ export class AppComponent implements OnInit {
   // GESTIÓN Y EDICIÓN DE COTIZACIONES + HISTORIAL DE AUDITORÍA
   // =========================================================================
   abrirModalEditarCotizacion(venta: any) {
+    if (!venta) return;
     if (this.esVentaAnulada(venta)) {
       this.notificarAdvertencia('Documento Anulado', 'No se puede editar un documento que ha sido anulado.');
-      return;
-    }
-
-    if (!venta.esCotizacion) {
-      this.notificarAdvertencia(
-        'Factura no editable',
-        'Las facturas fiscales emitidas no pueden ser modificadas por normativa fiscal SAR. La única vía autorizada es anular el documento.'
-      );
       return;
     }
 
     if (!this.isAdmin) {
       this.notificarAdvertencia(
         'Acceso Restringido',
-        'Solo los usuarios con rol de Administrador tienen autorización para editar cotizaciones.'
+        'Solo los usuarios con rol de Administrador tienen autorización para modificar facturas o cotizaciones.'
       );
       return;
     }
@@ -1849,14 +1846,8 @@ export class AppComponent implements OnInit {
     this.subTabFacturas = 'crear';
     this.facturaEmitida = false;
     this.facturaEmitidaData = null;
-
-    if (venta.esCotizacion) {
-      this.modoEdicionCotizacion = true;
-      this.cotizacionEditando = venta;
-    } else {
-      this.modoEdicionCotizacion = false;
-      this.cotizacionEditando = null;
-    }
+    this.modoEdicionCotizacion = true;
+    this.cotizacionEditando = venta;
 
     if (!this.products || this.products.length === 0) {
       this.loadProducts();
@@ -1932,6 +1923,29 @@ export class AppComponent implements OnInit {
         `Se cargaron todos los datos de la Factura ${venta.numeroFactura || venta.ventaId} en el editor interactivo.`
       );
     }
+  }
+
+  cambiarTipoDocumentoWorkspace(tipo: 'Factura' | 'Cotizacion') {
+    if (this.facturaEmitida && this.facturaEmitidaData?.esCotizacion && tipo === 'Factura') {
+      Swal.fire({
+        title: '¿Convertir a Factura Fiscal SAR?',
+        text: `Ya se ha generado la cotización ${this.facturaEmitidaData.numeroCotizacion || ''}. ¿Deseas convertir esta misma cotización en Factura Fiscal oficial (con CAI y descuento de stock), o iniciar una nueva factura en blanco?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#1f8a67',
+        cancelButtonColor: '#0284c7',
+        confirmButtonText: 'Sí, Facturar Cotización',
+        cancelButtonText: 'Nueva Factura en Blanco'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.facturarCotizacionDesdeVentas(this.facturaEmitidaData);
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+          this.resetearNuevaFactura('Factura');
+        }
+      });
+      return;
+    }
+    this.facturaForm.tipoDocumento = tipo;
   }
 
   guardarEdicionCotizacionDesdeWorkspace() {
@@ -2915,6 +2929,16 @@ export class AppComponent implements OnInit {
       stockInicial: 25
     };
     this.showNuevoProductoModal = true;
+  }
+
+  normalizarTextoSinTildes(texto: string | null | undefined): string {
+    if (!texto) return '';
+    return texto
+      .trim()
+      .replace(/\s+/g, ' ')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
   }
 
   guardarProducto() {

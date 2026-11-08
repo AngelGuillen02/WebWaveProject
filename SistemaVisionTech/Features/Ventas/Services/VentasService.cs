@@ -326,6 +326,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
         {
             Venta? venta = await _context.Ventas
                 .Include(v => v.Cliente)
+                .Include(v => v.Pagos)
                 .Include(v => v.Detalles)
                     .ThenInclude(d => d.Producto)
                 .FirstOrDefaultAsync(v => v.VentaId == ventaId);
@@ -333,25 +334,19 @@ namespace SistemaVisionTech.Features.Ventas.Services
             if (venta is null)
                 return Result<VentasDto>.Fail($"El documento con Id {ventaId} no existe.");
 
-            // REGLA ESTRICTA SAR: Las facturas fiscales emitidas NO pueden ser editadas
-            if (!venta.EsCotizacion || venta.EstadoVentaId != (int)EstadoVentaEnum.Cotizacion)
-            {
-                return Result<VentasDto>.Fail("Las facturas fiscales emitidas no pueden ser editadas por normativa fiscal SAR. La única vía autorizada para modificar una factura es anularla.", isValidation: true);
-            }
-
             if (venta.EstadoVentaId == (int)EstadoVentaEnum.Anulada)
             {
-                return Result<VentasDto>.Fail("No es posible modificar una cotización que ha sido anulada.", isValidation: true);
+                return Result<VentasDto>.Fail("No es posible modificar un documento que ha sido anulado.", isValidation: true);
             }
 
             if (dto.Detalles is null || !dto.Detalles.Any())
-                return Result<VentasDto>.Fail("La cotización debe tener al menos un producto.", isValidation: true);
+                return Result<VentasDto>.Fail("El documento debe tener al menos un producto.", isValidation: true);
 
             if (dto.Detalles.Any(d => d.Cantidad <= 0))
                 return Result<VentasDto>.Fail("La cantidad de cada producto debe ser mayor a cero.", isValidation: true);
 
             if (dto.Detalles.GroupBy(d => d.ProductoId).Any(g => g.Count() > 1))
-                return Result<VentasDto>.Fail("No se puede repetir el mismo producto en los renglones de la cotización.", isValidation: true);
+                return Result<VentasDto>.Fail("No se puede repetir el mismo producto en los renglones del documento.", isValidation: true);
 
             Cliente? nuevoCliente = await _context.Clientes.FirstOrDefaultAsync(c => c.ClienteId == dto.ClienteId);
             if (nuevoCliente is null)
@@ -405,10 +400,7 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 }
             }
 
-            // Eliminar detalles anteriores
-            _context.VentasDetalles.RemoveRange(venta.Detalles);
-
-            // Crear y agregar nuevos detalles
+            // Preparar nuevos detalles
             List<VentasDetalles> nuevosDetalles = [];
             foreach (var det in dto.Detalles)
             {
@@ -434,33 +426,142 @@ namespace SistemaVisionTech.Features.Ventas.Services
                 cambiosSb.AppendLine($"Total ajustado: L. {totalAnterior:N2} → L. {nuevoTotal:N2}.");
             }
 
-            venta.ClienteId = dto.ClienteId;
-            venta.Total = nuevoTotal;
-            venta.Rtn = nuevoCliente.RTN ?? string.Empty;
-            venta.Detalles = nuevosDetalles;
-
-            string resumenCambios = cambiosSb.ToString().Trim();
-            if (string.IsNullOrWhiteSpace(resumenCambios))
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                resumenCambios = "Se actualizaron datos generales de la cotización sin cambios de monto.";
+                // Si es una factura formal emitida (no cotización), sincronizar existencias de inventario
+                if (!venta.EsCotizacion)
+                {
+                    // 1. Revertir inventario de ítems anteriores
+                    foreach (var viejo in venta.Detalles)
+                    {
+                        Inventarios? inv = await _context.Inventario.FirstOrDefaultAsync(i => i.ProductoId == viejo.ProductoId);
+                        if (inv != null)
+                        {
+                            inv.Cantidad += viejo.Cantidad;
+                            _context.HistorialMovimientoInventario.Add(new HistorialMovimientoInventario
+                            {
+                                InventarioId = inv.InventarioId,
+                                Cantidad = viejo.Cantidad,
+                                TipoMovimiento = TipoMovimientoEnum.ENTRADA.ToString(),
+                                FechaMovimiento = DateTime.UtcNow,
+                                OrigenTipo = "AjusteEdicionFactura"
+                            });
+                        }
+                    }
+
+                    // 2. Validar stock suficiente para los nuevos ítems
+                    foreach (var nuevo in nuevosDetalles)
+                    {
+                        Inventarios? inv = await _context.Inventario.FirstOrDefaultAsync(i => i.ProductoId == nuevo.ProductoId);
+                        int disponible = inv?.Cantidad ?? 0;
+                        if (inv == null || disponible < nuevo.Cantidad)
+                        {
+                            await transaction.RollbackAsync();
+                            Producto prod = productos.First(p => p.ProductoId == nuevo.ProductoId);
+                            return Result<VentasDto>.Fail($"Stock insuficiente para '{prod.Nombre}'. Disponible: {disponible}, Requerido: {nuevo.Cantidad}.", isValidation: true);
+                        }
+                    }
+
+                    // 3. Descontar nuevo inventario
+                    foreach (var nuevo in nuevosDetalles)
+                    {
+                        Inventarios inv = await _context.Inventario.FirstAsync(i => i.ProductoId == nuevo.ProductoId);
+                        inv.Cantidad -= nuevo.Cantidad;
+                        _context.HistorialMovimientoInventario.Add(new HistorialMovimientoInventario
+                        {
+                            InventarioId = inv.InventarioId,
+                            Cantidad = nuevo.Cantidad,
+                            TipoMovimiento = TipoMovimientoEnum.SALIDA.ToString(),
+                            FechaMovimiento = DateTime.UtcNow,
+                            OrigenTipo = "AjusteEdicionFactura"
+                        });
+                    }
+
+                    // 4. Actualizar factura fiscal emitida asociada si existe
+                    FacturasEmitidas? factura = await _context.FacturasEmitidas.FirstOrDefaultAsync(f => f.VentaId == ventaId);
+                    if (factura != null)
+                    {
+                        factura.Total = nuevoTotal;
+                        factura.NombreCliente = nuevoCliente.Nombre;
+                        factura.RTNCliente = nuevoCliente.RTN ?? string.Empty;
+
+                        decimal exento = 0, grav15 = 0, grav18 = 0;
+                        foreach (var det in nuevosDetalles)
+                        {
+                            Producto prod = productos.First(p => p.ProductoId == det.ProductoId);
+                            string tipo = prod.TipoISV ?? "ISV15";
+                            switch (tipo)
+                            {
+                                case "Exento":
+                                    exento += det.Total;
+                                    break;
+                                case "ISV18":
+                                    grav18 += det.Total;
+                                    break;
+                                default:
+                                    grav15 += det.Total;
+                                    break;
+                            }
+                        }
+                        factura.MontoExento = exento;
+                        factura.MontoGravado15 = grav15;
+                        factura.MontoGravado18 = grav18;
+                        factura.ISV15 = Math.Round(grav15 * 0.15m, 2);
+                        factura.ISV18 = Math.Round(grav18 * 0.18m, 2);
+                    }
+
+                    // 5. Sincronizar pago si la venta tenía registros de pago
+                    if (venta.Pagos.Any())
+                    {
+                        var primerPago = venta.Pagos.First();
+                        primerPago.Monto = nuevoTotal;
+                    }
+                }
+
+                // Reemplazar detalles de la venta
+                _context.VentasDetalles.RemoveRange(venta.Detalles);
+                venta.ClienteId = dto.ClienteId;
+                venta.Total = nuevoTotal;
+                venta.Rtn = nuevoCliente.RTN ?? string.Empty;
+                venta.Detalles = nuevosDetalles;
+
+                string resumenCambios = cambiosSb.ToString().Trim();
+                if (string.IsNullOrWhiteSpace(resumenCambios))
+                {
+                    resumenCambios = "Se actualizaron datos generales del documento sin cambios de monto.";
+                }
+
+                string docRef = !venta.EsCotizacion 
+                    ? (await _context.FacturasEmitidas.Where(f => f.VentaId == ventaId).Select(f => f.NumeroFactura).FirstOrDefaultAsync() ?? $"VENTA-#{ventaId}")
+                    : (venta.NumeroCotizacion ?? $"COT-{ventaId:D6}");
+
+                string accion = !venta.EsCotizacion ? "EDICIÓN FACTURA" : "MODIFICACIÓN";
+
+                // Registrar en bitácora de auditoría
+                _context.CotizacionesHistorial.Add(new CotizacionesHistorial
+                {
+                    VentaId = ventaId,
+                    NumeroCotizacion = docRef,
+                    Usuario = !string.IsNullOrWhiteSpace(usuarioNombre) ? usuarioNombre : "Administrador",
+                    FechaModificacion = DateTime.UtcNow,
+                    Accion = accion,
+                    DetalleCambios = resumenCambios,
+                    TotalAnterior = totalAnterior,
+                    TotalNuevo = nuevoTotal,
+                    Motivo = !string.IsNullOrWhiteSpace(dto.Motivo) ? dto.Motivo : "Edición autorizada por Administrador",
+                    Activo = true
+                });
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
-
-            // Registrar en tabla inmutable de auditoría
-            _context.CotizacionesHistorial.Add(new CotizacionesHistorial
+            catch (Exception ex)
             {
-                VentaId = ventaId,
-                NumeroCotizacion = venta.NumeroCotizacion,
-                Usuario = !string.IsNullOrWhiteSpace(usuarioNombre) ? usuarioNombre : "Usuario",
-                FechaModificacion = DateTime.UtcNow,
-                Accion = "MODIFICACIÓN",
-                DetalleCambios = resumenCambios,
-                TotalAnterior = totalAnterior,
-                TotalNuevo = nuevoTotal,
-                Motivo = !string.IsNullOrWhiteSpace(dto.Motivo) ? dto.Motivo : "Ajuste de ítems o precios a solicitud del cliente",
-                Activo = true
-            });
-
-            await _context.SaveChangesAsync();
+                await transaction.RollbackAsync();
+                var innerMsg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+                return Result<VentasDto>.Fail($"Error al actualizar el documento: {innerMsg}");
+            }
 
             return await ObtenerVentaPorIdAsync(ventaId);
         }

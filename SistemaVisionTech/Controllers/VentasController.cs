@@ -73,6 +73,7 @@ namespace SistemaVisionTech.Controllers
         }
 
         [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
+        [HttpPut("{id:int}")]
         [HttpPut("{id:int}/Cotizacion")]
         public async Task<IActionResult> ActualizarCotizacion(int id, [FromBody] ActualizarCotizacionDto dto)
         {

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
@@ -80,13 +82,13 @@ namespace SistemaVisionTech.Features.Productos.Services
 
             Producto producto = new()
             {
-                Nombre = dto.Nombre.Trim(),
-                Descripcion = dto.Descripcion?.Trim() ?? string.Empty,
+                Nombre = dto.Nombre.Trim().ToUpperInvariant(),
+                Descripcion = (dto.Descripcion?.Trim() ?? string.Empty).ToUpperInvariant(),
                 Precio = dto.Precio,
                 TieneNumeroSerie = dto.TieneNumeroSerie,
                 TieneLote = dto.TieneLote,
-                CodigoBarras = string.IsNullOrWhiteSpace(dto.CodigoBarras) ? null : dto.CodigoBarras.Trim(),
-                TipoISV = string.IsNullOrWhiteSpace(dto.TipoISV) ? "ISV15" : dto.TipoISV,
+                CodigoBarras = string.IsNullOrWhiteSpace(dto.CodigoBarras) ? null : dto.CodigoBarras.Trim().ToUpperInvariant(),
+                TipoISV = string.IsNullOrWhiteSpace(dto.TipoISV) ? "ISV15" : dto.TipoISV.Trim().ToUpperInvariant(),
                 Activo = true
             };
 
@@ -157,27 +159,32 @@ namespace SistemaVisionTech.Features.Productos.Services
                     return Result<ProductoResponseDto>.Fail("Ya existe otro producto con ese código de barras.");
             }
 
+            string nuevoNombre = dto.Nombre.Trim().ToUpperInvariant();
+            string nuevaDescripcion = (dto.Descripcion?.Trim() ?? string.Empty).ToUpperInvariant();
+            string? nuevoCodigoBarras = string.IsNullOrWhiteSpace(dto.CodigoBarras) ? null : dto.CodigoBarras.Trim().ToUpperInvariant();
+            string nuevoTipoISV = string.IsNullOrWhiteSpace(dto.TipoISV) ? "ISV15" : dto.TipoISV.Trim().ToUpperInvariant();
+
             var cambios = new List<string>();
-            if (producto.Nombre != dto.Nombre)
-                cambios.Add($"Nombre: '{producto.Nombre}' -> '{dto.Nombre}'");
+            if (producto.Nombre != nuevoNombre)
+                cambios.Add($"Nombre: '{producto.Nombre}' -> '{nuevoNombre}'");
             if (producto.Precio != dto.Precio)
                 cambios.Add($"Precio: L. {producto.Precio:N2} -> L. {dto.Precio:N2}");
-            if (producto.Descripcion != dto.Descripcion)
+            if (producto.Descripcion != nuevaDescripcion)
                 cambios.Add("Descripción modificada");
-            if (producto.CodigoBarras != dto.CodigoBarras)
-                cambios.Add($"Código/SKU: '{producto.CodigoBarras}' -> '{dto.CodigoBarras}'");
-            if (producto.TipoISV != dto.TipoISV)
-                cambios.Add($"Impuesto: '{producto.TipoISV}' -> '{dto.TipoISV}'");
+            if (producto.CodigoBarras != nuevoCodigoBarras)
+                cambios.Add($"Código/SKU: '{producto.CodigoBarras}' -> '{nuevoCodigoBarras}'");
+            if (producto.TipoISV != nuevoTipoISV)
+                cambios.Add($"Impuesto: '{producto.TipoISV}' -> '{nuevoTipoISV}'");
 
             decimal precioAnterior = producto.Precio;
 
-            producto.Nombre = dto.Nombre;
-            producto.Descripcion = dto.Descripcion;
+            producto.Nombre = nuevoNombre;
+            producto.Descripcion = nuevaDescripcion;
             producto.Precio = dto.Precio;
             producto.TieneNumeroSerie = dto.TieneNumeroSerie;
             producto.TieneLote = dto.TieneLote;
-            producto.CodigoBarras = dto.CodigoBarras;
-            producto.TipoISV = dto.TipoISV;
+            producto.CodigoBarras = nuevoCodigoBarras;
+            producto.TipoISV = nuevoTipoISV;
 
             if (cambios.Count > 0)
             {
@@ -359,7 +366,17 @@ namespace SistemaVisionTech.Features.Productos.Services
         private static string NormalizarNombre(string? nombre)
         {
             if (string.IsNullOrWhiteSpace(nombre)) return string.Empty;
-            return Regex.Replace(nombre.Trim(), @"\s+", " ").ToLowerInvariant();
+            string limpio = Regex.Replace(nombre.Trim(), @"\s+", " ");
+            string normalized = limpio.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+            foreach (char c in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
         }
     }
 }
