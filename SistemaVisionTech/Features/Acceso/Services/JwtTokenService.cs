@@ -53,7 +53,7 @@ namespace SistemaVisionTech.Features.Acceso.Services
             SymmetricSecurityKey key = new(Encoding.UTF8.GetBytes(jwtKey));
             SigningCredentials creds = new(key, SecurityAlgorithms.HmacSha256);
 
-            Claim[] claims =
+            List<Claim> claims =
             [
                 new Claim(JwtRegisteredClaimNames.Sub,   usuarioId.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, email),
@@ -62,6 +62,31 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 new Claim(ClaimTypes.Role, perfilNombre ?? "Usuario"),
                 new Claim("PerfilId", perfilId.ToString())  
             ];
+
+            if (!string.IsNullOrEmpty(perfilNombre))
+            {
+                if (perfilNombre.Contains("Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                    claims.Add(new Claim(ClaimTypes.Role, "SuperUsuario"));
+                }
+                if (perfilNombre.Contains("Venta", StringComparison.OrdinalIgnoreCase) ||
+                    perfilNombre.Contains("Factur", StringComparison.OrdinalIgnoreCase))
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, "Facturador"));
+                    claims.Add(new Claim(ClaimTypes.Role, "Ventas"));
+                }
+                if (perfilNombre.Contains("Cajer", StringComparison.OrdinalIgnoreCase))
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, "Cajero"));
+                }
+                if (perfilNombre.Contains("Almac", StringComparison.OrdinalIgnoreCase) ||
+                    perfilNombre.Contains("Inventar", StringComparison.OrdinalIgnoreCase))
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, "Almacen"));
+                    claims.Add(new Claim(ClaimTypes.Role, "EncargadoInventario"));
+                }
+            }
 
             DateTime expiracion = DateTime.UtcNow.AddMinutes(expires);
 

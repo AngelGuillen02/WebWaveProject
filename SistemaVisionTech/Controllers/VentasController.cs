@@ -70,7 +70,6 @@ namespace SistemaVisionTech.Controllers
             return Conflict(new { mensaje = resultado.Error });
         }
 
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador,Facturador,Ventas,Cajero")]
         [HttpPut("{id:int}")]
         [HttpPut("{id:int}/Cotizacion")]
         public async Task<IActionResult> ActualizarCotizacion(int id, [FromBody] ActualizarCotizacionDto dto)
