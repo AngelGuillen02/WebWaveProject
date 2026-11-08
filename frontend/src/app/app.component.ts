@@ -441,7 +441,7 @@ export class AppComponent implements OnInit {
   }
 
   // Configuración SAR
-  sarConfig: SARConfig | null = null;
+  sarConfig: SARConfig | null = this.cargarSARConfigInicial();
   showSARConfigModal = false;
   showFacturaModal = false;
   showNuevoProductoModal = false;
@@ -644,11 +644,11 @@ export class AppComponent implements OnInit {
 
   sarForm = {
     sucursalId: 1,
-    rtn: '08011990123456',
-    cai: '3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C',
-    rangoDesde: '000-001-01-00000001',
-    rangoHasta: '000-001-01-00005000',
-    fechaLimiteEmision: '2027-12-31',
+    rtn: '1804200401929',
+    cai: '434A40-6203AB-EDBCE0-63BE03-09090C-EC',
+    rangoDesde: '000-001-01-00000041',
+    rangoHasta: '000-001-01-00000050',
+    fechaLimiteEmision: '2026-11-10',
     resetearCorrelativo: false
   };
 
@@ -1196,11 +1196,38 @@ export class AppComponent implements OnInit {
     });
   }
 
+  private cargarSARConfigInicial(): SARConfig {
+    try {
+      const cached = localStorage.getItem('webwave_sar_config');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.cai) return parsed;
+      }
+    } catch {}
+
+    return {
+      id: 1,
+      sucursalId: 1,
+      rtn: '1804200401929',
+      cai: '434A40-6203AB-EDBCE0-63BE03-09090C-EC',
+      rangoDesde: '000-001-01-00000041',
+      rangoHasta: '000-001-01-00000050',
+      fechaLimiteEmision: '2026-11-10T00:00:00',
+      correlativoActual: 40,
+      siguienteFactura: '000-001-01-00000041',
+      facturasDisponibles: 10,
+      vigente: true
+    };
+  }
+
   loadSARConfig() {
     this.http.get<SARConfig>(`${this.api}/SAR/configuracion/1`, this.getHeaders()).subscribe({
       next: (data) => {
-        this.sarConfig = data;
-        if (data) {
+        if (data && data.cai) {
+          this.sarConfig = data;
+          try {
+            localStorage.setItem('webwave_sar_config', JSON.stringify(data));
+          } catch {}
           this.sarForm.rtn = data.rtn || this.sarForm.rtn;
           this.sarForm.cai = data.cai || this.sarForm.cai;
           this.sarForm.rangoDesde = data.rangoDesde || this.sarForm.rangoDesde;
@@ -1210,8 +1237,11 @@ export class AppComponent implements OnInit {
           }
         }
       },
-      error: () => {
-        this.sarConfig = null;
+      error: (err) => {
+        console.warn('No se pudo actualizar configuración SAR del servidor:', err);
+        if (!this.sarConfig) {
+          this.sarConfig = this.cargarSARConfigInicial();
+        }
       }
     });
   }

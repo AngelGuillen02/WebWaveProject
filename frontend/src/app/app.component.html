@@ -273,23 +273,23 @@
             <div style="background:#f7f9f8; padding:12px; border-radius:8px; border:1px solid #e2e8e5;">
               <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                 <span class="muted">CAI VIGENTE:</span>
-                <span [class]="sarConfig?.vigente ? 'badge-vigente' : 'badge-vencido'">
-                  {{ sarConfig?.vigente ? '✓ VIGENTE' : 'REVISAR' }}
+                <span [class]="(sarConfig?.vigente ?? true) ? 'badge-vigente' : 'badge-vencido'">
+                  {{ (sarConfig?.vigente ?? true) ? '✓ VIGENTE' : 'REVISAR' }}
                 </span>
               </div>
-              <code style="font-size:10px; color:#0284c7; word-break:break-all;">{{ sarConfig?.cai || 'No configurado' }}</code>
+              <code style="font-size:10px; color:#0284c7; word-break:break-all;">{{ sarConfig?.cai || sarForm.cai }}</code>
             </div>
             <div>
               <span class="muted">Rango autorizado:</span><br>
-              <b>{{ sarConfig?.rangoDesde || '—' }}</b> al <b>{{ sarConfig?.rangoHasta || '—' }}</b>
+              <b>{{ sarConfig?.rangoDesde || sarForm.rangoDesde }}</b> al <b>{{ sarConfig?.rangoHasta || sarForm.rangoHasta }}</b>
             </div>
             <div>
               <span class="muted">Fecha límite de emisión:</span><br>
-              <b>{{ sarConfig?.fechaLimiteEmision ? (sarConfig?.fechaLimiteEmision | date:'dd/MM/yyyy') : '—' }}</b>
+              <b>{{ (sarConfig?.fechaLimiteEmision || sarForm.fechaLimiteEmision) ? ((sarConfig?.fechaLimiteEmision || sarForm.fechaLimiteEmision) | date:'dd/MM/yyyy') : '10/11/2026' }}</b>
             </div>
             <div>
               <span class="muted">Siguiente factura a emitir:</span><br>
-              <span class="tag-factura">{{ sarConfig?.siguienteFactura || '000-001-01-00000001' }}</span>
+              <span class="tag-factura">{{ sarConfig?.siguienteFactura || '000-001-01-00000041' }}</span>
             </div>
           </div>
         </article>
