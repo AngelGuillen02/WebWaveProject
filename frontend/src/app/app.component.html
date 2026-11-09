@@ -962,6 +962,13 @@
                 </div>
               </div>
 
+              <div *ngIf="facturaForm.tipoDocumento === 'Factura'" style="text-align:center; font-size:9.5px; color:#64748b; font-weight:700; margin-top:14px; border-top:1px dashed #cbd5e1; padding-top:8px;">
+                <div>"LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA"</div>
+                <div *ngIf="esVentaAnulada(facturaEmitidaData) || esVentaAnulada(cotizacionEditando)" style="color:#dc2626; font-size:12px; font-weight:900; letter-spacing:1px; margin-top:5px; text-transform:uppercase;">
+                  FACTURA ANULADA
+                </div>
+              </div>
+
               <!-- Pie de documento oficial y botones de impresión -->
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:12px; border-top:1px solid #e2e8f0; font-size:10px; color:#64748b;">
                 <span *ngIf="facturaEmitida && (facturaEmitidaData?.fechaEmision || facturaEmitidaData?.fechaVenta)">Documento: {{ parseFechaUtc(facturaEmitidaData.fechaEmision || facturaEmitidaData.fechaVenta) | date:'dd/MM/yyyy, hh:mm:ss a':'-0600' }}</span>
@@ -2731,7 +2738,10 @@
         </div>
 
         <div style="text-align:center; font-size:9.5px; color:#64748b; font-weight:700; margin-top:14px; border-top:1px dashed #cbd5e1; padding-top:8px;">
-          "LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA"
+          <div>"LA FACTURA ES BENEFICIO DE TODOS, EXÍJALA"</div>
+          <div *ngIf="esVentaAnulada(facturaSeleccionada)" style="color:#dc2626; font-size:12px; font-weight:900; letter-spacing:1px; margin-top:5px; text-transform:uppercase;">
+            FACTURA ANULADA
+          </div>
         </div>
       </div>
     </div>
@@ -3653,7 +3663,10 @@
         </div>
 
         <div style="text-align:center; font-size:9.5px; color:#0369a1; font-weight:700; margin-top:14px; border-top:1px dashed #bae6fd; padding-top:8px;">
-          DOCUMENTO PROFORMA / COTIZACIÓN COMERCIAL &bull; NO CONSTITUYE FACTURA FISCAL SAR
+          <div>DOCUMENTO PROFORMA / COTIZACIÓN COMERCIAL &bull; NO CONSTITUYE FACTURA FISCAL SAR</div>
+          <div *ngIf="esVentaAnulada(cotizacionSeleccionada)" style="color:#dc2626; font-size:12px; font-weight:900; letter-spacing:1px; margin-top:5px; text-transform:uppercase;">
+            COTIZACIÓN ANULADA
+          </div>
         </div>
       </div>
     </div>

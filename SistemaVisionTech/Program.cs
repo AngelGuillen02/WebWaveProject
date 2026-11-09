@@ -444,6 +444,10 @@ using (var scope = app.Services.CreateScope())
                 ""CorrelativoActual"" INT NOT NULL DEFAULT 0,
                 ""Activo"" BOOLEAN NOT NULL DEFAULT TRUE
             );
+
+            INSERT INTO dbo.""ConfiguracionSAR"" (""SucursalId"", ""RTN"", ""CAI"", ""RangoDesde"", ""RangoHasta"", ""FechaLimiteEmision"", ""CorrelativoActual"", ""Activo"")
+            SELECT 1, '1804200401929', '434A40-6203AB-EDBCE0-63BE03-09090C-EC', '000-001-01-00000001', '000-001-01-00005000', '2027-12-31'::date, 0, TRUE
+            WHERE NOT EXISTS (SELECT 1 FROM dbo.""ConfiguracionSAR"" WHERE ""SucursalId"" = 1);
             CREATE TABLE IF NOT EXISTS dbo.""FacturasEmitidas"" (
                 ""Id"" SERIAL PRIMARY KEY,
                 ""VentaId"" INT NOT NULL,

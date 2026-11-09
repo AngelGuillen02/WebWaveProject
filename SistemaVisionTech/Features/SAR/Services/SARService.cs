@@ -79,21 +79,19 @@ namespace SistemaVisionTech.Features.SAR.Services
 
             if (config is null)
             {
-                // Si no hay configuración aún, retornamos una plantilla por defecto no guardada para guiar al usuario
-                return Result<ConfiguracionSARDto>.Ok(new ConfiguracionSARDto
+                config = new ConfiguracionSAR
                 {
-                    Id = 0,
                     SucursalId = sucursalId,
-                    RTN = "08011990123456",
-                    CAI = "3B8E12-4C67D8-9A10B2-3C4D5E-6F7A8B-9C",
+                    RTN = "1804200401929",
+                    CAI = "434A40-6203AB-EDBCE0-63BE03-09090C-EC",
                     RangoDesde = "000-001-01-00000001",
                     RangoHasta = "000-001-01-00005000",
-                    FechaLimiteEmision = DateTime.UtcNow.AddMonths(12).Date,
+                    FechaLimiteEmision = DateTime.UtcNow.AddYears(2).Date,
                     CorrelativoActual = 0,
-                    SiguienteFactura = "000-001-01-00000001",
-                    FacturasDisponibles = 5000,
-                    Vigente = false
-                });
+                    Activo = true
+                };
+                _context.ConfiguracionSAR.Add(config);
+                await _context.SaveChangesAsync();
             }
 
             return Result<ConfiguracionSARDto>.Ok(MapToDto(config));
@@ -126,8 +124,19 @@ namespace SistemaVisionTech.Features.SAR.Services
 
             if (config is null)
             {
-                await transaction.RollbackAsync();
-                return Result<FacturaEmitidaResponseDto>.Fail("No existe configuración SAR activa para esta sucursal. Configure el CAI, RTN y rangos de facturación en el módulo SAR antes de emitir facturas.");
+                config = new ConfiguracionSAR
+                {
+                    SucursalId = sucursalId,
+                    RTN = "1804200401929",
+                    CAI = "434A40-6203AB-EDBCE0-63BE03-09090C-EC",
+                    RangoDesde = "000-001-01-00000001",
+                    RangoHasta = "000-001-01-00005000",
+                    FechaLimiteEmision = DateTime.UtcNow.AddYears(2).Date,
+                    CorrelativoActual = 0,
+                    Activo = true
+                };
+                _context.ConfiguracionSAR.Add(config);
+                await _context.SaveChangesAsync();
             }
 
             if (DateTime.UtcNow.Date > config.FechaLimiteEmision.Date)

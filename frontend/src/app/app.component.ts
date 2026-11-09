@@ -3174,7 +3174,9 @@ export class AppComponent implements OnInit {
       next: (factura) => {
         this.facturaSeleccionada = {
           ...factura,
-          venta: venta
+          venta: venta,
+          estadoVenta: factura.estadoVenta || venta.estadoVenta,
+          estadoVentaId: factura.estadoVentaId || venta.estadoVentaId
         };
         this.showFacturaModal = true;
       },
@@ -3193,7 +3195,9 @@ export class AppComponent implements OnInit {
             rangoDesde: this.sarConfig?.rangoDesde || '000-001-01-00000001',
             rangoHasta: this.sarConfig?.rangoHasta || '000-001-01-00005000',
             fechaLimiteEmision: this.sarConfig?.fechaLimiteEmision || '2027-12-31',
-            venta: venta
+            venta: venta,
+            estadoVenta: venta.estadoVenta,
+            estadoVentaId: venta.estadoVentaId
           };
           this.showFacturaModal = true;
         } else {
