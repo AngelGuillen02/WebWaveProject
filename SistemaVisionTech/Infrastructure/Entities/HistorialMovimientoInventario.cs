@@ -8,7 +8,8 @@
         public string TipoMovimiento { get; set; } = string.Empty;
         public DateTime FechaMovimiento { get; set; }
         public string? OrigenTipo { get; set; } // Compra, Venta, Ajuste, Devolucion
-        public int? OrigenId { get; set; }
+        public int? OrigenId { get; set; }
+        public string? Usuario { get; set; }
         public Inventarios? Inventario { get; set; }
     }
 }

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
@@ -181,19 +181,46 @@ namespace SistemaVisionTech.Controllers
                 .Take(150)
                 .ToListAsync();
 
-            var logsKardexFormateados = logsKardex.Select(m => new
-            {
-                id = m.MovimientoId,
-                tipo = "KARDEX",
-                entidadId = m.InventarioId,
-                referencia = m.Inventario != null && m.Inventario.Producto != null ? m.Inventario.Producto.Nombre : ($"Inventario #{m.InventarioId}"),
-                usuario = "Control Stock",
-                fecha = DateTime.SpecifyKind(m.FechaMovimiento, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                accion = $"KARDEX {m.TipoMovimiento.ToUpper()}",
-                detalle = $"Movimiento de Kardex: {m.TipoMovimiento} de {m.Cantidad} unidades en inventario. Origen: {m.OrigenTipo ?? "Sistema"}.",
-                valorAnterior = "-",
-                valorNuevo = $"{m.Cantidad} unds",
-                motivo = $"Ajuste/Movimiento de stock {m.TipoMovimiento}"
+            // Mapa auxiliar para asociar movimientos de venta/cotización a su usuario real
+            var ventasUsuariosMap = logsCotizaciones
+                .Where(c => c.VentaId > 0 && !string.IsNullOrWhiteSpace(c.Usuario))
+                .GroupBy(c => c.VentaId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.FechaModificacion).First().Usuario);
+
+            var logsKardexFormateados = logsKardex.Select(m => {
+                string usr = !string.IsNullOrWhiteSpace(m.Usuario) ? m.Usuario : string.Empty;
+                if (string.IsNullOrWhiteSpace(usr) && m.OrigenId.HasValue && ventasUsuariosMap.TryGetValue(m.OrigenId.Value, out var uFromMap))
+                {
+                    usr = uFromMap;
+                }
+                if (string.IsNullOrWhiteSpace(usr) && string.Equals(m.OrigenTipo, "Venta", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Buscar usuario de venta emitida en ventana de tiempo cercana (+/- 10 min)
+                    var ventaCercana = logsCotizaciones
+                        .Where(c => !string.IsNullOrWhiteSpace(c.Usuario) && Math.Abs((c.FechaModificacion - m.FechaMovimiento).TotalMinutes) <= 10)
+                        .OrderBy(c => Math.Abs((c.FechaModificacion - m.FechaMovimiento).TotalSeconds))
+                        .FirstOrDefault();
+                    usr = ventaCercana?.Usuario ?? "Facturación y Ventas";
+                }
+                if (string.IsNullOrWhiteSpace(usr))
+                {
+                    usr = "Control Stock";
+                }
+
+                return new
+                {
+                    id = m.MovimientoId,
+                    tipo = "KARDEX",
+                    entidadId = m.InventarioId,
+                    referencia = m.Inventario != null && m.Inventario.Producto != null ? m.Inventario.Producto.Nombre : ($"Inventario #{m.InventarioId}"),
+                    usuario = usr,
+                    fecha = DateTime.SpecifyKind(m.FechaMovimiento, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    accion = $"KARDEX {m.TipoMovimiento.ToUpper()}",
+                    detalle = $"Movimiento de Kardex: {m.TipoMovimiento} de {m.Cantidad} unidades en inventario. Origen: {m.OrigenTipo ?? "Sistema"}.",
+                    valorAnterior = "-",
+                    valorNuevo = $"{m.Cantidad} unds",
+                    motivo = $"Ajuste/Movimiento de stock {m.TipoMovimiento}"
+                };
             }).ToList();
 
             // 7. Logs generales de Auditoría (Clientes, Proveedores, Usuarios, Perfiles, etc.)
@@ -410,19 +437,22 @@ namespace SistemaVisionTech.Controllers
                     .Take(50)
                     .ToListAsync();
 
-                var listKFormat = listK.Select(m => new
-                {
-                    id = m.MovimientoId,
-                    tipo = "KARDEX",
-                    entidadId = m.InventarioId,
-                    referencia = m.Inventario != null && m.Inventario.Producto != null ? m.Inventario.Producto.Nombre : ($"Inventario #{m.InventarioId}"),
-                    usuario = "Control Stock",
-                    fecha = DateTime.SpecifyKind(m.FechaMovimiento, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                    accion = $"KARDEX {m.TipoMovimiento.ToUpper()}",
-                    detalle = $"Kardex: {m.TipoMovimiento} de {m.Cantidad} unidades. Origen: {m.OrigenTipo ?? "Sistema"}.",
-                    valorAnterior = "-",
-                    valorNuevo = $"{m.Cantidad} unds",
-                    motivo = $"Auditoría de inventario {m.TipoMovimiento}"
+                var listKFormat = listK.Select(m => {
+                    string usr = !string.IsNullOrWhiteSpace(m.Usuario) ? m.Usuario : (string.Equals(m.OrigenTipo, "Venta", StringComparison.OrdinalIgnoreCase) ? "Facturación y Ventas" : "Control Stock");
+                    return new
+                    {
+                        id = m.MovimientoId,
+                        tipo = "KARDEX",
+                        entidadId = m.InventarioId,
+                        referencia = m.Inventario != null && m.Inventario.Producto != null ? m.Inventario.Producto.Nombre : ($"Inventario #{m.InventarioId}"),
+                        usuario = usr,
+                        fecha = DateTime.SpecifyKind(m.FechaMovimiento, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                        accion = $"KARDEX {m.TipoMovimiento.ToUpper()}",
+                        detalle = $"Kardex: {m.TipoMovimiento} de {m.Cantidad} unidades. Origen: {m.OrigenTipo ?? "Sistema"}.",
+                        valorAnterior = "-",
+                        valorNuevo = $"{m.Cantidad} unds",
+                        motivo = $"Auditoría de inventario {m.TipoMovimiento}"
+                    };
                 }).ToList();
                 return Ok(listKFormat);
             }

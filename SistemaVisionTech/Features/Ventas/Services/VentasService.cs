@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SistemaVisionTech.Common;
 using SistemaVisionTech.Features.Inventario.Enums;
 using SistemaVisionTech.Features.SAR.Interfaces;
@@ -278,7 +278,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
                         Cantidad = detalle.Cantidad,
                         TipoMovimiento = TipoMovimientoEnum.SALIDA.ToString(),
                         FechaMovimiento = DateTime.UtcNow,
-                        OrigenTipo = "Venta"
+                        OrigenTipo = "Venta",
+                        OrigenId = venta.VentaId,
+                        Usuario = !string.IsNullOrWhiteSpace(dto.UsuarioNombre) ? dto.UsuarioNombre : "Usuario"
                     });
                 }
 
@@ -642,7 +644,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
                         Cantidad = detalle.Cantidad,
                         TipoMovimiento = TipoMovimientoEnum.SALIDA.ToString(),
                         FechaMovimiento = DateTime.UtcNow,
-                        OrigenTipo = "Venta"
+                        OrigenTipo = "Venta",
+                        OrigenId = ventaId,
+                        Usuario = !string.IsNullOrWhiteSpace(usuarioNombre) ? usuarioNombre : "Usuario"
                     });
                 }
 
@@ -776,7 +780,9 @@ namespace SistemaVisionTech.Features.Ventas.Services
                             Cantidad = detalle.Cantidad,
                             TipoMovimiento = TipoMovimientoEnum.ENTRADA.ToString(),
                             FechaMovimiento = DateTime.UtcNow,
-                            OrigenTipo = "AnulacionVenta"
+                            OrigenTipo = "AnulacionVenta",
+                            OrigenId = ventaId,
+                            Usuario = usuarioLog
                         });
                     }
                 }

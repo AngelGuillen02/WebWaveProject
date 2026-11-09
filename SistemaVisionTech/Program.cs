@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.CookiePolicy;
 using Microsoft.AspNetCore.RateLimiting;
@@ -467,7 +467,8 @@ using (var scope = app.Services.CreateScope())
             );
 
             ALTER TABLE dbo.""Ventas"" ADD COLUMN IF NOT EXISTS ""EsCotizacion"" BOOLEAN NOT NULL DEFAULT FALSE;
-            ALTER TABLE dbo.""Ventas"" ADD COLUMN IF NOT EXISTS ""NumeroCotizacion"" VARCHAR(50) NULL;
+            ALTER TABLE dbo.""Ventas"" ADD COLUMN IF NOT EXISTS ""NumeroCotizacion"" VARCHAR(50) NULL;
+            ALTER TABLE dbo.""HistorialMovimientoInventario"" ADD COLUMN IF NOT EXISTS ""Usuario"" VARCHAR(100) NULL;
 
             INSERT INTO dbo.""EstadosVenta"" (""EstadoId"", ""Nombre"", ""Activo"")
             VALUES (4, 'Cotizacion', TRUE)

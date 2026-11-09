@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SistemaVisionTech.Infrastructure.Entities;
 
@@ -14,7 +14,8 @@ namespace SistemaVisionTech.Infrastructure.Maps
             builder.Property(x => x.InventarioId).HasColumnName("InventarioId").HasColumnType("INT").IsRequired();
             builder.Property(x => x.Cantidad).HasColumnName("Cantidad").HasColumnType("INT").IsRequired();
             builder.Property(x => x.TipoMovimiento).HasColumnName("TipoMovimiento").HasColumnType("VARCHAR(50)").IsRequired();
-            builder.Property(x => x.FechaMovimiento).HasColumnName("FechaMovimiento").IsRequired();
+            builder.Property(x => x.FechaMovimiento).HasColumnName("FechaMovimiento").IsRequired();
+            builder.Property(x => x.Usuario).HasColumnName("Usuario").HasMaxLength(100).IsRequired(false);
         }
     }
 }
