@@ -60,31 +60,44 @@ namespace SistemaVisionTech.Features.Acceso.Services
                 new Claim(JwtRegisteredClaimNames.Name,  nombre),
                 new Claim(JwtRegisteredClaimNames.Jti,   Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.Role, perfilNombre ?? "Usuario"),
+                new Claim("role", perfilNombre ?? "Usuario"),
                 new Claim("PerfilId", perfilId.ToString())  
             ];
 
+            if (perfilId == 1 || (!string.IsNullOrEmpty(perfilNombre) && perfilNombre.Contains("Admin", StringComparison.OrdinalIgnoreCase)))
+            {
+                claims.Add(new Claim(ClaimTypes.Role, "Administrador"));
+                claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                claims.Add(new Claim(ClaimTypes.Role, "SuperUsuario"));
+                claims.Add(new Claim(ClaimTypes.Role, "Super Administrador"));
+                claims.Add(new Claim(ClaimTypes.Role, "SuperAdministrador"));
+                claims.Add(new Claim("role", "Administrador"));
+                claims.Add(new Claim("role", "Admin"));
+                claims.Add(new Claim("role", "SuperUsuario"));
+            }
+
             if (!string.IsNullOrEmpty(perfilNombre))
             {
-                if (perfilNombre.Contains("Admin", StringComparison.OrdinalIgnoreCase))
-                {
-                    claims.Add(new Claim(ClaimTypes.Role, "Admin"));
-                    claims.Add(new Claim(ClaimTypes.Role, "SuperUsuario"));
-                }
                 if (perfilNombre.Contains("Venta", StringComparison.OrdinalIgnoreCase) ||
                     perfilNombre.Contains("Factur", StringComparison.OrdinalIgnoreCase))
                 {
                     claims.Add(new Claim(ClaimTypes.Role, "Facturador"));
                     claims.Add(new Claim(ClaimTypes.Role, "Ventas"));
+                    claims.Add(new Claim("role", "Facturador"));
+                    claims.Add(new Claim("role", "Ventas"));
                 }
                 if (perfilNombre.Contains("Cajer", StringComparison.OrdinalIgnoreCase))
                 {
                     claims.Add(new Claim(ClaimTypes.Role, "Cajero"));
+                    claims.Add(new Claim("role", "Cajero"));
                 }
                 if (perfilNombre.Contains("Almac", StringComparison.OrdinalIgnoreCase) ||
                     perfilNombre.Contains("Inventar", StringComparison.OrdinalIgnoreCase))
                 {
                     claims.Add(new Claim(ClaimTypes.Role, "Almacen"));
                     claims.Add(new Claim(ClaimTypes.Role, "EncargadoInventario"));
+                    claims.Add(new Claim("role", "Almacen"));
+                    claims.Add(new Claim("role", "EncargadoInventario"));
                 }
             }
 

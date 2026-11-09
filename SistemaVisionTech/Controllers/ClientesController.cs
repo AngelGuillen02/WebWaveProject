@@ -39,8 +39,6 @@ namespace SistemaVisionTech.Controllers
                 await _svc.CrearAsync(dto, ObtenerUsuarioActual()),
                 nameof(ObtenerPorId),
                 r => new { id = r.ClienteId });
-
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpPost("Importar")]
         public async Task<IActionResult> ImportarLote([FromBody] List<ClienteCreacionDto> dtos)
             => HandleResult(await _svc.ImportarLoteAsync(dtos, ObtenerUsuarioActual()));
@@ -48,8 +46,6 @@ namespace SistemaVisionTech.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Editar(int id, [FromBody] ClienteCreacionDto dto)
             => HandleResult(await _svc.EditarAsync(id, dto, ObtenerUsuarioActual()));
-
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
             => HandleResult(await _svc.EliminarAsync(id, ObtenerUsuarioActual()));

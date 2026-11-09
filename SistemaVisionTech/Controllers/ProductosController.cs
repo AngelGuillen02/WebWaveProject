@@ -37,8 +37,6 @@ namespace SistemaVisionTech.Controllers
                 nameof(ObtenerPorId),
                 r => new { id = r.ProductoId });
         }
-
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpPost("Importar")]
         public async Task<IActionResult> ImportarLote([FromBody] List<ProductoCreacionDto> dtos)
         {
@@ -73,8 +71,6 @@ namespace SistemaVisionTech.Controllers
 
             return HandleResult(await _svc.ObtenerHistorialAsync(id));
         }
-
-        [Authorize(Roles = "Administrador,SuperUsuario,Admin,Super Administrador,SuperAdministrador")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
         {
