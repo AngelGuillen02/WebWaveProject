@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using SistemaVisionTech.Features.Acceso.Dtos.Auth;
 using SistemaVisionTech.Features.Acceso.Interfaces;
 using SistemaVisionTech.Features.Acceso.Services;
+using SistemaVisionTech.Features.Auditoria.Interfaces;
+using SistemaVisionTech.Features.Auditoria.Services;
 using SistemaVisionTech.Infrastructure;
 using Xunit;
 
@@ -38,6 +40,7 @@ namespace SistemaVisionTech.Tests
             });
 
             services.AddScoped<IJwtTokenService, JwtTokenService>();
+            services.AddScoped<IAuditoriaService, AuditoriaService>();
             services.AddScoped<IAuthService, AuthService>();
 
             var provider = services.BuildServiceProvider();
